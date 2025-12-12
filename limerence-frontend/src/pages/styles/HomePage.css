@@ -1,0 +1,241 @@
+.home-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #ffeef8 0%, #fff5f7 50%, #ffe8f0 100%);
+    padding: 2rem;
+  }
+  
+  .home-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding: 2rem 0;
+  }
+  
+  .home-header h1 {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 3.5rem;
+    font-weight: 600;
+    color: #8b2e5a;
+    margin: 0;
+    letter-spacing: 2px;
+  }
+  
+  .tagline {
+    font-family: "Inter", sans-serif;
+    font-size: 1.2rem;
+    color: #a64d79;
+    margin-top: 0.5rem;
+  }
+  
+  .search-section {
+    max-width: 600px;
+    margin: 0 auto 3rem;
+  }
+  
+  .search-form {
+    display: flex;
+    gap: 1rem;
+    background: white;
+    padding: 0.5rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 20px rgba(139, 46, 90, 0.1);
+  }
+  
+  .search-input {
+    flex: 1;
+    border: none;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    font-family: "Inter", sans-serif;
+    outline: none;
+    background: transparent;
+    color: #333;
+  }
+  
+  .search-input::placeholder {
+    color: #999;
+  }
+  
+  .search-button {
+    background: linear-gradient(135deg, #c2185b 0%, #8b2e5a 100%);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .search-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(194, 24, 91, 0.3);
+  }
+  
+  .error-message {
+    background: #ffe0e0;
+    color: #c62828;
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    font-family: "Inter", sans-serif;
+  }
+  
+  .loading {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #8b2e5a;
+    font-family: "Inter", sans-serif;
+    padding: 3rem;
+  }
+  
+  .no-books {
+    text-align: center;
+    font-size: 1.1rem;
+    color: #666;
+    font-family: "Inter", sans-serif;
+    padding: 3rem;
+  }
+  
+  .books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  
+  .book-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .book-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px rgba(139, 46, 90, 0.15);
+  }
+  
+  .book-cover {
+    width: 100%;
+    height: 350px;
+    object-fit: cover;
+    background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+  }
+  
+  .book-info {
+    padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .book-title {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #8b2e5a;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.3;
+  }
+  
+  .book-authors {
+    font-family: "Inter", sans-serif;
+    font-size: 0.95rem;
+    color: #a64d79;
+    margin: 0 0 1rem 0;
+    font-weight: 500;
+  }
+  
+  .book-description {
+    font-family: "Inter", sans-serif;
+    font-size: 0.9rem;
+    color: #666;
+    line-height: 1.6;
+    margin: 0 0 1rem 0;
+    flex: 1;
+  }
+  
+  .book-pages {
+    font-family: "Inter", sans-serif;
+    font-size: 0.85rem;
+    color: #999;
+    margin: 0 0 1rem 0;
+  }
+  
+  .book-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: auto;
+  }
+  
+  .book-link {
+    flex: 1;
+    text-align: center;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #c2185b 0%, #8b2e5a 100%);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-family: "Inter", sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+  
+  .book-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(194, 24, 91, 0.3);
+  }
+  
+  @media (max-width: 768px) {
+    .home-header h1 {
+      font-size: 2.5rem;
+    }
+  
+    .books-grid {
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.5rem;
+    }
+  
+    .search-form {
+      flex-direction: column;
+      border-radius: 16px;
+    }
+  
+    .search-button {
+      border-radius: 12px;
+    }
+  }
+
+  .search-suggestions {
+    position: absolute;
+    background: white;
+    list-style: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-top: 0.5rem;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10;
+    padding: 0.5rem 0;
+  }
+  
+  .search-suggestions li {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-family: "Inter", sans-serif;
+  }
+  
+  .search-suggestions li:hover {
+    background: #ffe6f0;
+    color: #8b2e5a;
+  }
+    
