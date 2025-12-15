@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const { searchBooks, getBookDetails } = require("../services/scraper");
+const { searchGoogleBooks, getGoogleBookDetails } = require("../services/googleBooks");
+const { getBookDetails } = require("../services/scraper"); // Keep scraper for download links ONLY
 const Book = require("../models/Book");
 const commentRoutes = require("./comments");
 
@@ -8,18 +9,36 @@ const commentRoutes = require("./comments");
 router.use("/:bookId/comments", commentRoutes);
 
 // @route   GET /api/books/search
-// @desc    Search for books (Scrape OceanofPDF or DB)
+// @desc    Search for books (Google Books API)
 router.get("/search", async (req, res) => {
-  const { query } = req.query;
+  let { query, startIndex = 0, orderBy = "relevance" } = req.query;
   if (!query) return res.status(400).json({ msg: "Query required" });
 
+  // Smart Query Refinement for "Gen Z" content
+  const lowerQ = query.toLowerCase();
+  
+  // 1. Fix "High School" / "College" -> Add "romance fiction"
+  if (lowerQ === "high school" || lowerQ === "college" || lowerQ === "office") {
+      query += " romance fiction";
+  }
+  
+  // 2. Fix "Romance" generic -> Target "New Adult" or "BookTok"
+  if (lowerQ === "romance") {
+      query = "subject:romance new adult -erotica"; // Filter explicit if needed, or just better keywords
+      orderBy = "newest";
+  }
+
+  // 3. Fix "Trending" -> If query is "trending", use curated list
+  if (lowerQ === "trending") {
+      const trends = ["BookTok", "Colleen Hoover", "Sarah J Maas", "Rebecca Yarros", "dark romance", "enemies to lovers"];
+      query = trends[Math.floor(Math.random() * trends.length)];
+      orderBy = "relevance";
+  }
+
   try {
-    // 1. Try to find in DB first (optional, maybe just scrape for now)
-    // const dbBooks = await Book.find({ title: { $regex: query, $options: "i" } });
-    
-    // 2. Scrape
-    const scrapedBooks = await searchBooks(query);
-    res.json({ books: scrapedBooks });
+    // Search Google Books
+    const books = await searchGoogleBooks(query, startIndex, 20, orderBy);
+    res.json({ books });
   } catch (err) {
     console.error(err);
     res.status(500).send("Server Error");
@@ -27,31 +46,27 @@ router.get("/search", async (req, res) => {
 });
 
 // @route   GET /api/books/:id
-// @desc    Get book details (Scrape details if needed)
+// @desc    Get book details (DB or Google Books)
 router.get("/:id", async (req, res) => {
   try {
     let book = null;
     
-    // Check if valid ObjectId (for DB books)
+    // 1. Valid MongoDB ID? Check DB first.
     if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
         book = await Book.findById(req.params.id);
+        if (book) return res.json(book);
     }
 
-    if (book) {
-        return res.json(book);
+    // 2. Not in DB or not an ID? Fetch from Google Books
+    // (The ID passed from frontend search results will be the Google ID)
+    const googleDetails = await getGoogleBookDetails(req.params.id);
+    if (googleDetails) {
+        // We return the details directly. 
+        // If we want to persist it, we can save it here, but maybe wait until user "Adds to Shelf".
+        return res.json(googleDetails);
     }
 
-    // If not in DB, it might be a scraped "detailsUrl" passed as ID? 
-    // Actually, frontend should pass the URL or we need a way to map.
-    // For MVP, if we click a scraped book, we might need to "save" it to DB first 
-    // or pass the URL to a specific endpoint to fetch details.
-    
-    // Let's assume the frontend sends a special "scrape" endpoint or we handle it here.
-    // If the ID looks like a URL (encoded), scrape it.
-    // But standard REST uses ID.
-    
-    // Strategy: When user clicks a scraped book, Frontend calls /api/books/details?url=...
-    return res.status(404).json({ msg: "Book not found in DB" });
+    return res.status(404).json({ msg: "Book not found" });
 
   } catch (err) {
     console.error(err);

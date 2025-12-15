@@ -11,10 +11,13 @@ import MyShelf from "./pages/MyShelf";
 import Onboarding from "./pages/Onboarding";
 import Moods from "./pages/Moods";
 import Profile from "./pages/Profile";
+import Badges from "./pages/Badges";
 import SocialFeed from "./pages/SocialFeed";
 import Clubs from "./pages/Clubs";
+import Notifications from "./pages/Notifications";
 
 import Navbar from "./components/Navbar";
+import { ToastContainer } from "./components/Toast";
 
 function ProtectedRoute({ children }) {
   const { token } = useContext(AuthContext);
@@ -48,9 +51,11 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        {!splashSeen ? (
+    <>
+      <ToastContainer />
+      <BrowserRouter>
+        <AuthProvider>
+          {!splashSeen ? (
           // 🌊 Splash Screen Flow
           <Routes>
             <Route
@@ -122,6 +127,14 @@ export default function App() {
               }
             />
             <Route
+              path="/badges"
+              element={
+                <ProtectedRoute>
+                  <Badges />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/social"
               element={
                 <ProtectedRoute>
@@ -137,11 +150,20 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <Notifications />
+                </ProtectedRoute>
+              }
+            />
 
             <Route path="*" element={<Navigate to="/register" replace />} />
           </Routes>
         )}
       </AuthProvider>
     </BrowserRouter>
+    </>
   );
 }

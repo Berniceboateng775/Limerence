@@ -47,3 +47,76 @@ router.post("/", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+// @route   POST /api/books/:bookId/comments/:commentId/like
+// @desc    Like a comment
+router.post("/:commentId/like", auth, async (req, res) => {
+    try {
+        const comment = await Comment.findById(req.params.commentId);
+        if (!comment) return res.status(404).json({ msg: "Comment not found" });
+
+        // Check if already liked
+        if (comment.likes.includes(req.user.userId)) {
+            // Unlike
+            comment.likes = comment.likes.filter(id => id.toString() !== req.user.userId);
+        } else {
+            // Like and remove dislike if exists
+            comment.likes.push(req.user.userId);
+            comment.dislikes = comment.dislikes.filter(id => id.toString() !== req.user.userId);
+        }
+        await comment.save();
+        res.json(comment.likes);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   POST /api/books/:bookId/comments/:commentId/dislike
+// @desc    Dislike a comment
+router.post("/:commentId/dislike", auth, async (req, res) => {
+    try {
+        const comment = await Comment.findById(req.params.commentId);
+        if (!comment) return res.status(404).json({ msg: "Comment not found" });
+
+        // Check if already disliked
+        if (comment.dislikes.includes(req.user.userId)) {
+            // Remove dislike
+            comment.dislikes = comment.dislikes.filter(id => id.toString() !== req.user.userId);
+        } else {
+            // Dislike and remove like if exists
+            comment.dislikes.push(req.user.userId);
+            comment.likes = comment.likes.filter(id => id.toString() !== req.user.userId);
+        }
+        await comment.save();
+        res.json(comment.dislikes);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   POST /api/books/:bookId/comments/:commentId/reply
+// @desc    Reply to a comment
+router.post("/:commentId/reply", auth, async (req, res) => {
+    try {
+        const comment = await Comment.findById(req.params.commentId);
+        if (!comment) return res.status(404).json({ msg: "Comment not found" });
+
+        const newReply = {
+            user: req.user.userId,
+            content: req.body.content
+        };
+
+        comment.replies.push(newReply);
+        await comment.save();
+        
+        // Populate user info for the new reply
+        await comment.populate("replies.user", "name avatar");
+        
+        res.json(comment.replies);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
+});

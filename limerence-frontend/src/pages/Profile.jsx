@@ -32,11 +32,26 @@ export default function Profile() {
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
-      await axios.put("/api/auth/me", editForm, {
-        headers: { "x-auth-token": token },
+      const formData = new FormData();
+      formData.append("name", editForm.name);
+      formData.append("email", editForm.email);
+      if (editForm.avatarFile) {
+          formData.append("avatar", editForm.avatarFile);
+      } else if (editForm.avatar) {
+          // Keep existing URL if no new file
+          // Actually backend expects 'avatar' as file or nothing. 
+          // If we send nothing, it keeps old.
+      }
+
+      const res = await axios.put("http://localhost:5000/api/auth/me", formData, {
+        headers: { 
+            "x-auth-token": token,
+            "Content-Type": "multipart/form-data"
+        },
       });
+      setProfile(res.data);
       setIsEditing(false);
-      fetchProfile();
+      // Update context user if needed
     } catch (err) {
       alert("Failed to update profile");
     }
@@ -55,7 +70,7 @@ export default function Profile() {
         <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
           <div className="w-32 h-32 bg-purple-100 rounded-full mx-auto border-4 border-white shadow-md flex items-center justify-center text-4xl mb-4 overflow-hidden">
             {profile.avatar ? (
-                <img src={profile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                <img src={`http://localhost:5000${profile.avatar}`} alt="Profile" className="w-full h-full object-cover" />
             ) : (
                 <span>{profile.name.charAt(0).toUpperCase()}</span>
             )}
@@ -100,13 +115,15 @@ export default function Profile() {
                 className="w-full border p-2 rounded-lg"
                 placeholder="Email"
               />
-               <input
-                type="text"
-                value={editForm.avatar}
-                onChange={(e) => setEditForm({ ...editForm, avatar: e.target.value })}
-                className="w-full border p-2 rounded-lg"
-                placeholder="Avatar URL (e.g. https://imgur.com/...)"
-              />
+               <div className="text-left">
+                   <label className="text-sm text-gray-500 ml-1">Profile Picture</label>
+                   <input
+                    type="file"
+                    onChange={(e) => setEditForm({ ...editForm, avatarFile: e.target.files[0] })}
+                    className="w-full border p-2 rounded-lg bg-white"
+                    accept="image/*"
+                  />
+               </div>
               <div className="flex justify-center gap-4">
                 <button 
                   type="button"

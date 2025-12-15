@@ -20,10 +20,19 @@ const CommentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   }],
+  dislikes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  }],
+  replies: [{
+      user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      content: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now }
+  }],
   createdAt: {
     type: Date,
     default: Date.now,
   },
 });
 
-module.exports = mongoose.model("Comment", CommentSchema);
+module.exports = mongoose.models.Comment || mongoose.model("Comment", CommentSchema);

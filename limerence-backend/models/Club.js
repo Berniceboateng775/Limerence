@@ -32,6 +32,11 @@ const ClubSchema = new mongoose.Schema({
       user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
       username: String,
       content: String,
+      attachment: {
+        fileType: String, // 'image', 'file', 'audio'
+        url: String,
+        name: String
+      },
       createdAt: { type: Date, default: Date.now },
     },
   ],
@@ -41,4 +46,4 @@ const ClubSchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model("Club", ClubSchema);
+module.exports = mongoose.models.Club || mongoose.model("Club", ClubSchema);

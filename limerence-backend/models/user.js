@@ -26,6 +26,17 @@ const UserSchema = new mongoose.Schema({
     enum: ["Male", "Female", "Other"],
     required: false,
   },
+  nickname: {
+    type: String,
+    trim: true,
+  },
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  friendRequests: [
+    {
+      from: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      status: { type: String, enum: ["pending", "accepted", "rejected"], default: "pending" },
+    },
+  ],
   shelf: [
     {
       book: { type: mongoose.Schema.Types.ObjectId, ref: "Book" },
@@ -42,6 +53,14 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  badges: [
+    {
+      name: String,
+      description: String,
+      icon: String,
+      earnedAt: { type: Date, default: Date.now }
+    }
+  ]
 })
 
-module.exports = mongoose.model("User", UserSchema)
+module.exports = mongoose.models.User || mongoose.model("User", UserSchema);

@@ -6,17 +6,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#ff6b6b", 
-        secondary: "#feca57",
-        dark: "#2d3436",
-        "dream-pink": "#ff9a9e",
-        "dream-purple": "#a18cd1",
-        "dream-gold": "#fbc2eb",
-        "glass": "rgba(255, 255, 255, 0.25)",
+        primary: "#E11D48", // Rose-600 (Romantic & Premium)
+        secondary: "#475569", // Slate-600
+        dark: "#0F172A", // Slate-900
+        light: "#F8FAFC", // Slate-50
       },
       fontFamily: {
-        serif: ['"Playfair Display"', 'serif'],
-        sans: ['"Inter"', 'sans-serif'],
+        sans: ["Inter", "sans-serif"],
+        serif: ["Merriweather", "serif"],
       },
       backgroundImage: {
         'dream-gradient': "linear-gradient(120deg, #a18cd1 0%, #fbc2eb 100%)",

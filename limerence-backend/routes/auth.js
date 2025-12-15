@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken")
 const multer = require("multer")
 const path = require("path")
 const fs = require("fs")
-const User = require("../models/user")
+const User = require("../models/User")
 const auth = require("../middleware/auth")
 
 // ============================

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
-const User = require("../models/user");
+const User = require("../models/User");
 const Book = require("../models/Book");
 
 // @route   GET /api/shelf
@@ -33,11 +33,24 @@ router.post("/add", auth, async (req, res) => {
         user.shelf.push({ book: bookId, status: status || "want_to_read" });
     }
 
+    if (status === "completed") {
+        const badgeName = "Bookworm";
+        const hasBadge = user.badges.some(b => b.name === badgeName);
+        
+        if (!hasBadge) {
+            user.badges.push({
+                name: badgeName,
+                description: "You've completed a book! Keep reading to earn more.",
+                icon: "📚"
+            });
+        }
+    }
+
     await user.save();
     // Populate to return full object
     await user.populate("shelf.book");
     
-    res.json(user.shelf);
+    res.json({ shelf: user.shelf, badges: user.badges }); // Return badges too
   } catch (err) {
     console.error(err);
     res.status(500).send("Server Error");
