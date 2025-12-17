@@ -10,6 +10,7 @@ export default function LandingPage() {
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [featureOne, setFeatureOne] = useState([]);
   const [featureTwo, setFeatureTwo] = useState([]);
+  const [darkHero, setDarkHero] = useState([]); // Books for Hero Section
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -149,9 +150,11 @@ export default function LandingPage() {
         fetch(subjectQuery(s)).then((r) => r.json()).catch(() => ({ works: [] }))
       );
 
-      const [authorResults, subjectResults] = await Promise.all([
+      const [authorResults, subjectResults, darkResult] = await Promise.all([
         Promise.all(authorPromises),
         Promise.all(subjectPromises),
+        // Fetch specific Dark Romance for Hero
+        fetch(subjectQuery("dark_romance", 6)).then((r) => r.json()).catch(() => ({ works: [] }))
       ]);
       if (aborted) return;
 
@@ -164,6 +167,11 @@ export default function LandingPage() {
         .flatMap((res) => res.works || [])
         .map(mapWork)
         .filter((b) => b.title);
+
+      // Dark Romance Specifics
+      const darkDocs = darkResult?.works || [];
+      const darkBooks = darkDocs.map(mapWork).filter(b => b.cover);
+      setDarkHero(shuffle(darkBooks).slice(0, 2));
 
       const combined = dedupeBooks([...fromAuthors, ...fromSubjects]);
 
@@ -293,7 +301,7 @@ export default function LandingPage() {
                  {/* Dual Book Display */}
                  <div className="absolute top-10 right-10 w-64 aspect-[2/3] rounded-xl shadow-2xl z-10 border-4 border-white hover:scale-105 transition duration-500">
                      <img 
-                       src={safeCover(trendingBooks[0]?.cover, trendingBooks[0]?.altCover)} 
+                       src={safeCover(darkHero[0]?.cover, darkHero[0]?.altCover)} 
                        referrerPolicy="no-referrer"
                        className="w-full h-full object-cover rounded-lg" 
                        alt="Cover" 
@@ -302,7 +310,7 @@ export default function LandingPage() {
 
                  <div className="absolute top-40 left-10 w-60 aspect-[2/3] rounded-xl shadow-2xl z-20 border-4 border-white hover:scale-105 transition duration-500">
                      <img 
-                       src={safeCover(trendingBooks[1]?.cover, trendingBooks[1]?.altCover)} 
+                       src={safeCover(darkHero[1]?.cover, darkHero[1]?.altCover)} 
                        referrerPolicy="no-referrer"
                        className="w-full h-full object-cover rounded-lg" 
                        alt="Cover" 
@@ -324,9 +332,16 @@ export default function LandingPage() {
                       Find your next favorite read, no matter your mood or vibe (we're not judging).
                   </p>
                    {/* Search Pill */}
-                  <div className="bg-white shadow-xl rounded-full p-2 flex items-center max-w-md border border-gray-100">
-                      <span className="pl-4 text-xl">🔍</span>
-                      <input type="text" placeholder="Search for 'fake dating'..." className="flex-1 p-3 outline-none text-gray-700 placeholder:text-gray-400 font-medium" />
+                  <div className="bg-white shadow-xl rounded-full p-2 flex items-center max-w-md border border-gray-100 h-16 cursor-text" onClick={() => navigate('/home')}>
+                      <span className="pl-4 text-xl mr-3">🔍</span>
+                      <span className="text-gray-500 font-medium text-lg">
+                          <Typewriter 
+                            words={["Search 'fake dating'...", "Search 'enemies to lovers'...", "Search 'who hurt you?'...", "Search 'spicy books'...", "Search 'mafia bosses'..."]} 
+                            speed={100} 
+                            deleteSpeed={100} 
+                            delay={5000} 
+                          />
+                      </span>
                   </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

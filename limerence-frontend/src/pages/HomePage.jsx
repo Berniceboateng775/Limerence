@@ -14,7 +14,7 @@ export default function HomePage() {
       id: "OL24970635W",
       title: "Hooked",
       author: "Emily McIntire",
-      cover: "https://m.media-amazon.com/images/I/812C4+K+HIL._AC_UF1000,1000_QL80_.jpg",
+      cover: "https://imgs.search.brave.com/_eu4p4R6A4Hc3LRSDkR20RroEaCJxppbi5bxSF9VGCI/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pMC53/cC5jb20vbGlicmFy/eW9mdG9ydHVnYS5j/b20vd3AtY29udGVu/dC91cGxvYWRzLzIw/MjQvMTIvSG9va2Vk/LmpwZz9yZXNpemU9/NzEyLDEwNjgmc3Ns/PTE",
       rating: 5.0
   };
 
@@ -166,7 +166,7 @@ export default function HomePage() {
       {/* Navbar / Header */}
       <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-4 flex items-center justify-between shadow-sm">
            <div className="text-2xl font-serif font-bold tracking-tighter text-slate-900 cursor-pointer" onClick={() => navigate('/')}>
-               Limerence.
+              
            </div>
            
            <div className="hidden md:flex relative flex-1 max-w-lg mx-auto">
@@ -251,7 +251,7 @@ export default function HomePage() {
                                        <div className="w-6 h-6 rounded-full bg-pink-100 text-pink-600 text-[10px] flex items-center justify-center font-bold">S</div>
                                        <span className="text-[10px] font-bold text-gray-400">@sarah_reads</span>
                                    </div>
-                                   <p className="text-xs font-medium text-gray-800">"This book ruined me in the best way possible. 10/10"</p>
+                                   <p className="text-xs font-medium text-gray-800">"This book ruined me in the best way possible. 10/10😭❤️"</p>
                                </div>
 
                                <div className="relative shadow-2xl rounded-xl border-4 border-white transform rotate-3 hover:rotate-0 transition duration-500 bg-gray-200">
@@ -346,9 +346,9 @@ export default function HomePage() {
 
       {/* Footer - Simplified & Compact */}
       <footer className="bg-slate-50 border-t border-gray-100 py-6 mt-12 w-full">
-           <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-center md:text-left">
-               <span className="font-serif font-bold text-xl text-slate-900">Limerence.</span>
-               <p className="text-[10px] text-gray-400 mt-2 md:mt-0">
+           <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center text-center">
+               <span className="font-serif font-bold text-xl text-slate-900 mb-2">Limerence.</span>
+               <p className="text-[10px] text-gray-400">
                    © 2024 Limerence Inc. All rights reserved.
                </p>
            </div>
