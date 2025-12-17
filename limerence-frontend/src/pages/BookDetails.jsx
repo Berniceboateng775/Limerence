@@ -134,39 +134,73 @@ export default function BookDetails() {
       
       // 1. Try Internal ID (Mongo)
       if (isId) {
-        const res = await axios.get(`http://localhost:5000/api/books/${title}`);
-        bookData = res.data;
+        try {
+            const res = await axios.get(`http://localhost:5000/api/books/${title}`);
+            bookData = res.data;
+        } catch (e) { console.warn("Internal ID fetch failed"); }
       } 
-      // 2. Try OpenLibrary ID (starts with OL)
+      // 2. Try OpenLibrary ID (starts with OL) 
       else if (title.startsWith("OL")) {
-          const res = await axios.get(`https://openlibrary.org/works/${title}.json`);
-          const d = res.data;
-          // Fetch author name separately if needed
-          let authorName = "Unknown Author";
-           if (d.authors && d.authors.length > 0) {
-              try {
-                  const authorRes = await axios.get(`https://openlibrary.org${d.authors[0].author.key}.json`);
-                  authorName = authorRes.data.name;
-              } catch (e) { console.warn("Author fetch failed", e); }
-          }
+          try {
+              const res = await axios.get(`https://openlibrary.org/works/${title}.json`);
+              const d = res.data;
+              
+              let authorName = "Unknown Author";
+              if (d.authors && d.authors.length > 0) {
+                  try {
+                      const authorRes = await axios.get(`https://openlibrary.org${d.authors[0].author.key}.json`);
+                      authorName = authorRes.data.name;
+                  } catch (e) { /* ignore */ }
+              }
 
-          bookData = {
-              _id: null,
-              title: d.title,
-              authors: [authorName],
-              description: d.description?.value || d.description || "No description available.",
-              coverImage: d.covers && d.covers.length ? `https://covers.openlibrary.org/b/id/${d.covers[0]}-L.jpg` : "https://via.placeholder.com/300x450",
-              averageRating: 4.5, 
-              externalId: title,
-              previewLink: `https://openlibrary.org/works/${title}`,
-              downloadUrl: null // No download for external yet
-          };
+              bookData = {
+                  _id: null,
+                  title: d.title,
+                  authors: [authorName],
+                  description: d.description?.value || d.description || "No description available.",
+                  coverImage: d.covers && d.covers.length ? `https://covers.openlibrary.org/b/id/${d.covers[0]}-L.jpg` : "https://via.placeholder.com/300x450",
+                  averageRating: 4.5, 
+                  externalId: title,
+                  previewLink: `https://openlibrary.org/works/${title}`,
+                  downloadUrl: null 
+              };
+          } catch (err) {
+              console.warn("Direct ID fetch failed, continuing to fallback...");
+          }
       }
-      // 3. Fallback: Search by title in local DB
-      else {
-        const res = await axios.get(`http://localhost:5000/api/books/search?query=${title}`);
-        if (res.data.books && res.data.books.length > 0) {
-            bookData = res.data.books[0];
+
+      // 3. Fallback: Search by title in (A) Local DB then (B) OpenLibrary
+      if (!bookData) {
+        // A. Local DB
+        try {
+            const res = await axios.get(`http://localhost:5000/api/books/search?query=${title}`);
+            if (res.data.books && res.data.books.length > 0) {
+                bookData = res.data.books[0];
+            }
+        } catch (e) { console.warn("Local search failed", e); }
+
+        // B. If still not found, Search OpenLibrary
+        if (!bookData) {
+            try {
+                // Search by 'q' (general query) instead of just 'title' to be more flexible with IDs
+                const olRes = await axios.get(`https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=1`);
+                if (olRes.data.docs && olRes.data.docs.length > 0) {
+                    const d = olRes.data.docs[0];
+                    // Fetch full work details to get description
+                    const workRes = await axios.get(`https://openlibrary.org${d.key}.json`);
+                    const workD = workRes.data;
+                    
+                    bookData = {
+                        _id: null,
+                        title: d.title,
+                        authors: d.author_name || ["Unknown"],
+                        description: workD.description?.value || workD.description || "No description available.",
+                        coverImage: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : "https://via.placeholder.com/300x450",
+                        averageRating: d.ratings_average ? Number(d.ratings_average.toFixed(1)) : 4.5,
+                        externalId: d.key.replace("/works/", "")
+                    };
+                }
+            } catch (e) { console.warn("OL Fallback search failed", e); }
         }
       }
 

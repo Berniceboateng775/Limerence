@@ -77,13 +77,20 @@ export default function HomePage() {
   };
 
   // Map API Result
-  const mapWork = (w) => ({
-    id: w.key ? w.key.replace("/works/", "") : (w.id || w.title),
-    title: w.title,
-    author: w.author_name?.[0] || w.authors?.[0]?.name || "Unknown",
-    cover: toCover(w),
-    rating: w.ratings_average ? Number(w.ratings_average.toFixed(1)) : (4 + Math.random()).toFixed(1)
-  });
+  const mapWork = (w) => {
+    let id = w.key || w.id || w.title;
+    // Clean OpenLibrary Keys
+    if (typeof id === 'string') {
+        id = id.replace("/works/", "").replace("/books/", "").replace("/authors/", "");
+    }
+    return {
+        id: id,
+        title: w.title,
+        author: w.author_name?.[0] || w.authors?.[0]?.name || "Unknown",
+        cover: toCover(w),
+        rating: w.ratings_average ? Number(w.ratings_average.toFixed(1)) : (4 + Math.random()).toFixed(1)
+    };
+  };
 
   // Generic Fetcher
   const fetchGenre = async (queryType, queryValue, setter) => {
