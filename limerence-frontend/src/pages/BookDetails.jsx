@@ -109,7 +109,7 @@ const CommentItem = ({ comment, bookId, token }) => {
 };
 
 export default function BookDetails() {
-  const { title } = useParams();
+  const { title, id } = useParams();
   const { token } = useContext(AuthContext);
   
   const [book, setBook] = useState(null);
@@ -126,94 +126,121 @@ export default function BookDetails() {
   useEffect(() => {
     fetchBookDetails();
     // eslint-disable-next-line
-  }, [title]);
+  }, [title, id]);
 
   const fetchBookDetails = async () => {
     try {
-      let bookData;
-      
-      // 1. Try Internal ID (Mongo)
-      if (isId) {
+      // Robust Param Extraction: Check both 'title' and 'id' in case route definition varies
+      const routeTitle = title || id; 
+      if (!routeTitle) {
+          console.error("No book identifier found in URL params");
+          setLoading(false);
+          return;
+      }
+
+      let bookData = null;
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(routeTitle);
+
+      // 1. Internal MongoDB ID
+      if (isMongoId) {
         try {
-            const res = await axios.get(`http://localhost:5000/api/books/${title}`);
+            const res = await axios.get(`http://localhost:5000/api/books/${routeTitle}`);
             bookData = res.data;
         } catch (e) { console.warn("Internal ID fetch failed"); }
       } 
-      // 2. Try OpenLibrary ID (starts with OL) 
-      else if (title.startsWith("OL")) {
+      
+      // 2. OpenLibrary ID (Direct Fetch)
+      else if (routeTitle.startsWith("OL")) {
           try {
-              const res = await axios.get(`https://openlibrary.org/works/${title}.json`);
-              const d = res.data;
-              
-              let authorName = "Unknown Author";
-              if (d.authors && d.authors.length > 0) {
-                  try {
-                      const authorRes = await axios.get(`https://openlibrary.org${d.authors[0].author.key}.json`);
-                      authorName = authorRes.data.name;
-                  } catch (e) { /* ignore */ }
-              }
+              // Use native fetch to avoid any axios interceptor/config issues with external URLs
+              const res = await fetch(`https://openlibrary.org/works/${routeTitle}.json`);
+              if (res.ok) {
+                  const d = await res.json();
+                  
+                  let authorName = "Unknown Author";
+                  if (d.authors && d.authors.length > 0) {
+                      try {
+                          const authRes = await fetch(`https://openlibrary.org${d.authors[0].author.key}.json`);
+                          if (authRes.ok) {
+                              const authData = await authRes.json();
+                              authorName = authData.name;
+                          }
+                      } catch (e) { /* ignore */ }
+                  }
 
-              bookData = {
-                  _id: null,
-                  title: d.title,
-                  authors: [authorName],
-                  description: d.description?.value || d.description || "No description available.",
-                  coverImage: d.covers && d.covers.length ? `https://covers.openlibrary.org/b/id/${d.covers[0]}-L.jpg` : "https://via.placeholder.com/300x450",
-                  averageRating: 4.5, 
-                  externalId: title,
-                  previewLink: `https://openlibrary.org/works/${title}`,
-                  downloadUrl: null 
-              };
+                  bookData = {
+                      _id: null,
+                      title: d.title,
+                      authors: [authorName],
+                      description: (typeof d.description === 'string' ? d.description : d.description?.value) || "No description available.",
+                      coverImage: d.covers && d.covers.length ? `https://covers.openlibrary.org/b/id/${d.covers[0]}-L.jpg` : "https://via.placeholder.com/300x450",
+                      averageRating: 4.5, 
+                      externalId: routeTitle,
+                      previewLink: `https://openlibrary.org/works/${routeTitle}`,
+                      downloadUrl: null 
+                  };
+              }
           } catch (err) {
-              console.warn("Direct ID fetch failed, continuing to fallback...");
+              console.warn("Direct ID fetch failed, continuing to fallback...", err);
           }
       }
 
-      // 3. Fallback: Search by title in (A) Local DB then (B) OpenLibrary
+      // 3. Fallback: Search by Identifier (Title or ID)
       if (!bookData) {
-        // A. Local DB
+        // A. Local DB Search
         try {
-            const res = await axios.get(`http://localhost:5000/api/books/search?query=${title}`);
+            const res = await axios.get(`http://localhost:5000/api/books/search?query=${routeTitle}`);
             if (res.data.books && res.data.books.length > 0) {
                 bookData = res.data.books[0];
             }
         } catch (e) { console.warn("Local search failed", e); }
 
-        // B. If still not found, Search OpenLibrary
+        // B. OpenLibrary Search (The Ultimate Safety Net)
         if (!bookData) {
             try {
-                // Search by 'q' (general query) instead of just 'title' to be more flexible with IDs
-                const olRes = await axios.get(`https://openlibrary.org/search.json?q=${encodeURIComponent(title)}&limit=1`);
-                if (olRes.data.docs && olRes.data.docs.length > 0) {
-                    const d = olRes.data.docs[0];
-                    // Fetch full work details to get description
-                    const workRes = await axios.get(`https://openlibrary.org${d.key}.json`);
-                    const workD = workRes.data;
-                    
-                    bookData = {
-                        _id: null,
-                        title: d.title,
-                        authors: d.author_name || ["Unknown"],
-                        description: workD.description?.value || workD.description || "No description available.",
-                        coverImage: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : "https://via.placeholder.com/300x450",
-                        averageRating: d.ratings_average ? Number(d.ratings_average.toFixed(1)) : 4.5,
-                        externalId: d.key.replace("/works/", "")
-                    };
+                // Search by query 'q' finds both Titles and IDs
+                const olSearchRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(routeTitle)}&limit=1`);
+                if (olSearchRes.ok) {
+                    const searchData = await olSearchRes.json();
+                    if (searchData.docs && searchData.docs.length > 0) {
+                        const d = searchData.docs[0];
+                        
+                        // Try to get fuller details (Description)
+                        let fullDesc = "No description available.";
+                        try {
+                            const workRes = await fetch(`https://openlibrary.org${d.key}.json`);
+                            if (workRes.ok) {
+                                const workD = await workRes.json();
+                                fullDesc = (typeof workD.description === 'string' ? workD.description : workD.description?.value) || fullDesc;
+                            }
+                        } catch (e) { /* use default desc */ }
+
+                        bookData = {
+                            _id: null,
+                            title: d.title,
+                            authors: d.author_name || ["Unknown"],
+                            description: fullDesc,
+                            coverImage: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : "https://via.placeholder.com/300x450",
+                            averageRating: d.ratings_average ? Number(d.ratings_average.toFixed(1)) : 4.5,
+                            externalId: d.key?.replace("/works/", "") || routeTitle
+                        };
+                    }
                 }
             } catch (e) { console.warn("OL Fallback search failed", e); }
         }
       }
 
-      if (bookData) {
-         setBook(bookData);
-         if (bookData._id) {
-             fetchComments(bookData._id);
-             checkShelfStatus(bookData._id);
-         }
+      setBook(bookData); 
+      // Only fetch comments/shelf if we actually found a Mongo ID (bookData._id exists)
+      // For external books, we can save them to DB triggers lazily on interaction (like in handleRate/handleAddToShelf)
+      if (bookData && bookData._id) {
+         fetchComments(bookData._id);
+         checkShelfStatus(bookData._id);
       }
+      
       setLoading(false);
     } catch (err) {
-      console.error(err);
+      console.error("Critical error in fetchBookDetails:", err);
       setLoading(false);
     }
   };
