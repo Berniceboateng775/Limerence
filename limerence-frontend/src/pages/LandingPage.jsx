@@ -245,7 +245,7 @@ export default function LandingPage() {
                         Read.<br/>
                         Obsess.<br/>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-rose-500 block h-[1.1em]">
-                            <Typewriter words={["Repeat.", "Scream.", "Connect.", "Fanboy."]} speed={200} deleteSpeed={100} delay={2000} />
+                            <Typewriter words={["Repeat.", "Scream.", "Connect.", "Fanboy."]} speed={100} deleteSpeed={100} delay={2000} />
                         </span>
                     </h1>
                  </div>

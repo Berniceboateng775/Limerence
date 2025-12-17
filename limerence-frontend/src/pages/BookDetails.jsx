@@ -131,15 +131,45 @@ export default function BookDetails() {
   const fetchBookDetails = async () => {
     try {
       let bookData;
+      
+      // 1. Try Internal ID (Mongo)
       if (isId) {
         const res = await axios.get(`http://localhost:5000/api/books/${title}`);
         bookData = res.data;
-      } else {
+      } 
+      // 2. Try OpenLibrary ID (starts with OL)
+      else if (title.startsWith("OL")) {
+          const res = await axios.get(`https://openlibrary.org/works/${title}.json`);
+          const d = res.data;
+          // Fetch author name separately if needed
+          let authorName = "Unknown Author";
+           if (d.authors && d.authors.length > 0) {
+              try {
+                  const authorRes = await axios.get(`https://openlibrary.org${d.authors[0].author.key}.json`);
+                  authorName = authorRes.data.name;
+              } catch (e) { console.warn("Author fetch failed", e); }
+          }
+
+          bookData = {
+              _id: null,
+              title: d.title,
+              authors: [authorName],
+              description: d.description?.value || d.description || "No description available.",
+              coverImage: d.covers && d.covers.length ? `https://covers.openlibrary.org/b/id/${d.covers[0]}-L.jpg` : "https://via.placeholder.com/300x450",
+              averageRating: 4.5, 
+              externalId: title,
+              previewLink: `https://openlibrary.org/works/${title}`,
+              downloadUrl: null // No download for external yet
+          };
+      }
+      // 3. Fallback: Search by title in local DB
+      else {
         const res = await axios.get(`http://localhost:5000/api/books/search?query=${title}`);
         if (res.data.books && res.data.books.length > 0) {
             bookData = res.data.books[0];
         }
       }
+
       if (bookData) {
          setBook(bookData);
          if (bookData._id) {
