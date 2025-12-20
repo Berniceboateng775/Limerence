@@ -16,6 +16,13 @@ const ClubSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  // Track per-member stats (Unread counts)
+  memberStats: [
+      {
+          user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+          lastReadAt: { type: Date, default: Date.now }
+      }
+  ],
   admins: [
     {
       type: mongoose.Schema.Types.ObjectId,
@@ -37,6 +44,18 @@ const ClubSchema = new mongoose.Schema({
         url: String,
         name: String
       },
+      // New Features
+      replyTo: {
+          id: String,
+          username: String,
+          content: String
+      },
+      reactions: [
+          {
+              user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+              emoji: String
+          }
+      ],
       createdAt: { type: Date, default: Date.now },
     },
   ],

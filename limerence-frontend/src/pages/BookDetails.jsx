@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import BadgeModal from "../components/BadgeModal";
+import { Link, useNavigate } from "react-router-dom";
 
 const CommentItem = ({ comment, bookId, token }) => {
     const [likes, setLikes] = useState(comment.likes || []);
@@ -110,6 +111,7 @@ const CommentItem = ({ comment, bookId, token }) => {
 export default function BookDetails() {
   const { title, id } = useParams();
   const { token } = useContext(AuthContext);
+  const navigate = useNavigate();
   
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -119,17 +121,70 @@ export default function BookDetails() {
   const [showShelfMenu, setShowShelfMenu] = useState(false);
   const [showBadge, setShowBadge] = useState(null);
 
+  // Search State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+
+  // Helper: OpenLibrary Cover
+  const toCover = (item) => {
+     if (item.cover_i) return `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg`;
+     if (item.cover_id) return `https://covers.openlibrary.org/b/id/${item.cover_id}-L.jpg`;
+     if (item.cover_edition_key) return `https://covers.openlibrary.org/b/olid/${item.cover_edition_key}-L.jpg`;
+     return null;
+  };
+
+  // Map API Result
+  const mapWork = (w) => {
+    let id = w.key || w.id || w.title;
+    if (typeof id === 'string') {
+        id = id.replace("/works/", "").replace("/books/", "").replace("/authors/", "");
+    }
+    return {
+        id: id,
+        title: w.title,
+        author: w.author_name?.[0] || w.authors?.[0]?.name || "Unknown",
+        cover: toCover(w),
+        rating: w.ratings_average ? Number(w.ratings_average.toFixed(1)) : (4 + Math.random()).toFixed(1)
+    };
+  };
+
+  const fetchSearch = async (query) => {
+      if (!query) return;
+      try {
+          // Native fetch for search to match HomePage
+          const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=10&fields=title,cover_i,author_name,key,ratings_average`);
+          const data = await res.json();
+          const books = (data.docs || []).map(mapWork).filter(b => b.cover);
+          setSearchResults(books);
+      } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        if (searchQuery) fetchSearch(searchQuery);
+        else setSearchResults([]);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Check if title is an ID (24 hex chars)
   const isId = /^[0-9a-fA-F]{24}$/.test(title);
 
   useEffect(() => {
+    // Aggressive Reset prevents "ghost" data from previous book
+    setBook(null); 
+    setComments([]); 
+    setShelfStatus(null); 
+    setSearchResults([]); 
+    setSearchQuery(""); // Clear search bar if navigating via search
+    
     fetchBookDetails();
     // eslint-disable-next-line
   }, [title, id]);
 
   const fetchBookDetails = async () => {
     try {
-      // Robust Param Extraction: Check both 'title' and 'id' in case route definition varies
+      // Robust Param Extraction
       const routeTitle = title || id; 
       if (!routeTitle) {
           console.error("No book identifier found in URL params");
@@ -151,7 +206,6 @@ export default function BookDetails() {
       // 2. OpenLibrary ID (Direct Fetch)
       else if (routeTitle.startsWith("OL")) {
           try {
-              // Use native fetch to avoid any axios interceptor/config issues with external URLs
               const res = await fetch(`https://openlibrary.org/works/${routeTitle}.json`);
               if (res.ok) {
                   const d = await res.json();
@@ -167,17 +221,46 @@ export default function BookDetails() {
                       } catch (e) { /* ignore */ }
                   }
 
+                  // Better Cover Image Logic
+                  let coverUrl = null;
+                  if (d.covers && d.covers.length > 0) {
+                      coverUrl = `https://covers.openlibrary.org/b/id/${d.covers[0]}-L.jpg`;
+                  } else {
+                      // Fallback: Try searching specifically for this title/author to find a cover
+                      try {
+                          const searchRes = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(d.title)}&author=${encodeURIComponent(authorName)}&limit=1`);
+                          if (searchRes.ok) {
+                              const searchD = await searchRes.json();
+                              if (searchD.docs && searchD.docs.length > 0 && searchD.docs[0].cover_i) {
+                                  coverUrl = `https://covers.openlibrary.org/b/id/${searchD.docs[0].cover_i}-L.jpg`;
+                              }
+                          }
+                      } catch (e) { console.warn("Cover fallback search failed"); }
+                  }
+
                   bookData = {
                       _id: null,
                       title: d.title,
                       authors: [authorName],
                       description: (typeof d.description === 'string' ? d.description : d.description?.value) || "No description available.",
-                      coverImage: d.covers && d.covers.length ? `https://covers.openlibrary.org/b/id/${d.covers[0]}-L.jpg` : "https://via.placeholder.com/300x450",
-                      averageRating: 4.5, 
+                      coverImage: coverUrl || "https://via.placeholder.com/300x450",
+                      averageRating: 4.5, // Default, will update if found in DB
                       externalId: routeTitle,
                       previewLink: `https://openlibrary.org/works/${routeTitle}`,
                       downloadUrl: null 
                   };
+
+                  // SYNC: Check if this book already exists in our DB to get comments/ratings
+                  try {
+                      // Pass Title too, so legacy books (without externalId) can be found and linked
+                      const dbCheck = await axios.get(`http://localhost:5000/api/books/lookup?externalId=${routeTitle}&title=${encodeURIComponent(d.title)}`);
+                      if (dbCheck.data) {
+                          const dbBook = dbCheck.data;
+                          bookData._id = dbBook._id;
+                          bookData.averageRating = dbBook.averageRating || bookData.averageRating;
+                          if (!bookData.coverImage && dbBook.coverImage) bookData.coverImage = dbBook.coverImage;
+                      }
+                  } catch (e) { /* Not found in DB, that's fine */ }
               }
           } catch (err) {
               console.warn("Direct ID fetch failed, continuing to fallback...", err);
@@ -186,52 +269,49 @@ export default function BookDetails() {
 
       // 3. Fallback: Search by Identifier (Title or ID)
       if (!bookData) {
-        // A. Local DB Search
+        // A. OpenLibrary Search (The Ultimate Safety Net)
         try {
-            const res = await axios.get(`http://localhost:5000/api/books/search?query=${routeTitle}`);
-            if (res.data.books && res.data.books.length > 0) {
-                bookData = res.data.books[0];
-            }
-        } catch (e) { console.warn("Local search failed", e); }
+            const olSearchRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(routeTitle)}&limit=1`);
+            if (olSearchRes.ok) {
+                const searchData = await olSearchRes.json();
+                if (searchData.docs && searchData.docs.length > 0) {
+                    const d = searchData.docs[0];
+                    
+                    let fullDesc = "No description available.";
+                    try {
+                        const workRes = await fetch(`https://openlibrary.org${d.key}.json`);
+                        if (workRes.ok) {
+                            const workD = await workRes.json();
+                            fullDesc = (typeof workD.description === 'string' ? workD.description : workD.description?.value) || fullDesc;
+                        }
+                    } catch (e) { /* use default desc */ }
 
-        // B. OpenLibrary Search (The Ultimate Safety Net)
-        if (!bookData) {
-            try {
-                // Search by query 'q' finds both Titles and IDs
-                const olSearchRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(routeTitle)}&limit=1`);
-                if (olSearchRes.ok) {
-                    const searchData = await olSearchRes.json();
-                    if (searchData.docs && searchData.docs.length > 0) {
-                        const d = searchData.docs[0];
-                        
-                        // Try to get fuller details (Description)
-                        let fullDesc = "No description available.";
-                        try {
-                            const workRes = await fetch(`https://openlibrary.org${d.key}.json`);
-                            if (workRes.ok) {
-                                const workD = await workRes.json();
-                                fullDesc = (typeof workD.description === 'string' ? workD.description : workD.description?.value) || fullDesc;
-                            }
-                        } catch (e) { /* use default desc */ }
+                    const extId = d.key?.replace("/works/", "") || routeTitle;
+                    bookData = {
+                        _id: null,
+                        title: d.title,
+                        authors: d.author_name || ["Unknown"],
+                        description: fullDesc,
+                        coverImage: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : "https://via.placeholder.com/300x450",
+                        averageRating: d.ratings_average ? Number(d.ratings_average.toFixed(1)) : 4.5,
+                        externalId: extId
+                    };
 
-                        bookData = {
-                            _id: null,
-                            title: d.title,
-                            authors: d.author_name || ["Unknown"],
-                            description: fullDesc,
-                            coverImage: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : "https://via.placeholder.com/300x450",
-                            averageRating: d.ratings_average ? Number(d.ratings_average.toFixed(1)) : 4.5,
-                            externalId: d.key?.replace("/works/", "") || routeTitle
-                        };
-                    }
+                    // SYNC: Check DB for fallback result too
+                    try {
+                        const dbCheck = await axios.get(`http://localhost:5000/api/books/lookup?externalId=${extId}`);
+                        if (dbCheck.data) {
+                             bookData._id = dbCheck.data._id;
+                             bookData.averageRating = dbCheck.data.averageRating;
+                        }
+                    } catch (e) {}
                 }
-            } catch (e) { console.warn("OL Fallback search failed", e); }
-        }
+            }
+        } catch (e) { console.warn("OL Fallback search failed", e); }
       }
 
       setBook(bookData); 
-      // Only fetch comments/shelf if we actually found a Mongo ID (bookData._id exists)
-      // For external books, we can save them to DB triggers lazily on interaction (like in handleRate/handleAddToShelf)
+      
       if (bookData && bookData._id) {
          fetchComments(bookData._id);
          checkShelfStatus(bookData._id);
@@ -267,35 +347,35 @@ export default function BookDetails() {
 
   const handleAddToShelf = async (status) => {
       setShowShelfMenu(false);
-      if (!book._id) {
+      let targetBookId = book._id;
+
+      if (!targetBookId) {
           try {
               const saveRes = await axios.post("http://localhost:5000/api/books", book);
               const savedBook = saveRes.data;
               setBook(savedBook); 
-              await addToShelfRequest(savedBook._id, status);
+              targetBookId = savedBook._id;
           } catch (err) {
               console.error("Error saving book:", err);
+              return;
           }
-      } else {
-          await addToShelfRequest(book._id, status);
       }
 
-      if (status === "completed") {
-          setShowBadge({
-              name: "Bookworm",
-              description: "You've completed a book! Keep reading to earn more.",
-              icon: "📚"
-          });
-      }
+      await addToShelfRequest(targetBookId, status);
   };
 
   const addToShelfRequest = async (bookId, status) => {
       try {
-          await axios.post("http://localhost:5000/api/shelf/add", 
+          const res = await axios.post("http://localhost:5000/api/shelf/add", 
               { bookId, status },
               { headers: { "x-auth-token": token } }
           );
           setShelfStatus(status);
+          
+          // Trigger Badge Modal ONLY if backend says so
+          if (res.data.newBadge) {
+              setShowBadge(res.data.newBadge);
+          }
       } catch (err) {
           console.error(err);
       }
@@ -350,6 +430,50 @@ export default function BookDetails() {
     <div className="min-h-screen bg-white font-sans text-slate-900">
       <BadgeModal badge={showBadge} onClose={() => setShowBadge(null)} />
       
+      {/* Top Search Bar */}
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl py-4 px-6 flex items-center justify-center transition-all duration-300">
+         <div className="relative w-full max-w-xl">
+             <div className="flex items-center gap-3 bg-gray-50/80 rounded-full px-5 py-3 ring-1 ring-black/5 focus-within:ring-slate-900/10 focus-within:bg-white focus-within:shadow-lg transition-all shadow-sm">
+                <span className="text-xl">🔍</span>
+                <div className="flex-1 relative h-6 overflow-hidden">
+                    <input 
+                        type="text" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-transparent outline-none text-slate-900 font-medium placeholder-gray-400 h-full"
+                        placeholder="Search books..." 
+                    />
+                </div>
+                {searchQuery && (
+                    <button onClick={() => { setSearchQuery(""); setSearchResults([]); }} className="text-gray-400 hover:text-slate-900">✕</button>
+                )}
+             </div>
+
+             {/* Search Dropdown */}
+             {searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-96 overflow-y-auto z-50 animate-fade-in-up">
+                    {searchResults.map((b) => (
+                        <div 
+                            key={b.id}
+                            onClick={() => {
+                                navigate(`/book/${b.id}`);
+                                setSearchQuery("");
+                                setSearchResults([]);
+                            }}
+                            className="flex items-center gap-4 p-3 hover:bg-gray-50 cursor-pointer transition border-b border-gray-50 last:border-none"
+                        >
+                            <img src={b.cover} alt={b.title} className="w-12 h-16 object-cover rounded shadow-sm" />
+                            <div>
+                                <h4 className="font-bold text-slate-800 text-sm line-clamp-1">{b.title}</h4>
+                                <p className="text-xs text-gray-500">{b.author}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+             )}
+         </div>
+      </div>
+
       {/* Hero Section - Gradient Theme */}
       <div className="relative pt-32 pb-20 px-6 overflow-hidden">
         {/* Background Gradients */}

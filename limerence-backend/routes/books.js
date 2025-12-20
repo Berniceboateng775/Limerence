@@ -45,6 +45,36 @@ router.get("/search", async (req, res) => {
   }
 });
 
+// @route   GET /api/books/lookup
+// @desc    Check if book exists in DB by External ID or Title (Smart Sync)
+router.get("/lookup", async (req, res) => {
+    const { externalId, title } = req.query;
+    if (!externalId) return res.status(400).json({ msg: "External ID required" });
+
+    try {
+        // 1. Try exact match by External ID
+        let book = await Book.findOne({ externalId });
+        if (book) return res.json(book);
+
+        // 2. Fallback: Try matching by Title (for legacy books without externalId)
+        if (title) {
+            // Case-insensitive exact match
+            book = await Book.findOne({ title: new RegExp(`^${title}$`, 'i') });
+            if (book) {
+                // Self-heal: Save the externalId so next lookup is fast
+                book.externalId = externalId;
+                await book.save();
+                return res.json(book);
+            }
+        }
+
+        return res.status(404).json({ msg: "Book not found in DB" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
+});
+
 // @route   GET /api/books/:id
 // @desc    Get book details (DB or Google Books)
 router.get("/:id", async (req, res) => {

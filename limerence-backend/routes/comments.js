@@ -11,6 +11,7 @@ router.get("/", async (req, res) => {
   try {
     const comments = await Comment.find({ book: req.params.bookId })
       .populate("user", "name avatar")
+      .populate("replies.user", "name avatar")
       .sort({ createdAt: -1 });
     res.json(comments);
   } catch (err) {

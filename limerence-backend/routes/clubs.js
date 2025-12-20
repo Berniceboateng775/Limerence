@@ -75,9 +75,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Post a message (with optional attachment)
+// Post a message (with optional attachment and reply)
 router.post("/:id/message", auth, upload.single("attachment"), async (req, res) => {
   try {
-    const { content, username } = req.body;
+    const { content, username, replyTo } = req.body;
     const club = await Club.findById(req.params.id);
     
     let attachment = null;
@@ -89,7 +90,6 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
             name: req.file.originalname
         };
     } else if (req.body.attachment) {
-        // Handle JSON attachment (e.g. for Stickers/GIFs sent as URLs)
         try {
             attachment = JSON.parse(req.body.attachment);
         } catch (e) {
@@ -97,19 +97,76 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
         }
     }
 
+    let parsedReplyTo = null;
+    if (replyTo) {
+        try { parsedReplyTo = JSON.parse(replyTo); } catch(e) { parsedReplyTo = replyTo; }
+    }
+
     const newMessage = {
       user: req.user.userId,
       username,
-      content: content || "", // Content might be empty if just sending a file
-      attachment
+      content: content || "",
+      attachment,
+      replyTo: parsedReplyTo,
+      reactions: []
     };
 
     club.messages.push(newMessage);
     await club.save();
     res.json(club.messages);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
+});
+
+// React to a message
+router.post("/:id/messages/:msgId/react", auth, async (req, res) => {
+    try {
+        const { emoji } = req.body;
+        const club = await Club.findById(req.params.id);
+        const msg = club.messages.id(req.params.msgId);
+        
+        if (!msg) return res.status(404).json({ msg: "Message not found" });
+
+        // Toggle reaction
+        const existingIndex = msg.reactions.findIndex(r => r.user.toString() === req.user.userId && r.emoji === emoji);
+        
+        if (existingIndex > -1) {
+            // Remove
+            msg.reactions.splice(existingIndex, 1);
+        } else {
+            // Add
+            msg.reactions.push({ user: req.user.userId, emoji });
+        }
+
+        await club.save();
+        res.json(club.messages);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: "Server Error" });
+    }
+});
+
+// Mark club as read
+router.post("/:id/read", auth, async (req, res) => {
+    try {
+        const club = await Club.findById(req.params.id);
+        
+        // Update or add entry in memberStats
+        const statIndex = club.memberStats.findIndex(s => s.user.toString() === req.user.userId);
+        if (statIndex > -1) {
+            club.memberStats[statIndex].lastReadAt = Date.now();
+        } else {
+            club.memberStats.push({ user: req.user.userId, lastReadAt: Date.now() });
+        }
+
+        await club.save();
+        res.json(club.memberStats);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: "Server Error" });
+    }
 });
 
 // Kick a member (Admin only)

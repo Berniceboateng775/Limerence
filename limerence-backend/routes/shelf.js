@@ -16,6 +16,22 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
+// Helper: Define Milestones
+const BADGE_DEFINITIONS = [
+    // Reading Milestones
+    { name: "Bookworm", icon: "📚", desc: "Read your first book", type: "read_count", threshold: 1 },
+    { name: "Page Turner", icon: "📖", desc: "Read 5 books", type: "read_count", threshold: 5 },
+    { name: "Bibliophile", icon: "🤓", desc: "Read 10 books", type: "read_count", threshold: 10 },
+    { name: "Library Dweller", icon: "🏛️", desc: "Read 25 books", type: "read_count", threshold: 25 },
+    { name: "Book Hoarder", icon: "📔", desc: "Read 50 books", type: "read_count", threshold: 50 },
+    { name: "Literary Legend", icon: "👑", desc: "Read 100 books", type: "read_count", threshold: 100 },
+
+    // Genre (Placeholder logic for now)
+    { name: "Hopeless Romantic", icon: "💘", desc: "Read 5 Romance books" },
+    { name: "Fantasy Explorer", icon: "�", desc: "Read 5 Fantasy books" },
+    { name: "Detective", icon: "🕵️‍♀️", desc: "Read 5 Mystery books" }
+];
+
 // @route   POST /api/shelf/add
 // @desc    Add book to shelf
 router.post("/add", auth, async (req, res) => {
@@ -27,30 +43,46 @@ router.post("/add", auth, async (req, res) => {
     // Check if already in shelf
     const exists = user.shelf.find(item => item.book.toString() === bookId);
     if (exists) {
-        // Update status if exists
         exists.status = status || exists.status;
     } else {
         user.shelf.push({ book: bookId, status: status || "want_to_read" });
     }
 
+    let newBadge = null;
+
     if (status === "completed") {
-        const badgeName = "Bookworm";
-        const hasBadge = user.badges.some(b => b.name === badgeName);
+        // Calculate completed count
+        const completedCount = user.shelf.filter(i => i.status === "completed").length;
         
-        if (!hasBadge) {
-            user.badges.push({
-                name: badgeName,
-                description: "You've completed a book! Keep reading to earn more.",
-                icon: "📚"
-            });
-        }
+        // Check for new badges (Type: read_count)
+        const readingBadges = BADGE_DEFINITIONS.filter(b => b.type === "read_count");
+        
+        readingBadges.forEach(def => {
+            if (completedCount >= def.threshold) {
+                const hasBadge = user.badges.some(b => b.name === def.name);
+                if (!hasBadge) {
+                    const badge = {
+                        name: def.name,
+                        description: def.desc,
+                        icon: def.icon,
+                        earnedAt: new Date()
+                    };
+                    user.badges.push(badge);
+                    
+                    // Award the highest tier or just the latest? 
+                    // Let's return the latest earned one for the notification.
+                    newBadge = badge;
+                }
+            }
+        });
     }
 
     await user.save();
     // Populate to return full object
     await user.populate("shelf.book");
     
-    res.json({ shelf: user.shelf, badges: user.badges }); // Return badges too
+    // Return shelf, badges, AND any NEW badge to trigger the modal
+    res.json({ shelf: user.shelf, badges: user.badges, newBadge }); 
   } catch (err) {
     console.error(err);
     res.status(500).send("Server Error");
