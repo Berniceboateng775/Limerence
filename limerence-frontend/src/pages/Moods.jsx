@@ -33,15 +33,18 @@ export default function Moods() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 pt-16 transition-colors duration-300">
-      {/* Header - compact */}
-      <div className="text-center py-6 px-4">
-        <h1 className="text-3xl font-serif font-bold text-gray-800 dark:text-white mb-1">What's your vibe?</h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm">Pick a mood, find your next obsession.</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-24 transition-colors duration-300">
+      {/* Header - matches Badges page style */}
+      <div className="bg-slate-900 text-white py-12 px-4 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
+        <div className="max-w-4xl mx-auto relative z-10 text-center">
+          <h1 className="text-3xl md:text-5xl font-serif font-bold mb-2">What's your vibe?</h1>
+          <p className="text-slate-400">Pick a mood, find your next obsession.</p>
+        </div>
       </div>
 
-      {/* Mood Cards - bigger */}
-      <div className="max-w-6xl mx-auto px-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      {/* Mood Cards */}
+      <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {MOODS.map((mood) => (
           <button
             key={mood.id}

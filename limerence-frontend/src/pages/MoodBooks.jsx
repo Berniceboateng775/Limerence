@@ -114,25 +114,25 @@ export default function MoodBooks() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 pt-16 transition-colors duration-300">
-      {/* Compact header */}
-      <div className="px-4 py-4 border-b border-gray-200 dark:border-slate-700">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-24 transition-colors duration-300">
+      {/* Header - matches Moods page style */}
+      <div className="bg-slate-900 text-white py-8 px-4 shadow-sm">
         <div className="max-w-6xl mx-auto">
           <button 
             onClick={() => navigate('/moods')} 
-            className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition text-sm mb-2"
+            className="text-slate-400 hover:text-white transition text-sm mb-3"
           >
             ← Back to Moods
           </button>
-          <div className="flex items-center gap-3">
-            <span className="text-4xl">{mood.emoji}</span>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{mood.label}</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-5xl">{mood.emoji}</span>
+            <h1 className="text-3xl md:text-4xl font-serif font-bold">{mood.label}</h1>
           </div>
         </div>
       </div>
 
       {/* Books Grid */}
-      <div className="max-w-6xl mx-auto px-4 mt-6">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         {loading ? (
           <div className="text-center py-16">
             <div className="inline-block w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
