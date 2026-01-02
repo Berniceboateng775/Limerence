@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useRef, useCallback } from "react";
+import React, { useContext, useEffect, useState, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import axios from "axios";
@@ -33,7 +33,8 @@ export default function Friends() {
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [unreadCounts, setUnreadCounts] = useState({});
-  const [conversationTimestamps, setConversationTimestamps] = useState({});
+  const [lastMessages, setLastMessages] = useState({}); // For WhatsApp-style preview in list
+  const [showReactionPicker, setShowReactionPicker] = useState(null); // Which message to show picker for
   
   // Per-friend wallpaper settings (stored in localStorage)
   const [friendWallpapers, setFriendWallpapers] = useState(() => {
@@ -63,62 +64,52 @@ export default function Friends() {
     return avatarColors[hash % avatarColors.length];
   };
 
-  useEffect(() => {
-    fetchFriends();
-  }, []);
+  useEffect(() => { fetchFriends(); }, []);
 
   useEffect(() => {
-    if (selectedFriend) {
-      fetchConversation(selectedFriend._id);
-    }
+    if (selectedFriend) fetchConversation(selectedFriend._id);
   }, [selectedFriend]);
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Save per-friend wallpapers
-  useEffect(() => {
-    localStorage.setItem("friendWallpapers", JSON.stringify(friendWallpapers));
-  }, [friendWallpapers]);
-  
-  useEffect(() => {
-    localStorage.setItem("friendCustomWallpapers", JSON.stringify(friendCustomWallpapers));
-  }, [friendCustomWallpapers]);
+  useEffect(() => { localStorage.setItem("friendWallpapers", JSON.stringify(friendWallpapers)); }, [friendWallpapers]);
+  useEffect(() => { localStorage.setItem("friendCustomWallpapers", JSON.stringify(friendCustomWallpapers)); }, [friendCustomWallpapers]);
 
   const fetchFriends = async () => {
     try {
-      const res = await axios.get("/api/users/me", {
-        headers: { "x-auth-token": token }
-      });
+      const res = await axios.get("/api/users/me", { headers: { "x-auth-token": token } });
       const friendsList = res.data.friends || [];
       
-      // Fetch last message timestamps for sorting
       const timestamps = {};
       const unreads = {};
+      const lastMsgs = {};
+      
       for (const friend of friendsList) {
         try {
-          const convRes = await axios.get(`/api/dm/${friend._id}`, {
-            headers: { "x-auth-token": token }
-          });
+          const convRes = await axios.get(`/api/dm/${friend._id}`, { headers: { "x-auth-token": token } });
           const msgs = convRes.data.messages || [];
           if (msgs.length > 0) {
-            timestamps[friend._id] = new Date(msgs[msgs.length - 1].createdAt).getTime();
-            // Count unread (messages from friend in last 5 min)
+            const lastMsg = msgs[msgs.length - 1];
+            timestamps[friend._id] = new Date(lastMsg.createdAt).getTime();
+            lastMsgs[friend._id] = {
+              content: lastMsg.content || (lastMsg.attachmentType === 'image' ? '📷 Photo' : lastMsg.attachmentType === 'voice' ? '🎤 Voice message' : ''),
+              time: new Date(lastMsg.createdAt),
+              isMe: (lastMsg.sender?._id || lastMsg.sender) === user._id
+            };
+            // Count unread - ONLY messages FROM friend (not from me!)
             const fiveMinAgo = Date.now() - 300000;
             unreads[friend._id] = msgs.filter(m => 
               (m.sender?._id || m.sender) !== user._id && 
               new Date(m.createdAt).getTime() > fiveMinAgo
             ).length;
           }
-        } catch (e) { /* No conversation yet */ }
+        } catch (e) { /* No conversation */ }
       }
-      setConversationTimestamps(timestamps);
-      setUnreadCounts(unreads);
       
-      // Sort by recent activity
+      setLastMessages(lastMsgs);
+      setUnreadCounts(unreads);
       friendsList.sort((a, b) => (timestamps[b._id] || 0) - (timestamps[a._id] || 0));
       setFriends(friendsList);
     } catch (err) {
@@ -130,11 +121,8 @@ export default function Friends() {
 
   const fetchConversation = async (friendId) => {
     try {
-      const res = await axios.get(`/api/dm/${friendId}`, {
-        headers: { "x-auth-token": token }
-      });
+      const res = await axios.get(`/api/dm/${friendId}`, { headers: { "x-auth-token": token } });
       setMessages(res.data.messages || []);
-      // Clear unread for this friend
       setUnreadCounts(prev => ({ ...prev, [friendId]: 0 }));
     } catch (err) {
       console.error(err);
@@ -144,12 +132,9 @@ export default function Friends() {
   const fetchFriendProfile = async (friendId) => {
     setLoadingProfile(true);
     try {
-      const res = await axios.get(`/api/users/${friendId}`, {
-        headers: { "x-auth-token": token }
-      });
+      const res = await axios.get(`/api/users/${friendId}`, { headers: { "x-auth-token": token } });
       setViewProfile(res.data);
     } catch (err) {
-      console.error(err);
       toast("Failed to load profile", "error");
     } finally {
       setLoadingProfile(false);
@@ -161,16 +146,10 @@ export default function Friends() {
     setShowEmojiPicker(false);
   };
 
-  // Per-friend wallpaper management
   const setWallpaperForFriend = (friendId, wallpaperId) => {
     setFriendWallpapers(prev => ({ ...prev, [friendId]: wallpaperId }));
-    // Clear custom wallpaper if selecting preset
     if (wallpaperId !== 'custom') {
-      setFriendCustomWallpapers(prev => {
-        const newCustom = { ...prev };
-        delete newCustom[friendId];
-        return newCustom;
-      });
+      setFriendCustomWallpapers(prev => { const n = { ...prev }; delete n[friendId]; return n; });
     }
     setShowWallpaperPicker(false);
   };
@@ -190,27 +169,20 @@ export default function Friends() {
 
   const getCurrentWallpaper = () => {
     if (!selectedFriend) return WALLPAPERS.romantic;
-    const wallpaperId = friendWallpapers[selectedFriend._id] || 'romantic';
-    if (wallpaperId === 'custom' && friendCustomWallpapers[selectedFriend._id]) {
-      return null; // Will use style instead
-    }
-    return WALLPAPERS[wallpaperId] || WALLPAPERS.romantic;
+    const wpId = friendWallpapers[selectedFriend._id] || 'romantic';
+    if (wpId === 'custom' && friendCustomWallpapers[selectedFriend._id]) return null;
+    return WALLPAPERS[wpId] || WALLPAPERS.romantic;
   };
 
   const getCustomWallpaperStyle = () => {
     if (!selectedFriend) return {};
-    const wallpaperId = friendWallpapers[selectedFriend._id];
-    if (wallpaperId === 'custom' && friendCustomWallpapers[selectedFriend._id]) {
-      return { 
-        backgroundImage: `url(${friendCustomWallpapers[selectedFriend._id]})`, 
-        backgroundSize: 'cover', 
-        backgroundPosition: 'center' 
-      };
+    const wpId = friendWallpapers[selectedFriend._id];
+    if (wpId === 'custom' && friendCustomWallpapers[selectedFriend._id]) {
+      return { backgroundImage: `url(${friendCustomWallpapers[selectedFriend._id]})`, backgroundSize: 'cover', backgroundPosition: 'center' };
     }
     return {};
   };
 
-  // Handle image selection with preview
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -221,10 +193,8 @@ export default function Friends() {
     }
   };
 
-  // Send image (resized)
   const sendImage = async () => {
     if (!attachment || !selectedFriend) return;
-    
     const formData = new FormData();
     formData.append('attachment', attachment);
     formData.append('attachmentType', 'image');
@@ -234,38 +204,29 @@ export default function Friends() {
       formData.append('replyToContent', replyingTo.content);
       formData.append('replyToUsername', replyingTo.sender?.name || 'Unknown');
     }
-    
     try {
       const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, formData, {
         headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
       });
       setMessages(prev => [...prev, res.data]);
-      setAttachment(null);
-      setImagePreview(null);
-      setNewMessage("");
-      setReplyingTo(null);
+      setAttachment(null); setImagePreview(null); setNewMessage(""); setReplyingTo(null);
       toast("Sent!", "success");
     } catch (err) {
-      console.error(err);
       toast("Failed to send", "error");
     }
   };
 
-  // Voice recording
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-
       mediaRecorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(blob);
+        setAudioBlob(new Blob(audioChunksRef.current, { type: 'audio/webm' }));
         stream.getTracks().forEach(track => track.stop());
       };
-
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
@@ -282,12 +243,10 @@ export default function Friends() {
 
   const sendVoiceNote = async () => {
     if (!audioBlob || !selectedFriend) return;
-    
     const formData = new FormData();
     formData.append('attachment', audioBlob, 'voice.webm');
     formData.append('attachmentType', 'voice');
     formData.append('content', '');
-    
     try {
       const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, formData, {
         headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
@@ -296,15 +255,13 @@ export default function Friends() {
       setAudioBlob(null);
       toast("Voice note sent!", "success");
     } catch (err) {
-      toast("Failed to send voice note", "error");
+      toast("Failed to send", "error");
     }
   };
 
-  // Send text message
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedFriend) return;
-    
     try {
       const payload = { content: newMessage };
       if (replyingTo) {
@@ -312,53 +269,55 @@ export default function Friends() {
         payload.replyToContent = replyingTo.content;
         payload.replyToUsername = replyingTo.sender?.name || 'Unknown';
       }
-      
-      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, payload, {
-        headers: { "x-auth-token": token }
-      });
+      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, payload, { headers: { "x-auth-token": token } });
       setMessages(prev => [...prev, res.data]);
-      setNewMessage("");
-      setReplyingTo(null);
+      setNewMessage(""); setReplyingTo(null);
     } catch (err) {
       toast("Failed to send", "error");
     }
   };
 
-  // Add reaction
   const addReaction = async (messageId, emoji) => {
     if (!selectedFriend) return;
     try {
-      await axios.post(`/api/dm/${selectedFriend._id}/message/${messageId}/reaction`, 
-        { emoji }, 
-        { headers: { "x-auth-token": token } }
-      );
+      await axios.post(`/api/dm/${selectedFriend._id}/message/${messageId}/reaction`, { emoji }, { headers: { "x-auth-token": token } });
       fetchConversation(selectedFriend._id);
+      setShowReactionPicker(null);
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Get total unread count
   const getTotalUnread = () => Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
-  // Message Bubble Component (like Clubs)
+  const formatTime = (date) => {
+    if (!date) return '';
+    const now = new Date();
+    const d = new Date(date);
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
+  // Message Bubble Component
   const MessageBubble = ({ msg }) => {
     const senderId = msg.sender?._id || msg.sender;
     const isMe = senderId === user?._id;
     const senderName = msg.sender?.name || 'Unknown';
     const avatarColor = getAvatarColor(senderName);
+    const isReactionPickerOpen = showReactionPicker === msg._id;
     
     return (
-      <div className={`flex flex-col ${msg.reactions?.length > 0 ? 'mb-6' : 'mb-4'} group ${isMe ? "items-end" : "items-start"} relative`}>
-        {/* Reply Context */}
+      <div className={`flex flex-col ${msg.reactions?.length > 0 ? 'mb-8' : 'mb-4'} group ${isMe ? "items-end" : "items-start"} relative`}>
         {msg.replyTo && (
-          <div className={`text-xs mb-2 p-2.5 rounded-lg border-l-4 max-w-[70%] bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200`}>
+          <div className="text-xs mb-2 p-2.5 rounded-lg border-l-4 max-w-[70%] bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200">
             <span className="font-bold">{msg.replyTo.username}</span>: {msg.replyTo.content?.substring(0, 40)}...
           </div>
         )}
 
         <div className="flex gap-2 max-w-[75%]">
-          {/* Avatar for friend's messages */}
           {!isMe && (
             <div className={`w-9 h-9 rounded-full ${avatarColor} flex-shrink-0 overflow-hidden shadow-md flex items-center justify-center text-xs font-bold text-white ring-2 ring-white dark:ring-slate-700`}>
               {msg.sender?.avatar ? (
@@ -370,73 +329,61 @@ export default function Friends() {
           )}
           
           <div className="relative">
-            {/* Message Bubble */}
             <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative text-[15px] leading-relaxed break-words ${
-              isMe 
-                ? "bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-white rounded-tr-sm" 
-                : "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white rounded-tl-sm"
+              isMe ? "bg-purple-500 text-white rounded-br-sm" : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-bl-sm shadow-lg"
             }`}>
-              {/* Sender name for friend */}
-              {!isMe && (
-                <span className="block text-[12px] font-bold mb-0.5 text-purple-600 dark:text-purple-400">
-                  {senderName}
-                </span>
-              )}
+              {!isMe && <span className="block text-[12px] font-bold mb-0.5 text-purple-600 dark:text-purple-400">{senderName}</span>}
               
-              {/* Image attachment - RESIZED */}
               {msg.attachmentType === 'image' && msg.attachment && (
-                <img 
-                  src={`http://localhost:5000${msg.attachment}`} 
-                  alt="Shared" 
-                  className="max-w-[250px] max-h-[250px] rounded-lg mb-2 cursor-pointer object-cover"
+                <img src={`http://localhost:5000${msg.attachment}`} alt="Shared" 
+                  className="max-w-[200px] max-h-[200px] rounded-lg mb-2 cursor-pointer object-cover"
                   onClick={() => window.open(`http://localhost:5000${msg.attachment}`, '_blank')}
                 />
               )}
               
-              {/* Voice attachment */}
               {msg.attachmentType === 'voice' && msg.attachment && (
-                <audio controls className="max-w-[200px]">
-                  <source src={`http://localhost:5000${msg.attachment}`} type="audio/webm" />
-                </audio>
+                <audio controls className="max-w-[180px]"><source src={`http://localhost:5000${msg.attachment}`} type="audio/webm" /></audio>
               )}
               
-              {/* Text content */}
               {msg.content && <p>{msg.content}</p>}
               
-              {/* Timestamp */}
-              <div className="text-[10px] opacity-50 mt-1 text-right">
+              <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-purple-200' : 'opacity-50'}`}>
                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
             
-            {/* Reactions Display */}
+            {/* Reactions Display - Positioned below bubble */}
             {msg.reactions?.length > 0 && (
-              <div className="absolute -bottom-5 left-2 flex gap-0.5 bg-white dark:bg-slate-700 rounded-full px-1.5 py-0.5 shadow-md border border-gray-100 dark:border-slate-600">
-                {msg.reactions.map((r, i) => (
-                  <span key={i} className="text-sm">{r.emoji}</span>
-                ))}
+              <div className="absolute -bottom-6 left-2 flex gap-0.5 bg-white dark:bg-slate-600 rounded-full px-2 py-1 shadow-lg border-2 border-white dark:border-slate-800 z-10">
+                {msg.reactions.map((r, i) => <span key={i} className="text-base">{r.emoji}</span>)}
+                <span className="text-xs text-gray-500 ml-1">{msg.reactions.length}</span>
               </div>
             )}
             
-            {/* Hover Actions */}
-            <div className="absolute -top-8 right-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-700 rounded-full shadow-lg p-1 flex gap-1 z-20">
-              {['❤️', '😂', '😮', '😢', '👍'].map(emoji => (
-                <button
-                  key={emoji}
-                  onClick={() => addReaction(msg._id, emoji)}
-                  className="hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full p-1 text-sm"
-                >
+            {/* Hover Actions Bar - Visible above */}
+            <div className={`absolute ${isMe ? '-left-2' : '-right-2'} top-0 opacity-0 group-hover:opacity-100 transition-all bg-white dark:bg-slate-700 rounded-xl shadow-xl border border-gray-200 dark:border-slate-600 p-1.5 flex gap-1 z-30`}>
+              {['❤️', '😂', '😮', '👍', '😢'].map(emoji => (
+                <button key={emoji} onClick={() => addReaction(msg._id, emoji)}
+                  className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition">
                   {emoji}
                 </button>
               ))}
-              <button
-                onClick={() => setReplyingTo(msg)}
-                className="hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full p-1 text-sm"
-                title="Reply"
-              >
+              <button onClick={() => setShowReactionPicker(isReactionPickerOpen ? null : msg._id)}
+                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition border-l border-gray-200 dark:border-slate-600">
+                ➕
+              </button>
+              <button onClick={() => setReplyingTo(msg)}
+                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition" title="Reply">
                 ↩️
               </button>
             </div>
+
+            {/* Full Emoji Picker */}
+            {isReactionPickerOpen && (
+              <div className="absolute bottom-full left-0 z-50 mb-2">
+                <EmojiPicker onEmojiClick={(e) => addReaction(msg._id, e.emoji)} theme="dark" height={350} />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -454,56 +401,78 @@ export default function Friends() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pt-20 pb-0 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 h-[calc(100vh-80px)]">
-        
         <div className="flex gap-0 h-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-slate-700">
-          {/* Friends List Sidebar */}
-          <div className="w-80 bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex flex-col">
-            <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
-              <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white">Friends</h1>
-              {getTotalUnread() > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                  {getTotalUnread()}
-                </span>
-              )}
+          
+          {/* Friends List Sidebar - WhatsApp Style */}
+          <div className="w-96 bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex flex-col">
+            <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-purple-600 to-pink-500">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-serif font-bold text-white">Chats</h1>
+                {getTotalUnread() > 0 && (
+                  <span className="bg-white text-purple-600 text-xs font-bold px-2.5 py-1 rounded-full shadow">
+                    {getTotalUnread()} new
+                  </span>
+                )}
+              </div>
             </div>
             
             <div className="overflow-y-auto flex-1">
               {friends.length === 0 ? (
                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                  <span className="text-5xl block mb-3">👋</span>
-                  <p className="font-bold">No friends yet!</p>
-                  <p className="text-xs mt-1">Visit Clubs to meet readers</p>
+                  <span className="text-6xl block mb-4">💬</span>
+                  <p className="font-bold text-lg">No chats yet!</p>
+                  <p className="text-sm mt-2 opacity-75">Visit Clubs to meet readers and make friends</p>
                 </div>
               ) : (
                 friends.map((friend) => (
                   <div
                     key={friend._id}
-                    onClick={() => {
-                      setSelectedFriend(friend);
-                      setViewProfile(null);
-                    }}
-                    className={`flex items-center gap-3 p-4 cursor-pointer transition hover:bg-gray-50 dark:hover:bg-slate-700 ${
-                      selectedFriend?._id === friend._id ? 'bg-purple-50 dark:bg-purple-900/30 border-l-4 border-purple-500' : ''
+                    onClick={() => { setSelectedFriend(friend); setViewProfile(null); }}
+                    className={`flex items-center gap-3 p-4 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-50 dark:border-slate-700/50 ${
+                      selectedFriend?._id === friend._id ? 'bg-purple-50 dark:bg-purple-900/20' : ''
                     }`}
                   >
-                    {/* Avatar with unique color */}
-                    <div className={`w-12 h-12 rounded-full ${getAvatarColor(friend.name)} flex items-center justify-center text-white font-bold overflow-hidden shrink-0 ring-2 ring-white dark:ring-slate-700`}>
-                      {friend.avatar ? (
-                        <img src={`http://localhost:5000${friend.avatar}`} className="w-full h-full object-cover" alt="" />
-                      ) : (
-                        <span className="text-lg">{friend.name?.[0]?.toUpperCase() || '?'}</span>
-                      )}
+                    {/* Avatar with online dot */}
+                    <div className="relative">
+                      <div className={`w-14 h-14 rounded-full ${getAvatarColor(friend.name)} flex items-center justify-center text-white text-xl font-bold overflow-hidden shadow-lg`}>
+                        {friend.avatar ? (
+                          <img src={`http://localhost:5000${friend.avatar}`} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                          friend.name?.[0]?.toUpperCase() || '?'
+                        )}
+                      </div>
+                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-800"></div>
                     </div>
+                    
+                    {/* Name + Last Message */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-800 dark:text-white truncate">{friend.name}</h3>
-                      <p className="text-xs text-green-500">Online</p>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-gray-900 dark:text-white truncate">{friend.name}</h3>
+                        {lastMessages[friend._id] && (
+                          <span className={`text-xs ${unreadCounts[friend._id] > 0 ? 'text-purple-500 font-bold' : 'text-gray-400'}`}>
+                            {formatTime(lastMessages[friend._id].time)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <p className={`text-sm truncate ${unreadCounts[friend._id] > 0 ? 'text-gray-800 dark:text-gray-200 font-medium' : 'text-gray-500'}`}>
+                          {lastMessages[friend._id] ? (
+                            <>
+                              {lastMessages[friend._id].isMe && <span className="text-purple-500">You: </span>}
+                              {lastMessages[friend._id].content?.substring(0, 30) || '...'}
+                              {lastMessages[friend._id].content?.length > 30 ? '...' : ''}
+                            </>
+                          ) : (
+                            <span className="italic text-gray-400">Start a conversation</span>
+                          )}
+                        </p>
+                        {unreadCounts[friend._id] > 0 && (
+                          <span className="bg-purple-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-2">
+                            {unreadCounts[friend._id]}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {/* Unread badge */}
-                    {unreadCounts[friend._id] > 0 && (
-                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                        {unreadCounts[friend._id]}
-                      </span>
-                    )}
                   </div>
                 ))
               )}
@@ -520,26 +489,22 @@ export default function Friends() {
                   onClick={() => fetchFriendProfile(selectedFriend._id)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full ${getAvatarColor(selectedFriend.name)} flex items-center justify-center text-white font-bold overflow-hidden`}>
-                      {selectedFriend.avatar ? (
-                        <img src={`http://localhost:5000${selectedFriend.avatar}`} className="w-full h-full object-cover" alt="" />
-                      ) : (
-                        selectedFriend.name?.[0]?.toUpperCase()
-                      )}
+                    <div className="relative">
+                      <div className={`w-11 h-11 rounded-full ${getAvatarColor(selectedFriend.name)} flex items-center justify-center text-white font-bold overflow-hidden shadow`}>
+                        {selectedFriend.avatar ? (
+                          <img src={`http://localhost:5000${selectedFriend.avatar}`} className="w-full h-full object-cover" alt="" />
+                        ) : selectedFriend.name?.[0]?.toUpperCase()}
+                      </div>
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-800"></div>
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-800 dark:text-white">{selectedFriend.name}</h3>
-                      <p className="text-xs text-green-500">Tap to view profile</p>
+                      <p className="text-xs text-green-500">Online • Tap for info</p>
                     </div>
                   </div>
                   
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowWallpaperPicker(!showWallpaperPicker);
-                    }}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full transition"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); setShowWallpaperPicker(!showWallpaperPicker); }}
+                    className="p-2.5 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full transition text-xl">
                     🎨
                   </button>
                 </div>
@@ -547,21 +512,15 @@ export default function Friends() {
                 {/* Wallpaper Picker */}
                 {showWallpaperPicker && (
                   <div className="absolute right-20 top-32 bg-white dark:bg-slate-700 rounded-xl shadow-2xl p-4 z-50 border border-gray-200 dark:border-slate-600">
-                    <h4 className="text-xs font-bold text-gray-400 mb-3">Choose Wallpaper for {selectedFriend.name}</h4>
+                    <h4 className="text-xs font-bold text-gray-400 mb-3">Wallpaper for {selectedFriend.name}</h4>
                     <div className="grid grid-cols-3 gap-2 mb-3">
                       {Object.entries(WALLPAPERS).map(([id, cls]) => (
-                        <button
-                          key={id}
-                          onClick={() => setWallpaperForFriend(selectedFriend._id, id)}
-                          className={`w-16 h-16 rounded-lg ${cls} ${friendWallpapers[selectedFriend._id] === id ? 'ring-2 ring-purple-500' : ''}`}
-                          title={id}
-                        />
+                        <button key={id} onClick={() => setWallpaperForFriend(selectedFriend._id, id)}
+                          className={`w-16 h-16 rounded-lg ${cls} ${friendWallpapers[selectedFriend._id] === id ? 'ring-2 ring-purple-500' : ''}`} title={id} />
                       ))}
                     </div>
-                    <button
-                      onClick={() => wallpaperInputRef.current?.click()}
-                      className="w-full py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition"
-                    >
+                    <button onClick={() => wallpaperInputRef.current?.click()}
+                      className="w-full py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition">
                       📷 Upload Custom
                     </button>
                     <input type="file" ref={wallpaperInputRef} onChange={handleCustomWallpaperUpload} accept="image/*" className="hidden" />
@@ -569,15 +528,14 @@ export default function Friends() {
                 )}
                 
                 {/* Messages Area */}
-                <div 
-                  className={`flex-1 p-4 overflow-y-auto ${getCurrentWallpaper() || ''}`}
-                  style={getCustomWallpaperStyle()}
-                >
+                <div className={`flex-1 p-4 overflow-y-auto ${getCurrentWallpaper() || ''}`} style={getCustomWallpaperStyle()}>
                   {messages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                      <span className="text-6xl mb-3">💬</span>
-                      <p className="text-lg font-bold">Start a conversation</p>
-                      <p className="text-sm opacity-75">Say hi to {selectedFriend.name}!</p>
+                      <div className="w-24 h-24 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-4">
+                        <span className="text-5xl">👋</span>
+                      </div>
+                      <p className="text-lg font-bold">Say hello to {selectedFriend.name}!</p>
+                      <p className="text-sm opacity-75 mt-1">Send a message to start chatting</p>
                     </div>
                   ) : (
                     messages.map((msg) => <MessageBubble key={msg._id} msg={msg} />)
@@ -587,13 +545,12 @@ export default function Friends() {
                 
                 {/* Reply Preview */}
                 {replyingTo && (
-                  <div className="px-4 py-2 bg-gray-100 dark:bg-slate-700 flex items-center justify-between border-t border-gray-200 dark:border-slate-600">
+                  <div className="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 flex items-center justify-between border-t-2 border-purple-500">
                     <div className="flex-1 text-sm">
-                      <span className="text-gray-400">Replying to </span>
-                      <span className="font-bold text-purple-500">{replyingTo.sender?.name}</span>
+                      <span className="text-purple-500 font-bold">↩ Replying to {replyingTo.sender?.name}</span>
                       <p className="text-gray-500 truncate">{replyingTo.content?.substring(0, 50)}...</p>
                     </div>
-                    <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                    <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-600 text-xl ml-2">✕</button>
                   </div>
                 )}
                 
@@ -601,18 +558,13 @@ export default function Friends() {
                 {imagePreview && (
                   <div className="px-4 py-3 bg-gray-100 dark:bg-slate-700 border-t border-gray-200 dark:border-slate-600">
                     <div className="flex items-center gap-3">
-                      <img src={imagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-lg" />
+                      <img src={imagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-lg shadow" />
                       <div className="flex-1">
-                        <input
-                          type="text"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="Add a caption..."
-                          className="w-full bg-transparent border-none text-gray-800 dark:text-white placeholder-gray-400 outline-none"
-                        />
+                        <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="Add a caption..." className="w-full bg-transparent border-none text-gray-800 dark:text-white placeholder-gray-400 outline-none" />
                       </div>
                       <button onClick={sendImage} className="px-4 py-2 bg-purple-500 text-white rounded-full font-bold">Send</button>
-                      <button onClick={() => { setAttachment(null); setImagePreview(null); }} className="text-gray-400">✕</button>
+                      <button onClick={() => { setAttachment(null); setImagePreview(null); }} className="text-gray-400 text-xl">✕</button>
                     </div>
                   </div>
                 )}
@@ -622,49 +574,43 @@ export default function Friends() {
                   <div className="p-3 bg-purple-100 dark:bg-purple-900/30 flex items-center gap-3 border-t">
                     <audio controls src={URL.createObjectURL(audioBlob)} className="flex-1" />
                     <button onClick={sendVoiceNote} className="px-4 py-2 bg-purple-500 text-white rounded-full font-bold">Send</button>
-                    <button onClick={() => setAudioBlob(null)} className="text-gray-500">✕</button>
+                    <button onClick={() => setAudioBlob(null)} className="text-gray-500 text-xl">✕</button>
                   </div>
                 )}
                 
                 {/* Message Input */}
                 {!imagePreview && (
-                  <form onSubmit={handleSendMessage} className="p-4 bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 flex gap-2 items-center">
+                  <form onSubmit={handleSendMessage} className="p-3 bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 flex gap-2 items-center">
                     <div className="relative">
-                      <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-xl">😊</button>
+                      <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-xl">😊</button>
                       {showEmojiPicker && (
-                        <div className="absolute bottom-12 left-0 z-50">
-                          <EmojiPicker onEmojiClick={onEmojiClick} theme="dark" />
-                        </div>
+                        <div className="absolute bottom-14 left-0 z-50"><EmojiPicker onEmojiClick={onEmojiClick} theme="dark" /></div>
                       )}
                     </div>
                     
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-xl">📷</button>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-xl">📷</button>
                     <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
                     
-                    <button
-                      type="button"
-                      onClick={isRecording ? stopRecording : startRecording}
-                      className={`p-2 rounded-full text-xl ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-100 dark:hover:bg-slate-700'}`}
-                    >
+                    <button type="button" onClick={isRecording ? stopRecording : startRecording}
+                      className={`p-2.5 rounded-full text-xl ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-100 dark:hover:bg-slate-700'}`}>
                       {isRecording ? '⏹️' : '🎤'}
                     </button>
                     
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder={`Message ${selectedFriend.name}...`}
-                      className="flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-full px-4 py-3 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-300 outline-none"
-                    />
+                    <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..."
+                      className="flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-full px-5 py-3 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-400 outline-none" />
                     
-                    <button type="submit" disabled={!newMessage.trim()} className="px-6 py-3 bg-purple-500 text-white rounded-full font-bold hover:bg-purple-600 disabled:opacity-50">Send</button>
+                    <button type="submit" disabled={!newMessage.trim()} 
+                      className="w-12 h-12 bg-purple-500 text-white rounded-full font-bold hover:bg-purple-600 disabled:opacity-50 flex items-center justify-center text-xl shadow-lg">
+                      ➤
+                    </button>
                   </form>
                 )}
               </>
             ) : viewProfile ? (
-              /* Profile View */
               <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-slate-900">
-                <button onClick={() => setViewProfile(null)} className="self-start mb-4 text-gray-400 hover:text-gray-600 dark:hover:text-white">← Back to chat</button>
+                <button onClick={() => setViewProfile(null)} className="self-start mb-4 text-gray-400 hover:text-gray-600 dark:hover:text-white flex items-center gap-2">
+                  <span>←</span> Back to chat
+                </button>
                 
                 {loadingProfile ? (
                   <div className="text-gray-400">Loading profile...</div>
@@ -674,21 +620,16 @@ export default function Friends() {
                       <div className="w-full h-full bg-white dark:bg-slate-700 rounded-full overflow-hidden flex items-center justify-center">
                         {viewProfile.avatar ? (
                           <img src={`http://localhost:5000${viewProfile.avatar}`} className="w-full h-full object-cover" alt="" />
-                        ) : (
-                          <span className="text-4xl font-bold text-gray-300">{viewProfile.name?.[0]}</span>
-                        )}
+                        ) : <span className="text-4xl font-bold text-gray-300">{viewProfile.name?.[0]}</span>}
                       </div>
                     </div>
-                    
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{viewProfile.name}</h2>
                     <p className="text-gray-500 dark:text-gray-400 italic text-sm mt-2 mb-4">"{viewProfile.about || "Hey there! I'm using Limerence 📚"}"</p>
                     
                     <div className="mt-6">
                       <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Badges</h4>
                       <div className="flex flex-wrap justify-center gap-2">
-                        {viewProfile.badges?.map((b, i) => (
-                          <div key={i} className="text-2xl p-2 bg-gray-100 dark:bg-slate-700 rounded-lg">{b.icon || "🏅"}</div>
-                        ))}
+                        {viewProfile.badges?.map((b, i) => <div key={i} className="text-2xl p-2 bg-gray-100 dark:bg-slate-700 rounded-lg">{b.icon || "🏅"}</div>)}
                         {!viewProfile.badges?.length && <p className="text-xs text-gray-400">No badges yet</p>}
                       </div>
                     </div>
@@ -708,9 +649,11 @@ export default function Friends() {
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 dark:bg-slate-900">
-                <span className="text-8xl mb-4">👯</span>
-                <h3 className="text-2xl font-bold text-gray-600 dark:text-gray-400">Select a friend</h3>
-                <p className="text-sm">Choose someone to start chatting</p>
+                <div className="w-32 h-32 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-6">
+                  <span className="text-6xl">💬</span>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-600 dark:text-gray-400">Select a chat</h3>
+                <p className="text-sm mt-2">Choose a friend from the list to start messaging</p>
               </div>
             )}
           </div>
