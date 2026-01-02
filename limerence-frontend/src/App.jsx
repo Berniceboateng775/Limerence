@@ -11,6 +11,7 @@ import BookDetails from "./pages/BookDetails";
 import MyShelf from "./pages/MyShelf";
 import Onboarding from "./pages/Onboarding";
 import Moods from "./pages/Moods";
+import MoodBooks from "./pages/MoodBooks";
 import Profile from "./pages/Profile";
 import Badges from "./pages/Badges";
 import SocialFeed from "./pages/SocialFeed";
@@ -118,6 +119,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Moods />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/mood/:moodId"
+              element={
+                <ProtectedRoute>
+                  <MoodBooks />
                 </ProtectedRoute>
               }
             />

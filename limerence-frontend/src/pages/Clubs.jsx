@@ -26,8 +26,15 @@ export default function Clubs() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [reactionTarget, setReactionTarget] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [chatTheme, setChatTheme] = useState(localStorage.getItem("chatTheme") || "romantic");
-  const [customWallpaper, setCustomWallpaper] = useState(localStorage.getItem("customWallpaper") || null);
+  // Per-club wallpaper settings
+  const [clubWallpapers, setClubWallpapers] = useState(() => {
+    const saved = localStorage.getItem("clubWallpapers");
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [clubCustomWallpapers, setClubCustomWallpapers] = useState(() => {
+    const saved = localStorage.getItem("clubCustomWallpapers");
+    return saved ? JSON.parse(saved) : {};
+  });
   const [fontSize, setFontSize] = useState(localStorage.getItem("chatFontSize") || "medium");
   
   const messagesEndRef = useRef(null);
@@ -55,9 +62,10 @@ export default function Clubs() {
 
   // Save preferences
   useEffect(() => {
-    localStorage.setItem("chatTheme", chatTheme);
+    localStorage.setItem("clubWallpapers", JSON.stringify(clubWallpapers));
+    localStorage.setItem("clubCustomWallpapers", JSON.stringify(clubCustomWallpapers));
     localStorage.setItem("chatFontSize", fontSize);
-  }, [chatTheme, fontSize]);
+  }, [clubWallpapers, clubCustomWallpapers, fontSize]);
 
   const fetchClubs = useCallback(async () => {
     try {
@@ -239,21 +247,41 @@ export default function Clubs() {
 
   const handleWallpaperUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (file && selectedClub) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setCustomWallpaper(reader.result);
-        localStorage.setItem("customWallpaper", reader.result);
-        setChatTheme("custom");
+        setClubCustomWallpapers(prev => ({ ...prev, [selectedClub._id]: reader.result }));
+        setClubWallpapers(prev => ({ ...prev, [selectedClub._id]: 'custom' }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const clearCustomWallpaper = () => {
-    setCustomWallpaper(null);
-    localStorage.removeItem("customWallpaper");
-    setChatTheme("romantic");
+  const setWallpaperForClub = (clubId, wallpaperId) => {
+    setClubWallpapers(prev => ({ ...prev, [clubId]: wallpaperId }));
+    if (wallpaperId !== 'custom') {
+      setClubCustomWallpapers(prev => {
+        const newCustom = { ...prev };
+        delete newCustom[clubId];
+        return newCustom;
+      });
+    }
+  };
+
+  const getCurrentWallpaper = () => {
+    if (!selectedClub) return wallpapers.romantic;
+    const wpId = clubWallpapers[selectedClub._id] || 'romantic';
+    if (wpId === 'custom' && clubCustomWallpapers[selectedClub._id]) return null;
+    return wallpapers[wpId] || wallpapers.romantic;
+  };
+
+  const getCustomWallpaperStyle = () => {
+    if (!selectedClub) return {};
+    const wpId = clubWallpapers[selectedClub._id];
+    if (wpId === 'custom' && clubCustomWallpapers[selectedClub._id]) {
+      return { backgroundImage: `url(${clubCustomWallpapers[selectedClub._id]})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    }
+    return {};
   };
 
   const filteredClubs = clubs.filter(c => 
@@ -528,8 +556,8 @@ export default function Clubs() {
                 {/* Wallpaper Selector */}
                 <select 
                   className="text-xs border-none bg-gray-100 dark:bg-slate-700 rounded-lg p-1.5 outline-none cursor-pointer dark:text-white" 
-                  value={chatTheme} 
-                  onChange={e => setChatTheme(e.target.value)}
+                  value={clubWallpapers[selectedClub._id] || 'romantic'} 
+                  onChange={e => setWallpaperForClub(selectedClub._id, e.target.value)}
                 >
                   <option value="romantic">🌸 Romantic</option>
                   <option value="ocean">🌊 Ocean</option>
@@ -538,7 +566,7 @@ export default function Clubs() {
                   <option value="galaxy">🌌 Galaxy</option>
                   <option value="midnight">🌙 Midnight</option>
                   <option value="lavender">💜 Lavender</option>
-                  {customWallpaper && <option value="custom">🖼️ Custom</option>}
+                  {clubCustomWallpapers[selectedClub._id] && <option value="custom">🖼️ Custom</option>}
                 </select>
                 
                 {/* Custom Wallpaper Upload */}
@@ -546,26 +574,14 @@ export default function Clubs() {
                   🖼️
                   <input type="file" accept="image/*" className="hidden" onChange={handleWallpaperUpload} />
                 </label>
-                
-                {customWallpaper && (
-                  <button onClick={clearCustomWallpaper} className="text-xs text-red-500 hover:text-red-700" title="Clear custom wallpaper">✕</button>
-                )}
               </div>
             </div>
 
             {/* Messages Area */}
             <div 
               ref={chatContainerRef}
-              className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-1 ${
-                chatTheme === 'custom' && customWallpaper 
-                  ? '' 
-                  : wallpapers[chatTheme] || wallpapers.romantic
-              }`}
-              style={chatTheme === 'custom' && customWallpaper ? {
-                backgroundImage: `url(${customWallpaper})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              } : {}}
+              className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-1 ${getCurrentWallpaper() || ''}`}
+              style={getCustomWallpaperStyle()}
             >
               {selectedClub.messages?.map((msg, i) => {
                 const firstUnreadIdx = getFirstUnreadIndex(selectedClub);
