@@ -1,6 +1,7 @@
 import React, { useContext, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, AuthContext } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import SplashScreen from "./components/SplashScreen";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -51,10 +52,11 @@ export default function App() {
   };
 
   return (
-    <>
-      <ToastContainer />
-      <BrowserRouter>
-        <AuthProvider>
+    <ThemeProvider>
+      <div className="min-h-screen bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <ToastContainer />
+        <BrowserRouter>
+          <AuthProvider>
           {!splashSeen ? (
           // 🌊 Splash Screen Flow
           <Routes>
@@ -162,8 +164,9 @@ export default function App() {
             <Route path="*" element={<Navigate to="/register" replace />} />
           </Routes>
         )}
-      </AuthProvider>
-    </BrowserRouter>
-    </>
+          </AuthProvider>
+        </BrowserRouter>
+      </div>
+    </ThemeProvider>
   );
 }
