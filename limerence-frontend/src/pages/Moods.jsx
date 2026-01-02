@@ -56,7 +56,7 @@ export default function Moods() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 pt-20 transition-colors duration-300">
-      <div className="bg-slate-800 dark:bg-slate-800 text-white py-12 px-4 rounded-b-[2rem] shadow-lg mb-8">
+      <div className="bg-slate-800 dark:bg-slate-800 text-white py-8 px-4 rounded-b-[2rem] shadow-lg mb-4">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl font-serif font-bold mb-2">What's your vibe?</h1>
           <p className="text-gray-300">Pick a mood, find your next obsession.</p>

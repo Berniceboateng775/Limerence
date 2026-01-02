@@ -28,6 +28,11 @@ const DirectMessageSchema = new mongoose.Schema({
       emoji: String,
       user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
     }],
+    replyTo: {
+      messageId: String,
+      content: String,
+      username: String
+    },
     createdAt: {
       type: Date,
       default: Date.now

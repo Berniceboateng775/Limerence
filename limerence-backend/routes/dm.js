@@ -55,7 +55,7 @@ router.post("/:friendId/message", auth, upload.single("attachment"), async (req,
   try {
     const userId = req.user.userId;
     const friendId = req.params.friendId;
-    const { content, attachmentType } = req.body;
+    const { content, attachmentType, replyToId, replyToContent, replyToUsername } = req.body;
 
     // Find or create conversation
     let conversation = await DirectMessage.findOne({
@@ -69,7 +69,7 @@ router.post("/:friendId/message", auth, upload.single("attachment"), async (req,
       });
     }
 
-    // Prepare message
+    // Prepare message with optional reply
     const newMessage = {
       sender: userId,
       content: content || "",
@@ -77,6 +77,15 @@ router.post("/:friendId/message", auth, upload.single("attachment"), async (req,
       attachmentType: attachmentType || "none",
       createdAt: new Date()
     };
+    
+    // Add reply context if replying
+    if (replyToId && replyToContent && replyToUsername) {
+      newMessage.replyTo = {
+        messageId: replyToId,
+        content: replyToContent,
+        username: replyToUsername
+      };
+    }
 
     conversation.messages.push(newMessage);
     conversation.updatedAt = new Date();

@@ -12,6 +12,7 @@ export default function Navbar() {
   // Notification & message counts
   const [unreadNotifications, setUnreadNotifications] = useState([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadDMs, setUnreadDMs] = useState(0);
   const [showNotifPreview, setShowNotifPreview] = useState(false);
   const [showClubsPreview, setShowClubsPreview] = useState(false);
   const [recentClubMessages, setRecentClubMessages] = useState([]);
@@ -20,10 +21,12 @@ export default function Navbar() {
     if (token) {
       fetchUnreadNotifications();
       fetchUnreadClubMessages();
+      fetchUnreadDMs();
       // Poll every 30 seconds
       const interval = setInterval(() => {
         fetchUnreadNotifications();
         fetchUnreadClubMessages();
+        fetchUnreadDMs();
       }, 30000);
       return () => clearInterval(interval);
     }
@@ -73,11 +76,43 @@ export default function Navbar() {
     }
   };
 
+  const fetchUnreadDMs = async () => {
+    try {
+      // Get all conversations and count unread
+      const meRes = await axios.get("/api/users/me", {
+        headers: { "x-auth-token": token }
+      });
+      const friends = meRes.data.friends || [];
+      let totalUnread = 0;
+      
+      for (const friend of friends) {
+        try {
+          const convRes = await axios.get(`/api/dm/${friend._id}`, {
+            headers: { "x-auth-token": token }
+          });
+          const msgs = convRes.data.messages || [];
+          const fiveMinAgo = Date.now() - 300000;
+          msgs.forEach(m => {
+            if ((m.sender?._id || m.sender) !== user?._id && 
+                new Date(m.createdAt).getTime() > fiveMinAgo) {
+              totalUnread++;
+            }
+          });
+        } catch (e) { /* no conversation */ }
+      }
+      
+      setUnreadDMs(Math.min(totalUnread, 99));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const isActive = (path) => location.pathname === path;
 
   const navLinks = [
     { path: "/home", label: "Home", icon: "🏠" },
     { path: "/myshelf", label: "Library", icon: "📚" },
+    { path: "/friends", label: "Friends", icon: "👯", hasDMBadge: true },
     { path: "/clubs", label: "Clubs", icon: "💬", hasBadge: true },
     { path: "/badges", label: "Badges", icon: "🎖️" }, 
     { path: "/moods", label: "Moods", icon: "🔥" },
@@ -120,6 +155,12 @@ export default function Navbar() {
                       {unreadMessages > 9 ? '9+' : unreadMessages}
                     </span>
                   )}
+                  {/* Friends DM unread badge */}
+                  {link.path === '/friends' && unreadDMs > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                      {unreadDMs > 9 ? '9+' : unreadDMs}
+                    </span>
+                  )}
                 </span>
                 <span className="text-xs md:text-sm hidden md:inline">{link.label}</span>
                 
@@ -137,19 +178,6 @@ export default function Navbar() {
                 )}
               </Link>
             ))}
-            
-            {/* Friends Link */}
-            <Link
-              to="/friends"
-              className={`flex flex-col md:flex-row items-center gap-1 p-2 md:p-0 transition-colors duration-200 ${
-                isActive('/friends')
-                  ? "text-primary font-bold border-t-2 border-primary md:border-t-0 md:border-b-2" 
-                  : "text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              <span className="text-xl md:text-lg mb-1 md:mb-0 md:mr-2">👯</span>
-              <span className="text-xs md:text-sm hidden md:inline">Friends</span>
-            </Link>
             
             {/* Theme Toggle Button */}
             <button 
