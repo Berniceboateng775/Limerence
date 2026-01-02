@@ -168,11 +168,11 @@ export default function HomePage() {
   }, [searchQuery]);
 
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900 pb-0 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 pb-0 flex flex-col transition-colors duration-300">
       
       {/* Navbar / Header */}
-      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-4 flex items-center justify-between shadow-sm">
-           <div className="text-2xl font-serif font-bold tracking-tighter text-slate-900 cursor-pointer" onClick={() => navigate('/')}>
+      <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex items-center justify-between shadow-sm">
+           <div className="text-2xl font-serif font-bold tracking-tighter text-slate-900 dark:text-white cursor-pointer" onClick={() => navigate('/')}>
               
            </div>
            
@@ -180,7 +180,7 @@ export default function HomePage() {
                <input 
                    type="text" 
                    placeholder="Search books, authors, tropes..." 
-                   className="w-full pl-12 pr-4 py-3 bg-gray-100 rounded-full border-none focus:ring-2 focus:ring-purple-200 outline-none transition text-sm font-medium"
+                   className="w-full pl-12 pr-4 py-3 bg-gray-100 dark:bg-slate-800 rounded-full border-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-600 outline-none transition text-sm font-medium dark:text-white dark:placeholder-gray-400"
                    value={searchQuery}
                    onChange={(e) => setSearchQuery(e.target.value)}
                />
@@ -199,15 +199,15 @@ export default function HomePage() {
           {/* SEARCH RESULTS OVERLAY */}
           {searchQuery ? (
               <div className="min-h-screen">
-                  <h2 className="text-2xl font-bold mb-6">Results for "{searchQuery}"</h2>
+                  <h2 className="text-2xl font-bold mb-6 dark:text-white">Results for "{searchQuery}"</h2>
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                       {searchResults.map((book, i) => (
                           <div key={i} onClick={() => navigate(`/book/${book.id}`)} className="cursor-pointer group">
-                             <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-md bg-gray-100 mb-2">
+                             <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-md bg-gray-100 dark:bg-slate-700 mb-2">
                                  <img src={book.cover} className="w-full h-full object-cover group-hover:scale-105 transition" referrerPolicy="no-referrer" />
                              </div>
-                             <h4 className="font-bold text-sm truncate">{book.title}</h4>
-                             <p className="text-xs text-gray-500 truncate">{book.author}</p>
+                             <h4 className="font-bold text-sm truncate dark:text-white">{book.title}</h4>
+                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{book.author}</p>
                           </div>
                       ))}
                       {searchResults.length === 0 && <p>No results found.</p>}
@@ -217,7 +217,7 @@ export default function HomePage() {
             <>
               {/* HERO SECTION - Redesigned Height to be smaller */}
               <div className="mb-12">
-                   <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 rounded-[2rem] p-6 relative overflow-hidden shadow-sm border border-purple-50 min-h-[350px] flex items-center">
+                   <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 dark:from-purple-950/50 dark:via-pink-950/30 dark:to-rose-950/50 rounded-[2rem] p-6 relative overflow-hidden shadow-sm border border-purple-50 dark:border-purple-900/50 min-h-[350px] flex items-center">
                        {/* Background Blur */}
                        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-200/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 animate-pulse-slow"></div>
                        
@@ -228,10 +228,10 @@ export default function HomePage() {
                                   <span className="bg-white text-purple-600 border border-purple-100 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest inline-block shadow-sm mb-2">
                                       ✨ Editor's Pick
                                   </span>
-                                  <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 leading-[1.1] mb-1">
+                                  <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 dark:text-white leading-[1.1] mb-1">
                                       {heroBook?.title || "Loading..."}
                                   </h2>
-                                  <h3 className="text-lg text-gray-600 font-medium">by {heroBook?.author || "Unknown"}</h3>
+                                  <h3 className="text-lg text-gray-600 dark:text-gray-300 font-medium">by {heroBook?.author || "Unknown"}</h3>
                                </div>
 
                                <div className="h-8">
@@ -289,7 +289,7 @@ export default function HomePage() {
               ].map((section) => (
                   <div key={section.key} className="mb-12 relative group/row">
                       <div className="flex items-center justify-between mb-6 px-2">
-                          <h3 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                          <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
                               <span className="w-1.5 h-8 bg-gradient-to-b from-purple-500 to-rose-500 rounded-full block"></span>
                               {section.title}
                           </h3>
@@ -313,13 +313,13 @@ export default function HomePage() {
                                           <p className="font-bold text-sm">★ {book.rating}</p>
                                       </div>
                                   </div>
-                                  <h4 className="font-bold text-base text-slate-900 truncate px-1 group-hover:text-purple-600 transition">{book.title}</h4>
-                                  <p className="text-xs text-gray-500 truncate px-1">{book.author}</p>
+                                  <h4 className="font-bold text-base text-slate-900 dark:text-white truncate px-1 group-hover:text-purple-600 transition">{book.title}</h4>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate px-1">{book.author}</p>
                               </div>
                           )) : (
                               // SKELETON LOADERS
                               Array(6).fill(0).map((_, i) => (
-                                  <div key={i} className="shrink-0 w-[160px] md:w-[180px]">
+                                  <div key={i} className="shrink-0 w-[160px] md:w-[180px] dark:opacity-50">
                                       <div className="aspect-[2/3] bg-gray-100 rounded-2xl animate-pulse mb-4"></div>
                                       <div className="h-4 bg-gray-100 rounded w-3/4 mb-2 animate-pulse"></div>
                                       <div className="h-3 bg-gray-100 rounded w-1/2 animate-pulse"></div>
@@ -331,13 +331,13 @@ export default function HomePage() {
                       {/* Navigation Buttons */}
                       <button 
                         onClick={() => scrollRow(section.key, "prev")}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 shadow-xl rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition hover:bg-white z-10 -ml-6 border border-gray-100"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 dark:bg-slate-800/90 shadow-xl rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition hover:bg-white dark:hover:bg-slate-700 z-10 -ml-6 border border-gray-100 dark:border-slate-700 dark:text-white"
                       >
                           ←
                       </button>
                       <button 
                         onClick={() => scrollRow(section.key, "next")}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 shadow-xl rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition hover:bg-white z-10 -mr-6 border border-gray-100"
+                        className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 dark:bg-slate-800/90 shadow-xl rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition hover:bg-white dark:hover:bg-slate-700 z-10 -mr-6 border border-gray-100 dark:border-slate-700 dark:text-white"
                       >
                           →
                       </button>
@@ -352,10 +352,10 @@ export default function HomePage() {
       <div className="flex-grow"></div>
 
       {/* Footer - Simplified & Compact */}
-      <footer className="bg-slate-50 border-t border-gray-100 py-6 mt-12 w-full">
+      <footer className="bg-slate-50 dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 py-6 mt-12 w-full transition-colors duration-300">
            <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center text-center">
-               <span className="font-serif font-bold text-xl text-slate-900 mb-2">Limerence.</span>
-               <p className="text-[10px] text-gray-400">
+               <span className="font-serif font-bold text-xl text-slate-900 dark:text-white mb-2">Limerence.</span>
+               <p className="text-[10px] text-gray-400 dark:text-gray-500">
                    © 2024 Limerence Inc. All rights reserved.
                </p>
            </div>

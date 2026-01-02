@@ -73,7 +73,7 @@ export default function Clubs() {
 
   useEffect(() => {
     fetchClubs();
-    const interval = setInterval(fetchClubs, 5000); 
+    const interval = setInterval(fetchClubs, 15000); // Reduced from 5s to 15s to prevent blinking
     return () => clearInterval(interval);
   }, []);
 
@@ -261,17 +261,17 @@ export default function Clubs() {
     c.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Generate user color based on name (for distinguishing users)
+  // Generate user color based on name (for distinguishing users) - NEUTRAL TONES
   const getUserColor = (name) => {
     const colors = [
-      { bg: "bg-blue-500", text: "text-white" },
-      { bg: "bg-green-500", text: "text-white" },
-      { bg: "bg-amber-500", text: "text-white" },
-      { bg: "bg-rose-500", text: "text-white" },
-      { bg: "bg-indigo-500", text: "text-white" },
-      { bg: "bg-teal-500", text: "text-white" },
-      { bg: "bg-orange-500", text: "text-white" },
-      { bg: "bg-cyan-500", text: "text-white" },
+      { bg: "bg-slate-500", text: "text-white", bubble: "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100" },
+      { bg: "bg-gray-500", text: "text-white", bubble: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100" },
+      { bg: "bg-zinc-500", text: "text-white", bubble: "bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100" },
+      { bg: "bg-stone-500", text: "text-white", bubble: "bg-stone-100 dark:bg-stone-700 text-stone-800 dark:text-stone-100" },
+      { bg: "bg-neutral-500", text: "text-white", bubble: "bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100" },
+      { bg: "bg-slate-600", text: "text-white", bubble: "bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100" },
+      { bg: "bg-gray-600", text: "text-white", bubble: "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100" },
+      { bg: "bg-zinc-600", text: "text-white", bubble: "bg-zinc-200 dark:bg-zinc-600 text-zinc-800 dark:text-zinc-100" },
     ];
     const hash = name?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
     return colors[hash % colors.length];
@@ -286,7 +286,7 @@ export default function Clubs() {
     return (
       <div 
         ref={isFirstUnread ? firstUnreadRef : null}
-        className={`flex flex-col mb-3 group ${isMe ? "items-end" : "items-start"} relative animate-fade-in`}
+        className={`flex flex-col ${msg.reactions?.length > 0 ? 'mb-5' : 'mb-3'} group ${isMe ? "items-end" : "items-start"} relative animate-fade-in`}
       >
         {/* Show "New Messages" divider */}
         {isFirstUnread && (
@@ -328,7 +328,7 @@ export default function Clubs() {
             <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${fontSizes[fontSize]} leading-relaxed break-words ${
               isMe 
                 ? "bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-tr-sm" 
-                : `${userColor.bg} ${userColor.text} rounded-tl-sm`
+                : `${userColor.bubble} rounded-tl-sm shadow-md border border-gray-200/50 dark:border-slate-600/50`
             }`}>
               {/* Show sender name for others */}
               {!isMe && (

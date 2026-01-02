@@ -431,35 +431,35 @@ export default function BookDetails() {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center text-gray-500">Loading details...</div>;
-  if (!book) return <div className="h-screen flex items-center justify-center text-gray-500">Book not found.</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center text-gray-500 dark:text-gray-400 dark:bg-slate-900">Loading details...</div>;
+  if (!book) return <div className="h-screen flex items-center justify-center text-gray-500 dark:text-gray-400 dark:bg-slate-900">Book not found.</div>;
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900">
+    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-slate-900 dark:text-gray-100 transition-colors duration-300">
       <BadgeModal badge={showBadge} onClose={() => setShowBadge(null)} />
       
       {/* Top Search Bar */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl py-4 px-6 flex items-center justify-center transition-all duration-300">
+      <div className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl py-4 px-6 flex items-center justify-center transition-all duration-300">
          <div className="relative w-full max-w-xl">
-             <div className="flex items-center gap-3 bg-gray-50/80 rounded-full px-5 py-3 ring-1 ring-black/5 focus-within:ring-slate-900/10 focus-within:bg-white focus-within:shadow-lg transition-all shadow-sm">
+             <div className="flex items-center gap-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-full px-5 py-3 ring-1 ring-black/5 dark:ring-white/10 focus-within:ring-slate-900/10 dark:focus-within:ring-purple-500/30 focus-within:bg-white dark:focus-within:bg-slate-800 focus-within:shadow-lg transition-all shadow-sm">
                 <span className="text-xl">🔍</span>
                 <div className="flex-1 relative h-6 overflow-hidden">
                     <input 
                         type="text" 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-transparent outline-none text-slate-900 font-medium placeholder-gray-400 h-full"
+                        className="w-full bg-transparent outline-none text-slate-900 dark:text-white font-medium placeholder-gray-400 dark:placeholder-gray-500 h-full"
                         placeholder="Search books..." 
                     />
                 </div>
                 {searchQuery && (
-                    <button onClick={() => { setSearchQuery(""); setSearchResults([]); }} className="text-gray-400 hover:text-slate-900">✕</button>
+                    <button onClick={() => { setSearchQuery(""); setSearchResults([]); }} className="text-gray-400 hover:text-slate-900 dark:hover:text-white">✕</button>
                 )}
              </div>
 
              {/* Search Dropdown */}
              {searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-96 overflow-y-auto z-50 animate-fade-in-up">
+                <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 max-h-96 overflow-y-auto z-50 animate-fade-in-up">
                     {searchResults.map((b) => (
                         <div 
                             key={b.id}
@@ -468,12 +468,12 @@ export default function BookDetails() {
                                 setSearchQuery("");
                                 setSearchResults([]);
                             }}
-                            className="flex items-center gap-4 p-3 hover:bg-gray-50 cursor-pointer transition border-b border-gray-50 last:border-none"
+                            className="flex items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition border-b border-gray-50 dark:border-slate-700 last:border-none"
                         >
                             <img src={b.cover} alt={b.title} className="w-12 h-16 object-cover rounded shadow-sm" />
                             <div>
-                                <h4 className="font-bold text-slate-800 text-sm line-clamp-1">{b.title}</h4>
-                                <p className="text-xs text-gray-500">{b.author}</p>
+                                <h4 className="font-bold text-slate-800 dark:text-white text-sm line-clamp-1">{b.title}</h4>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{b.author}</p>
                             </div>
                         </div>
                     ))}

@@ -31,12 +31,15 @@ export default function MyShelf() {
     filter === "all" ? true : item.status === filter
   );
 
-  if (loading) return <div className="p-8 text-center">Loading shelf...</div>;
+  // Fallback cover for books without images
+  const FALLBACK_COVER = "https://images.unsplash.com/photo-1524578271613-d550eacf6090?auto=format&fit=crop&w=600&q=80";
+
+  if (loading) return <div className="p-8 text-center dark:text-gray-400">Loading shelf...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-4 md:p-8 transition-colors duration-300">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">My Bookshelf</h1>
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">My Bookshelf</h1>
         
         {/* Filters */}
         <div className="flex gap-4 mb-8 overflow-x-auto pb-2">
@@ -44,10 +47,10 @@ export default function MyShelf() {
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-full capitalize whitespace-nowrap ${
+              className={`px-4 py-2 rounded-full capitalize whitespace-nowrap transition-colors ${
                 filter === status
                   ? "bg-primary text-white shadow-md"
-                  : "bg-white text-gray-600 hover:bg-gray-100"
+                  : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
               }`}
             >
               {status.replace(/_/g, " ")}
@@ -58,27 +61,22 @@ export default function MyShelf() {
         {/* Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {filteredShelf.map((item) => (
-            <div key={item._id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden">
+            <div key={item._id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden">
               <Link to={`/book/${item.book._id}`}>
-                <div className="aspect-[2/3] bg-gray-200 relative">
-                  {item.book.coverImage ? (
-                    <img
-                      src={item.book.coverImage}
-                      alt={item.book.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400">
-                      No Cover
-                    </div>
-                  )}
-                  <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm capitalize">
+                <div className="aspect-[2/3] bg-gray-200 dark:bg-slate-700 relative">
+                  <img
+                    src={item.book.coverImage || FALLBACK_COVER}
+                    alt={item.book.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.target.src = FALLBACK_COVER; }}
+                  />
+                  <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm capitalize font-medium">
                     {item.status.replace(/_/g, " ")}
                   </div>
                 </div>
                 <div className="p-3">
-                  <h3 className="font-semibold text-gray-800 truncate">{item.book.title}</h3>
-                  <p className="text-sm text-gray-500 truncate">
+                  <h3 className="font-semibold text-gray-800 dark:text-white truncate">{item.book.title}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                     {item.book.authors && item.book.authors.join(", ")}
                   </p>
                 </div>
@@ -88,7 +86,7 @@ export default function MyShelf() {
         </div>
 
         {filteredShelf.length === 0 && (
-          <div className="text-center py-20 text-gray-500">
+          <div className="text-center py-20 text-gray-500 dark:text-gray-400">
             <p className="text-xl">No books found in this list.</p>
             <Link to="/home" className="text-primary hover:underline mt-2 inline-block">
               Discover new books
