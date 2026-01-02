@@ -41,6 +41,7 @@ export default function Clubs() {
   const messagesEndRef = useRef(null);
   const firstUnreadRef = useRef(null);
   const chatContainerRef = useRef(null);
+  const messageRefs = useRef({}); // Map of message IDs to refs for scrolling
 
   // Premium Wallpaper Gradients
   const wallpapers = {
@@ -268,6 +269,60 @@ export default function Clubs() {
     } catch (err) { toast("Failed", "error"); }
   };
 
+  // Leave club
+  const handleLeaveClub = async () => {
+    if (!selectedClub) return;
+    if (!window.confirm(`Are you sure you want to leave "${selectedClub.name}"?`)) return;
+    
+    try {
+      await axios.post(`/api/clubs/${selectedClub._id}/leave`, {}, { headers: { "x-auth-token": token } });
+      setSelectedClub(null);
+      setViewProfile(null);
+      fetchClubs();
+      toast("You left the club", "success");
+    } catch (err) { 
+      console.error(err);
+      toast("Failed to leave", "error"); 
+    }
+  };
+
+  // Delete club (admin only)
+  const handleDeleteClub = async () => {
+    if (!selectedClub) return;
+    if (!window.confirm(`Are you sure you want to DELETE "${selectedClub.name}"? This action cannot be undone!`)) return;
+    
+    try {
+      await axios.delete(`/api/clubs/${selectedClub._id}`, { headers: { "x-auth-token": token } });
+      setSelectedClub(null);
+      setViewProfile(null);
+      fetchClubs();
+      toast("Club deleted", "success");
+    } catch (err) { 
+      console.error(err);
+      toast(err.response?.data?.msg || "Failed to delete", "error"); 
+    }
+  };
+
+  // Kick member (admin only)
+  const handleKickMember = async (memberId, memberName) => {
+    if (!selectedClub) return;
+    if (!window.confirm(`Remove ${memberName} from the club?`)) return;
+    
+    try {
+      await axios.post(`/api/clubs/${selectedClub._id}/kick`, { userIdToKick: memberId }, { headers: { "x-auth-token": token } });
+      fetchClubs();
+      toast(`${memberName} removed`, "success");
+      // Refresh viewProfile if viewing club
+      if (viewProfile?.members) {
+        const updated = clubs.find(c => c._id === selectedClub._id);
+        if (updated) setViewProfile(updated);
+      }
+    } catch (err) { 
+      console.error(err);
+      toast("Failed to remove member", "error"); 
+    }
+  };
+
   const handleFileSelect = (e) => { if (e.target.files[0]) setAttachment(e.target.files[0]); };
 
   const handleWallpaperUpload = (e) => {
@@ -337,6 +392,18 @@ export default function Clubs() {
     };
   };
 
+  // Scroll to a specific message by ID
+  const scrollToMessage = (msgId) => {
+    if (!msgId) return;
+    const ref = messageRefs.current[msgId];
+    if (ref) {
+      ref.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight effect
+      ref.classList.add('ring-2', 'ring-purple-500');
+      setTimeout(() => ref.classList.remove('ring-2', 'ring-purple-500'), 2000);
+    }
+  };
+
   // --- UI COMPONENTS ---
   const MessageBubble = ({ msg, isFirstUnread }) => {
     const senderId = msg.user?._id || msg.user;
@@ -345,8 +412,11 @@ export default function Clubs() {
     
     return (
       <div 
-        ref={isFirstUnread ? firstUnreadRef : null}
-        className={`flex flex-col mb-4 group ${isMe ? "items-end" : "items-start"} relative animate-fade-in`}
+        ref={(el) => { 
+          if (el) messageRefs.current[msg._id] = el;
+          if (isFirstUnread && el) firstUnreadRef.current = el;
+        }}
+        className={`flex flex-col mb-4 group ${isMe ? "items-end" : "items-start"} relative animate-fade-in transition-all duration-300`}
       >
         {/* Show "New Messages" divider */}
         {isFirstUnread && (
@@ -357,13 +427,16 @@ export default function Clubs() {
           </div>
         )}
 
-        {/* Reply Context - NOT blurry, solid background */}
+        {/* Reply Context - Clickable to scroll to original message */}
         {msg.replyTo && (
-          <div className={`text-xs mb-2 p-2.5 rounded-lg border-l-4 max-w-[70%] ${
-            isMe 
-              ? "bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200" 
-              : "bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200"
-          }`}>
+          <div 
+            onClick={() => scrollToMessage(msg.replyTo._id)}
+            className={`text-xs mb-2 p-2.5 rounded-lg border-l-4 max-w-[70%] cursor-pointer hover:opacity-80 transition ${
+              isMe 
+                ? "bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200" 
+                : "bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200"
+            }`}
+          >
             <span className="font-bold">{msg.replyTo.username}</span>: {msg.replyTo.content?.substring(0, 40)}...
           </div>
         )}
@@ -727,22 +800,49 @@ export default function Clubs() {
                 </button>
               )}
 
+              {/* Admin Delete Club Button */}
+              {viewProfile.admins?.some(a => (a._id || a) === user._id) && (
+                <button onClick={handleDeleteClub} className="mt-2 text-xs bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-600 dark:text-red-400 px-4 py-2 rounded-full font-bold transition">
+                  🗑️ Delete Club
+                </button>
+              )}
+
+              {/* Leave Club Button (for non-admin members) */}
+              {viewProfile.members?.some(m => (m._id || m) === user._id) && !viewProfile.admins?.some(a => (a._id || a) === user._id) && (
+                <button onClick={handleLeaveClub} className="mt-4 text-xs bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full font-bold transition">
+                  🚪 Leave Club
+                </button>
+              )}
+
               <div className="mt-8 text-left">
                 <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Members ({viewProfile.members?.length})</h4>
                 <div className="space-y-2">
                   {viewProfile.members?.map(m => {
                     const color = getNameColor(m.name);
+                    const isAdmin = viewProfile.admins?.some(a => (a._id || a) === m._id);
+                    const isSelf = m._id === user._id;
+                    const canKick = viewProfile.admins?.some(a => (a._id || a) === user._id) && !isSelf;
+                    
                     return (
-                      <div key={m._id} onClick={() => fetchUserProfile(m)} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl cursor-pointer transition">
-                        <div className={`w-10 h-10 rounded-full overflow-hidden ${color.avatar} flex items-center justify-center text-sm font-bold text-white shadow-sm`}>
+                      <div key={m._id} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl transition">
+                        <div onClick={() => fetchUserProfile(m)} className={`w-10 h-10 rounded-full overflow-hidden ${color.avatar} flex items-center justify-center text-sm font-bold text-white shadow-sm cursor-pointer`}>
                           {m.avatar ? <img src={`http://localhost:5000${m.avatar}`} className="w-full h-full object-cover" alt="" /> : m.name[0]}
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 cursor-pointer" onClick={() => fetchUserProfile(m)}>
                           <span className="text-sm text-gray-700 dark:text-gray-200 block font-medium">{m.name}</span>
-                          {viewProfile.admins.some(a => (a._id || a) === m._id) && (
+                          {isAdmin && (
                             <span className="text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded font-bold">ADMIN</span>
                           )}
                         </div>
+                        {canKick && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleKickMember(m._id, m.name); }}
+                            className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition"
+                            title="Remove member"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                     );
                   })}

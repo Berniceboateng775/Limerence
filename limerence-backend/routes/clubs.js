@@ -225,23 +225,58 @@ router.post("/:id/leave", auth, async (req, res) => {
   }
 });
 
-// Update Club Info (Admin only)
-router.put("/:id", auth, async (req, res) => {
+// Update Club Info (Admin only) - with file upload support
+router.put("/:id", auth, upload.single("coverImage"), async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, currentBook } = req.body;
     const club = await Club.findById(req.params.id);
 
     if (!club) return res.status(404).json({ msg: "Club not found" });
 
-    if (!club.admins.includes(req.user.userId)) {
-      return res.status(401).json({ msg: "Not authorized" });
+    // Check if user is admin
+    const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
+    if (!isAdmin) {
+      return res.status(401).json({ msg: "Not authorized - admin only" });
     }
 
     if (name) club.name = name;
     if (description) club.description = description;
+    if (currentBook !== undefined) club.currentBook = currentBook;
+    
+    // Handle cover image upload
+    if (req.file) {
+      club.coverImage = `/uploads/${req.file.filename}`;
+    }
 
     await club.save();
-    res.json(club);
+    
+    // Return populated club
+    const updatedClub = await Club.findById(club._id)
+      .populate("members", "name avatar badges shelf about")
+      .populate("admins", "name avatar");
+    
+    res.json(updatedClub);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+// Delete Club (Admin only)
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const club = await Club.findById(req.params.id);
+
+    if (!club) return res.status(404).json({ msg: "Club not found" });
+
+    // Check if user is admin
+    const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
+    if (!isAdmin) {
+      return res.status(401).json({ msg: "Not authorized - admin only" });
+    }
+
+    await Club.findByIdAndDelete(req.params.id);
+    res.json({ msg: "Club deleted successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
