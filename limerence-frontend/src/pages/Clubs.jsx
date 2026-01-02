@@ -725,9 +725,9 @@ export default function Clubs() {
                   onClick={async () => {
                     try {
                       await axios.post(`/api/users/friend-request/${viewProfile._id}`, {}, { headers: { 'x-auth-token': token } });
-                      toast.success(`Friend request sent to ${viewProfile.name}!`);
+                      toast(`Friend request sent to ${viewProfile.name}!`, 'success');
                     } catch (err) {
-                      toast.error(err.response?.data?.msg || 'Failed to send request');
+                      toast(err.response?.data?.msg || 'Failed to send request', 'error');
                     }
                   }}
                   className="mt-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition flex items-center gap-2 mx-auto"

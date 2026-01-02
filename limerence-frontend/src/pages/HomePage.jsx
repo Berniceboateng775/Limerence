@@ -20,6 +20,41 @@ export default function HomePage() {
 
   const FALLBACK_COVER = "https://images.unsplash.com/photo-1524578271613-d550eacf6090?auto=format&fit=crop&w=600&q=80";
   
+  // Random comments for hero section
+  const RANDOM_COMMENTS = [
+    { user: "S", name: "@sarah_reads", text: "This book ruined me in the best way possible. 10/10😭❤️" },
+    { user: "M", name: "@maya_bookish", text: "The villain had NO RIGHT to be this fine 🔥" },
+    { user: "K", name: "@kindle_queen", text: "I threw my Kindle across the room TWICE 📖💔" },
+    { user: "J", name: "@jess_reads", text: "Obsessed is an understatement. 5 stars!! ⭐⭐⭐⭐⭐" },
+    { user: "L", name: "@lily_romance", text: "My toxic trait is rereading this 10 times 🫠" },
+    { user: "A", name: "@ava_spicy", text: "The tension was UNREAL I couldn't breathe 🥵" },
+    { user: "E", name: "@emma_books", text: "Morally grey men supremacy 🖤" },
+    { user: "R", name: "@rachel_lit", text: "This author owns my soul now 💀" },
+    { user: "N", name: "@nina_dark", text: "I need therapy after this one 😅💜" },
+    { user: "C", name: "@chloe_reads", text: "The writing is BEAUTIFUL I sobbed for hours 😭" },
+    { user: "Z", name: "@zoe_bookclub", text: "Best dark romance I've EVER read hands down 🙌" },
+    { user: "H", name: "@hannah_tales", text: "I gasped out loud at least 12 times no cap 🤯" },
+    { user: "P", name: "@paige_lover", text: "The spice level is INSANE 🌶️🔥" },
+    { user: "G", name: "@grace_novels", text: "I stayed up til 4am to finish this. Worth it. 🌙" },
+    { user: "T", name: "@tina_reads", text: "My book hangover lasted a WEEK 📚💫" },
+    { user: "V", name: "@violet_prose", text: "The angst was chef's kiss *mwah* 😘" },
+    { user: "B", name: "@bella_dark", text: "Plot twist had me SHOOK for real 😱" },
+    { user: "D", name: "@diana_lit", text: "Currently crying on my lunch break 🥲" },
+    { user: "F", name: "@fiona_pages", text: "The enemies-to-lovers arc DEVOURED me 💕" },
+    { user: "I", name: "@ivy_novels", text: "Adding this to my 'ruined my life' shelf 📖" },
+    { user: "W", name: "@willow_read", text: "THAT ending?! I need to lie down 🛏️" },
+    { user: "O", name: "@olivia_book", text: "Bought 3 copies - one for me, two to throw 🎯" },
+    { user: "U", name: "@uma_romance", text: "The chemistry was absolutely unmatched 💯" },
+    { user: "X", name: "@xena_reads", text: "Stayed in bed all weekend for this book 📚🛋️" },
+    { user: "Q", name: "@quinn_dark", text: "Why do fictional men set such high standards 😩" },
+    { user: "Y", name: "@yara_books", text: "Screaming crying throwing up (in a good way) 🎭" },
+    { user: "J", name: "@jade_spice", text: "The slow burn was TORTUROUS I loved it 🔥" },
+    { user: "A", name: "@aria_novel", text: "10/10 would recommend to all my girls 💅" },
+    { user: "L", name: "@luna_dark", text: "This book lives rent free in my head now 🏠" },
+    { user: "M", name: "@mia_lit", text: "Literally forgot to eat reading this 🍽️❌" },
+  ];
+  const randomComment = RANDOM_COMMENTS[Math.floor(Math.random() * RANDOM_COMMENTS.length)];
+  
   // State for different genre rows
   const [darkRomance, setDarkRomance] = useState([]);
   const [sportsRomance, setSportsRomance] = useState([]);
@@ -117,10 +152,11 @@ export default function HomePage() {
   const fetchSearch = async (query) => {
       if (!query) return;
       try {
-          // Don't filter by exact match - OpenLibrary's fuzzy search handles partial terms
-          const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20&fields=title,cover_i,author_name,key,ratings_average`);
+          // Add romance to search to filter for romance books only
+          const searchQuery = `${query} romance`;
+          const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchQuery)}&limit=20&fields=title,cover_i,author_name,key,ratings_average`);
           const data = await res.json();
-          // Only filter for books with covers, don't require exact title match
+          // Only filter for books with covers
           const books = (data.docs || []).map(mapWork).filter(b => b.cover);
           setSearchResults(books);
       } catch (e) { console.error(e); }
@@ -257,10 +293,10 @@ export default function HomePage() {
                                {/* Comment Bubble */}
                                <div className="absolute -left-10 md:left-0 top-10 bg-white p-3 rounded-2xl rounded-bl-sm shadow-xl z-30 animate-float-slow max-w-[180px] border border-gray-100 hidden md:block">
                                    <div className="flex items-center gap-2 mb-1">
-                                       <div className="w-6 h-6 rounded-full bg-pink-100 text-pink-600 text-[10px] flex items-center justify-center font-bold">S</div>
-                                       <span className="text-[10px] font-bold text-gray-400">@sarah_reads</span>
+                                       <div className="w-6 h-6 rounded-full bg-pink-100 text-pink-600 text-[10px] flex items-center justify-center font-bold">{randomComment.user}</div>
+                                       <span className="text-[10px] font-bold text-gray-400">{randomComment.name}</span>
                                    </div>
-                                   <p className="text-xs font-medium text-gray-800">"This book ruined me in the best way possible. 10/10😭❤️"</p>
+                                   <p className="text-xs font-medium text-gray-800">"{randomComment.text}"</p>
                                </div>
 
                                <div className="relative shadow-2xl rounded-xl border-4 border-white transform rotate-3 hover:rotate-0 transition duration-500 bg-gray-200">
