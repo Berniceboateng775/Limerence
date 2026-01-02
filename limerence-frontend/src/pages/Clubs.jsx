@@ -10,7 +10,8 @@ export default function Clubs() {
   const { theme } = useTheme();
   const [clubs, setClubs] = useState([]);
   const [selectedClub, setSelectedClub] = useState(null);
-  const [viewProfile, setViewProfile] = useState(null); 
+  const [viewProfile, setViewProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -111,6 +112,30 @@ export default function Clubs() {
       const isMe = senderId === user._id;
       return !isMe && new Date(m.createdAt).getTime() > lastRead;
     }).length;
+  };
+
+  // Fetch full user profile by ID
+  const fetchUserProfile = async (userOrId) => {
+    // If it's already a full user object with name, use it
+    if (userOrId && typeof userOrId === 'object' && userOrId.name && userOrId.about !== undefined) {
+      setViewProfile(userOrId);
+      return;
+    }
+    
+    const userId = typeof userOrId === 'string' ? userOrId : userOrId?._id || userOrId;
+    if (!userId) return;
+    
+    setLoadingProfile(true);
+    try {
+      const res = await axios.get(`/api/users/${userId}`, { headers: { 'x-auth-token': token } });
+      setViewProfile(res.data);
+    } catch (err) {
+      console.error('Failed to fetch profile:', err);
+      // Fallback: use what we have
+      if (typeof userOrId === 'object') setViewProfile(userOrId);
+    } finally {
+      setLoadingProfile(false);
+    }
   };
 
   const getFirstUnreadIndex = (club) => {
@@ -321,7 +346,7 @@ export default function Clubs() {
     return (
       <div 
         ref={isFirstUnread ? firstUnreadRef : null}
-        className={`flex flex-col ${msg.reactions?.length > 0 ? 'mb-6' : 'mb-4'} group ${isMe ? "items-end" : "items-start"} relative animate-fade-in`}
+        className={`flex flex-col mb-4 group ${isMe ? "items-end" : "items-start"} relative animate-fade-in`}
       >
         {/* Show "New Messages" divider */}
         {isFirstUnread && (
@@ -347,11 +372,11 @@ export default function Clubs() {
           {/* Avatar for others' messages */}
           {!isMe && (
             <div 
-              onClick={() => setViewProfile(msg.user)} 
+              onClick={() => fetchUserProfile(msg.user)} 
               className={`w-9 h-9 rounded-full ${userColors.avatar} flex-shrink-0 cursor-pointer overflow-hidden shadow-md flex items-center justify-center text-xs font-bold text-white ring-2 ring-white dark:ring-slate-700`}
             >
               {msg.user?.avatar ? (
-                <img src={`http://localhost:5000${msg.user.avatar}`} onError={(e) => e.target.style.display='none'} className="w-full h-full object-cover" alt="" />
+                <img src={`http://localhost:5000${msg.user.avatar}`} className="w-full h-full object-cover" alt="" />
               ) : (
                 <span className="text-sm font-bold">{msg.username?.[0]?.toUpperCase() || "?"}</span>
               )}
@@ -369,7 +394,7 @@ export default function Clubs() {
               {!isMe && (
                 <span 
                   className={`block text-[12px] font-bold mb-0.5 cursor-pointer hover:underline ${userColors.name}`}
-                  onClick={() => setViewProfile(msg.user)}
+                  onClick={() => fetchUserProfile(msg.user)}
                 >
                   {msg.username}
                 </span>
@@ -396,9 +421,9 @@ export default function Clubs() {
               </span>
             </div>
 
-            {/* Reactions display */}
+            {/* Reactions display - INLINE */}
             {msg.reactions?.length > 0 && (
-              <div className={`absolute -bottom-2 ${isMe ? "right-2" : "left-2"} flex gap-0.5 bg-white dark:bg-slate-700 shadow-md rounded-full px-1.5 py-0.5 border border-gray-100 dark:border-slate-600 z-10`}>
+              <div className="flex gap-0.5 bg-white dark:bg-slate-700 shadow-md rounded-full px-1.5 py-0.5 border border-gray-100 dark:border-slate-600 mt-1 w-fit">
                 {[...new Set(msg.reactions.map(r => r.emoji))].slice(0, 5).map((emoji, i) => (
                   <span key={i} className="text-xs">{emoji}</span>
                 ))}
@@ -406,8 +431,8 @@ export default function Clubs() {
               </div>
             )}
 
-            {/* Hover actions */}
-            <div className={`absolute top-0 ${isMe ? "-left-24" : "-right-24"} opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 bg-white dark:bg-slate-700 p-1 rounded-full shadow-lg border dark:border-slate-600 z-20`}>
+            {/* Hover actions - positioned better to not overlap text */}
+            <div className={`absolute ${isMe ? 'right-full mr-1' : 'left-full ml-1'} top-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 bg-white dark:bg-slate-700 p-1 rounded-full shadow-lg border dark:border-slate-600 z-20`}>
               <button onClick={() => setReplyingTo(msg)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full text-sm" title="Reply">↩️</button>
               <button onClick={() => handleReaction(msg._id, "❤️")} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full text-sm">❤️</button>
               <button onClick={() => handleReaction(msg._id, "👍")} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full text-sm">👍</button>
@@ -474,7 +499,15 @@ export default function Clubs() {
             return (
               <div 
                 key={club._id} 
-                onClick={() => isMember ? setSelectedClub(club) : handleJoin(club._id)}
+                onClick={() => { 
+                  if (isMember) { 
+                    setSelectedClub(club); 
+                    setViewProfile(null); // Close any open profile when switching clubs
+                    markAsRead(club._id);
+                  } else { 
+                    handleJoin(club._id); 
+                  }
+                }}
                 className={`p-3 rounded-xl cursor-pointer transition-all flex items-center gap-3 ${
                   selectedClub?._id === club._id 
                     ? "bg-purple-50 dark:bg-purple-900/30 ring-1 ring-purple-200 dark:ring-purple-700" 
@@ -700,9 +733,9 @@ export default function Clubs() {
                   {viewProfile.members?.map(m => {
                     const color = getNameColor(m.name);
                     return (
-                      <div key={m._id} onClick={() => setViewProfile(m)} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl cursor-pointer transition">
+                      <div key={m._id} onClick={() => fetchUserProfile(m)} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl cursor-pointer transition">
                         <div className={`w-10 h-10 rounded-full overflow-hidden ${color.avatar} flex items-center justify-center text-sm font-bold text-white shadow-sm`}>
-                          {m.avatar ? <img src={`http://localhost:5000${m.avatar}`} className="w-full h-full object-cover" alt="" onError={e=>e.target.style.display='none'}/> : m.name[0]}
+                          {m.avatar ? <img src={`http://localhost:5000${m.avatar}`} className="w-full h-full object-cover" alt="" /> : m.name[0]}
                         </div>
                         <div className="flex-1">
                           <span className="text-sm text-gray-700 dark:text-gray-200 block font-medium">{m.name}</span>
@@ -722,7 +755,7 @@ export default function Clubs() {
               <div className="w-28 h-28 mx-auto bg-gradient-to-tr from-purple-400 to-pink-400 rounded-full p-1 shadow-xl">
                 <div className="w-full h-full bg-white dark:bg-slate-800 rounded-full p-1 overflow-hidden flex items-center justify-center">
                   {viewProfile.avatar ? (
-                    <img src={`http://localhost:5000${viewProfile.avatar}`} onError={(e) => e.target.style.display='none'} alt="" className="w-full h-full object-cover rounded-full" />
+                    <img src={`http://localhost:5000${viewProfile.avatar}`} alt="" className="w-full h-full object-cover rounded-full" />
                   ) : (
                     <span className="text-4xl font-bold text-gray-300 dark:text-gray-600">{viewProfile.name?.[0]}</span>
                   )}
@@ -779,7 +812,7 @@ export default function Clubs() {
                   {clubs.filter(c => c.members.some(m => (m._id || m) === viewProfile._id)).map(club => (
                     <div 
                       key={club._id} 
-                      onClick={() => { setSelectedClub(club); setViewProfile(club); }}
+                      onClick={() => { setSelectedClub(club); setViewProfile(null); }}
                       className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-slate-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-600 transition"
                     >
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
