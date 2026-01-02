@@ -16,6 +16,7 @@ export default function Clubs() {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null });
   
   // Forms
   const [clubForm, setClubForm] = useState({ name: "", description: "", currentBook: "" });
@@ -269,58 +270,75 @@ export default function Clubs() {
     } catch (err) { toast("Failed", "error"); }
   };
 
-  // Leave club
-  const handleLeaveClub = async () => {
+  // Leave club - shows custom modal
+  const handleLeaveClub = () => {
     if (!selectedClub) return;
-    if (!window.confirm(`Are you sure you want to leave "${selectedClub.name}"?`)) return;
-    
-    try {
-      await axios.post(`/api/clubs/${selectedClub._id}/leave`, {}, { headers: { "x-auth-token": token } });
-      setSelectedClub(null);
-      setViewProfile(null);
-      fetchClubs();
-      toast("You left the club", "success");
-    } catch (err) { 
-      console.error(err);
-      toast("Failed to leave", "error"); 
-    }
-  };
-
-  // Delete club (admin only)
-  const handleDeleteClub = async () => {
-    if (!selectedClub) return;
-    if (!window.confirm(`Are you sure you want to DELETE "${selectedClub.name}"? This action cannot be undone!`)) return;
-    
-    try {
-      await axios.delete(`/api/clubs/${selectedClub._id}`, { headers: { "x-auth-token": token } });
-      setSelectedClub(null);
-      setViewProfile(null);
-      fetchClubs();
-      toast("Club deleted", "success");
-    } catch (err) { 
-      console.error(err);
-      toast(err.response?.data?.msg || "Failed to delete", "error"); 
-    }
-  };
-
-  // Kick member (admin only)
-  const handleKickMember = async (memberId, memberName) => {
-    if (!selectedClub) return;
-    if (!window.confirm(`Remove ${memberName} from the club?`)) return;
-    
-    try {
-      await axios.post(`/api/clubs/${selectedClub._id}/kick`, { userIdToKick: memberId }, { headers: { "x-auth-token": token } });
-      fetchClubs();
-      toast(`${memberName} removed`, "success");
-      // Refresh viewProfile if viewing club
-      if (viewProfile?.members) {
-        const updated = clubs.find(c => c._id === selectedClub._id);
-        if (updated) setViewProfile(updated);
+    setConfirmModal({
+      show: true,
+      title: 'Leave Club',
+      message: `Are you sure you want to leave "${selectedClub.name}"?`,
+      onConfirm: async () => {
+        try {
+          await axios.post(`/api/clubs/${selectedClub._id}/leave`, {}, { headers: { "x-auth-token": token } });
+          setSelectedClub(null);
+          setViewProfile(null);
+          fetchClubs();
+          toast("You left the club", "success");
+        } catch (err) { 
+          console.error(err);
+          toast("Failed to leave", "error"); 
+        }
+        setConfirmModal({ show: false, title: '', message: '', onConfirm: null });
       }
-    } catch (err) { 
-      console.error(err);
-      toast("Failed to remove member", "error"); 
-    }
+    });
+  };
+
+  // Delete club (admin only) - shows custom modal
+  const handleDeleteClub = () => {
+    if (!selectedClub) return;
+    setConfirmModal({
+      show: true,
+      title: '⚠️ Delete Club',
+      message: `Are you sure you want to DELETE "${selectedClub.name}"? This action cannot be undone!`,
+      onConfirm: async () => {
+        try {
+          await axios.delete(`/api/clubs/${selectedClub._id}`, { headers: { "x-auth-token": token } });
+          setSelectedClub(null);
+          setViewProfile(null);
+          fetchClubs();
+          toast("Club deleted", "success");
+        } catch (err) { 
+          console.error(err);
+          toast(err.response?.data?.msg || "Failed to delete", "error"); 
+        }
+        setConfirmModal({ show: false, title: '', message: '', onConfirm: null });
+      }
+    });
+  };
+
+  // Kick member (admin only) - shows custom modal
+  const handleKickMember = (memberId, memberName) => {
+    if (!selectedClub) return;
+    setConfirmModal({
+      show: true,
+      title: 'Remove Member',
+      message: `Remove ${memberName} from the club?`,
+      onConfirm: async () => {
+        try {
+          await axios.post(`/api/clubs/${selectedClub._id}/kick`, { userIdToKick: memberId }, { headers: { "x-auth-token": token } });
+          fetchClubs();
+          toast(`${memberName} removed`, "success");
+          if (viewProfile?.members) {
+            const updated = clubs.find(c => c._id === selectedClub._id);
+            if (updated) setViewProfile(updated);
+          }
+        } catch (err) { 
+          console.error(err);
+          toast("Failed to remove member", "error"); 
+        }
+        setConfirmModal({ show: false, title: '', message: '', onConfirm: null });
+      }
+    });
   };
 
   const handleFileSelect = (e) => { if (e.target.files[0]) setAttachment(e.target.files[0]); };
@@ -369,8 +387,8 @@ export default function Clubs() {
     c.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Generate name colors to distinguish users - WhatsApp style (bubble is same gray for all, only NAME is colored)
-  const getNameColor = (name) => {
+  // Generate unique colors per USER (using userId for uniqueness)
+  const getNameColor = (name, uniqueId) => {
     const nameColors = [
       "text-blue-600 dark:text-blue-400",
       "text-green-600 dark:text-green-400",
@@ -380,12 +398,19 @@ export default function Clubs() {
       "text-teal-600 dark:text-teal-400",
       "text-indigo-600 dark:text-indigo-400",
       "text-rose-600 dark:text-rose-400",
+      "text-cyan-600 dark:text-cyan-400",
+      "text-amber-600 dark:text-amber-400",
+      "text-lime-600 dark:text-lime-400",
+      "text-emerald-600 dark:text-emerald-400",
     ];
     const avatarColors = [
       "bg-blue-500", "bg-green-500", "bg-orange-500", "bg-purple-500",
       "bg-pink-500", "bg-teal-500", "bg-indigo-500", "bg-rose-500",
+      "bg-cyan-500", "bg-amber-500", "bg-lime-500", "bg-emerald-500",
     ];
-    const hash = name?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
+    // Use uniqueId (userId) for hashing to ensure different users get different colors
+    const hashStr = uniqueId || name || 'default';
+    const hash = hashStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return {
       name: nameColors[hash % nameColors.length],
       avatar: avatarColors[hash % avatarColors.length]
@@ -408,7 +433,7 @@ export default function Clubs() {
   const MessageBubble = ({ msg, isFirstUnread }) => {
     const senderId = msg.user?._id || msg.user;
     const isMe = senderId === user._id;
-    const userColors = getNameColor(msg.username);
+    const userColors = getNameColor(msg.username, senderId); // Use senderId for unique colors
     
     return (
       <div 
@@ -818,7 +843,7 @@ export default function Clubs() {
                 <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Members ({viewProfile.members?.length})</h4>
                 <div className="space-y-2">
                   {viewProfile.members?.map(m => {
-                    const color = getNameColor(m.name);
+                    const color = getNameColor(m.name, m._id); // Use member ID for unique colors
                     const isAdmin = viewProfile.admins?.some(a => (a._id || a) === m._id);
                     const isSelf = m._id === user._id;
                     const canKick = viewProfile.admins?.some(a => (a._id || a) === user._id) && !isSelf;
@@ -868,21 +893,27 @@ export default function Clubs() {
                 "{viewProfile.about || "Hey there! I'm using Limerence 📚"}"
               </p>
               
-              {/* Add Friend Button (only show if not self and not already friends) */}
+              {/* Friend Status / Add Friend Button */}
               {viewProfile._id !== user._id && (
-                <button 
-                  onClick={async () => {
-                    try {
-                      await axios.post(`/api/users/friend-request/${viewProfile._id}`, {}, { headers: { 'x-auth-token': token } });
-                      toast(`Friend request sent to ${viewProfile.name}!`, 'success');
-                    } catch (err) {
-                      toast(err.response?.data?.msg || 'Failed to send request', 'error');
-                    }
-                  }}
-                  className="mt-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition flex items-center gap-2 mx-auto"
-                >
-                  <span>👋</span> Add Friend
-                </button>
+                user.friends?.some(f => (f._id || f) === viewProfile._id) ? (
+                  <div className="mt-4 inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-4 py-2 rounded-full text-sm font-bold">
+                    <span>✓</span> Friends
+                  </div>
+                ) : (
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await axios.post(`/api/users/friend-request/${viewProfile._id}`, {}, { headers: { 'x-auth-token': token } });
+                        toast(`Friend request sent to ${viewProfile.name}!`, 'success');
+                      } catch (err) {
+                        toast(err.response?.data?.msg || 'Failed to send request', 'error');
+                      }
+                    }}
+                    className="mt-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition flex items-center gap-2 mx-auto"
+                  >
+                    <span>👋</span> Add Friend
+                  </button>
+                )
               )}
               
               {/* Badges */}
@@ -983,6 +1014,30 @@ export default function Clubs() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-fade-in-up">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-3">{confirmModal.title}</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">{confirmModal.message}</p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setConfirmModal({ show: false, title: '', message: '', onConfirm: null })}
+                className="flex-1 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmModal.onConfirm}
+                className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold rounded-xl hover:from-red-600 hover:to-pink-600 transition shadow-lg"
+              >
+                Confirm
+              </button>
+            </div>
           </div>
         </div>
       )}
