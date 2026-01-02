@@ -57,17 +57,17 @@ export default function Profile() {
     }
   };
 
-  if (!profile) return <div className="p-8 text-center">Loading...</div>;
+  if (!profile) return <div className="p-8 text-center dark:text-gray-400 dark:bg-slate-900 min-h-screen">Loading...</div>;
 
   // Use real badges or empty
   const badges = profile.badges || [];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 transition-colors duration-300">
       <div className="bg-dream-gradient h-48 rounded-b-[3rem] shadow-lg relative"></div>
       
       <div className="max-w-2xl mx-auto px-4 -mt-24 relative z-10">
-        <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 text-center">
           <div className="w-32 h-32 bg-purple-100 rounded-full mx-auto border-4 border-white shadow-md flex items-center justify-center text-4xl mb-4 overflow-hidden">
             {profile.avatar ? (
                 <img src={`http://localhost:5000${profile.avatar}`} alt="Profile" className="w-full h-full object-cover" />

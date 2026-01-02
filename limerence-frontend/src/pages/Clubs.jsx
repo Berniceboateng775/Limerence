@@ -261,32 +261,39 @@ export default function Clubs() {
     c.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Generate user color based on name (for distinguishing users) - NEUTRAL TONES
-  const getUserColor = (name) => {
-    const colors = [
-      { bg: "bg-slate-500", text: "text-white", bubble: "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100" },
-      { bg: "bg-gray-500", text: "text-white", bubble: "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100" },
-      { bg: "bg-zinc-500", text: "text-white", bubble: "bg-zinc-100 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-100" },
-      { bg: "bg-stone-500", text: "text-white", bubble: "bg-stone-100 dark:bg-stone-700 text-stone-800 dark:text-stone-100" },
-      { bg: "bg-neutral-500", text: "text-white", bubble: "bg-neutral-100 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100" },
-      { bg: "bg-slate-600", text: "text-white", bubble: "bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100" },
-      { bg: "bg-gray-600", text: "text-white", bubble: "bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100" },
-      { bg: "bg-zinc-600", text: "text-white", bubble: "bg-zinc-200 dark:bg-zinc-600 text-zinc-800 dark:text-zinc-100" },
+  // Generate name colors to distinguish users - WhatsApp style (bubble is same gray for all, only NAME is colored)
+  const getNameColor = (name) => {
+    const nameColors = [
+      "text-blue-600 dark:text-blue-400",
+      "text-green-600 dark:text-green-400",
+      "text-orange-600 dark:text-orange-400",
+      "text-purple-600 dark:text-purple-400",
+      "text-pink-600 dark:text-pink-400",
+      "text-teal-600 dark:text-teal-400",
+      "text-indigo-600 dark:text-indigo-400",
+      "text-rose-600 dark:text-rose-400",
+    ];
+    const avatarColors = [
+      "bg-blue-500", "bg-green-500", "bg-orange-500", "bg-purple-500",
+      "bg-pink-500", "bg-teal-500", "bg-indigo-500", "bg-rose-500",
     ];
     const hash = name?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
-    return colors[hash % colors.length];
+    return {
+      name: nameColors[hash % nameColors.length],
+      avatar: avatarColors[hash % avatarColors.length]
+    };
   };
 
   // --- UI COMPONENTS ---
   const MessageBubble = ({ msg, isFirstUnread }) => {
     const senderId = msg.user?._id || msg.user;
     const isMe = senderId === user._id;
-    const userColor = getUserColor(msg.username);
+    const userColors = getNameColor(msg.username);
     
     return (
       <div 
         ref={isFirstUnread ? firstUnreadRef : null}
-        className={`flex flex-col ${msg.reactions?.length > 0 ? 'mb-5' : 'mb-3'} group ${isMe ? "items-end" : "items-start"} relative animate-fade-in`}
+        className={`flex flex-col ${msg.reactions?.length > 0 ? 'mb-6' : 'mb-4'} group ${isMe ? "items-end" : "items-start"} relative animate-fade-in`}
       >
         {/* Show "New Messages" divider */}
         {isFirstUnread && (
@@ -297,12 +304,12 @@ export default function Clubs() {
           </div>
         )}
 
-        {/* Reply Context */}
+        {/* Reply Context - NOT blurry, solid background */}
         {msg.replyTo && (
-          <div className={`text-xs mb-1 p-2 rounded-lg opacity-80 border-l-2 max-w-[70%] ${
+          <div className={`text-xs mb-2 p-2.5 rounded-lg border-l-4 max-w-[70%] ${
             isMe 
-              ? "bg-purple-200/50 dark:bg-purple-800/30 border-purple-400 text-purple-800 dark:text-purple-200" 
-              : "bg-gray-200/50 dark:bg-gray-700/30 border-gray-400 text-gray-700 dark:text-gray-300"
+              ? "bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200" 
+              : "bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200"
           }`}>
             <span className="font-bold">{msg.replyTo.username}</span>: {msg.replyTo.content?.substring(0, 40)}...
           </div>
@@ -313,7 +320,7 @@ export default function Clubs() {
           {!isMe && (
             <div 
               onClick={() => setViewProfile(msg.user)} 
-              className={`w-9 h-9 rounded-full ${userColor.bg} flex-shrink-0 cursor-pointer overflow-hidden shadow-md flex items-center justify-center text-xs font-bold ${userColor.text} ring-2 ring-white dark:ring-slate-700`}
+              className={`w-9 h-9 rounded-full ${userColors.avatar} flex-shrink-0 cursor-pointer overflow-hidden shadow-md flex items-center justify-center text-xs font-bold text-white ring-2 ring-white dark:ring-slate-700`}
             >
               {msg.user?.avatar ? (
                 <img src={`http://localhost:5000${msg.user.avatar}`} onError={(e) => e.target.style.display='none'} className="w-full h-full object-cover" alt="" />
@@ -324,16 +331,16 @@ export default function Clubs() {
           )}
           
           <div className="relative">
-            {/* Message Bubble */}
+            {/* Message Bubble - SAME GRAY FOR ALL, only names different */}
             <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${fontSizes[fontSize]} leading-relaxed break-words ${
               isMe 
-                ? "bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-tr-sm" 
-                : `${userColor.bubble} rounded-tl-sm shadow-md border border-gray-200/50 dark:border-slate-600/50`
+                ? "bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-white rounded-tr-sm" 
+                : "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white rounded-tl-sm"
             }`}>
-              {/* Show sender name for others */}
+              {/* Show sender name for others - THIS IS THE COLORED PART */}
               {!isMe && (
                 <span 
-                  className="block text-[11px] font-bold opacity-90 mb-0.5 cursor-pointer hover:underline" 
+                  className={`block text-[12px] font-bold mb-0.5 cursor-pointer hover:underline ${userColors.name}`}
                   onClick={() => setViewProfile(msg.user)}
                 >
                   {msg.username}
@@ -675,10 +682,10 @@ export default function Clubs() {
                 <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Members ({viewProfile.members?.length})</h4>
                 <div className="space-y-2">
                   {viewProfile.members?.map(m => {
-                    const color = getUserColor(m.name);
+                    const color = getNameColor(m.name);
                     return (
                       <div key={m._id} onClick={() => setViewProfile(m)} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl cursor-pointer transition">
-                        <div className={`w-10 h-10 rounded-full overflow-hidden ${color.bg} flex items-center justify-center text-sm font-bold ${color.text} shadow-sm`}>
+                        <div className={`w-10 h-10 rounded-full overflow-hidden ${color.avatar} flex items-center justify-center text-sm font-bold text-white shadow-sm`}>
                           {m.avatar ? <img src={`http://localhost:5000${m.avatar}`} className="w-full h-full object-cover" alt="" onError={e=>e.target.style.display='none'}/> : m.name[0]}
                         </div>
                         <div className="flex-1">
