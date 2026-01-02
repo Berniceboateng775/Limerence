@@ -1,12 +1,34 @@
 const express = require("express");
 const router = express.Router();
 const Club = require("../models/Club");
-const auth = require("../middleware/auth"); // Assuming you have an auth middleware
+const auth = require("../middleware/auth"); 
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// Configure Multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "..", "uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, Date.now() + ext);
+  },
+});
+const upload = multer({ storage });
 
 // Get all clubs
 router.get("/", async (req, res) => {
   try {
-    const clubs = await Club.find().populate("members", "name");
+    const clubs = await Club.find()
+      .populate("members", "name avatar badges shelf")
+      .populate("admins", "name avatar")
+      .sort({ createdAt: -1 });
     res.json(clubs);
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
@@ -14,23 +36,30 @@ router.get("/", async (req, res) => {
 });
 
 // Create a club
-router.post("/", auth, async (req, res) => {
+router.post("/", auth, upload.single("coverImage"), async (req, res) => {
   try {
     const { name, description, currentBook } = req.body;
     let club = await Club.findOne({ name });
     if (club) return res.status(400).json({ msg: "Club already exists" });
 
+    let coverImage = "";
+    if (req.file) {
+        coverImage = `/uploads/${req.file.filename}`;
+    }
+
     club = new Club({
       name,
       description,
       currentBook,
-      members: [req.user.userId], // Creator joins automatically
-      admins: [req.user.userId], // Creator is admin
+      coverImage,
+      members: [req.user.userId], 
+      admins: [req.user.userId],
     });
 
     await club.save();
     res.json(club);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
 });
@@ -53,29 +82,7 @@ router.post("/:id/join", auth, async (req, res) => {
   }
 });
 
-// Post a message
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-
-// Configure Multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "..", "uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir);
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, Date.now() + ext);
-  },
-});
-const upload = multer({ storage });
-
 // Post a message (with optional attachment)
-// Post a message (with optional attachment and reply)
 router.post("/:id/message", auth, upload.single("attachment"), async (req, res) => {
   try {
     const { content, username, replyTo } = req.body;

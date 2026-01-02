@@ -151,10 +151,18 @@ export default function BookDetails() {
   const fetchSearch = async (query) => {
       if (!query) return;
       try {
-          // Native fetch for search to match HomePage
-          const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=10&fields=title,cover_i,author_name,key,ratings_average`);
+          const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=15&fields=title,cover_i,author_name,key,ratings_average`);
           const data = await res.json();
-          const books = (data.docs || []).map(mapWork).filter(b => b.cover);
+          
+          const q = query.toLowerCase().trim();
+          const books = (data.docs || [])
+            .map(mapWork)
+            .filter(b => b.cover && (
+                b.title.toLowerCase().includes(q) || 
+                b.author.toLowerCase().includes(q)
+            ))
+            .slice(0, 5);
+
           setSearchResults(books);
       } catch (e) { console.error(e); }
   };

@@ -29,6 +29,7 @@ const ClubSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  coverImage: String, // URL to club profile picture
   currentBook: {
     title: String,
     author: String,
