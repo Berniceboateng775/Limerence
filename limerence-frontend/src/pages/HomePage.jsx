@@ -206,55 +206,48 @@ export default function HomePage() {
   }, [searchQuery]);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 pb-0 flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 pb-0 flex flex-col transition-colors duration-300 pt-20">
       
-      {/* Navbar / Header */}
-      <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex items-center justify-between shadow-sm">
-           <div className="text-2xl font-serif font-bold tracking-tighter text-slate-900 dark:text-white cursor-pointer" onClick={() => navigate('/')}>
-              
-           </div>
-           
-           <div className="hidden md:flex relative flex-1 max-w-lg mx-auto">
-               <input 
-                   type="text" 
-                   placeholder="Search books, authors, tropes..." 
-                   className="w-full pl-12 pr-4 py-3 bg-gray-100 dark:bg-slate-800 rounded-full border-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-600 outline-none transition text-sm font-medium dark:text-white dark:placeholder-gray-400"
-                   value={searchQuery}
-                   onChange={(e) => setSearchQuery(e.target.value)}
-               />
-               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-           </div>
-
-           <div className="flex items-center gap-4">
-              <Link to="/profile" className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold hover:bg-purple-200 transition">
-                  👤
-              </Link>
-           </div>
-      </div>
+      {/* Search Results Overlay */}
+      {searchQuery && (
+        <div className="fixed inset-0 bg-white/95 dark:bg-slate-900/95 z-40 pt-24 px-6 overflow-auto">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold dark:text-white">Results for "{searchQuery}"</h2>
+              <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+              {searchResults.map((book, i) => (
+                <div key={i} onClick={() => navigate(`/book/${book.id}`)} className="cursor-pointer group">
+                  <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-md bg-gray-100 dark:bg-slate-700 mb-2">
+                    <img src={book.cover} className="w-full h-full object-cover group-hover:scale-105 transition" referrerPolicy="no-referrer" />
+                  </div>
+                  <h4 className="font-bold text-sm truncate dark:text-white">{book.title}</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{book.author}</p>
+                </div>
+              ))}
+              {searchResults.length === 0 && <p className="col-span-full text-center text-gray-500">No results found.</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-[1400px] mx-auto px-6 pt-6">
           
-          {/* SEARCH RESULTS OVERLAY */}
-          {searchQuery ? (
-              <div className="min-h-screen">
-                  <h2 className="text-2xl font-bold mb-6 dark:text-white">Results for "{searchQuery}"</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                      {searchResults.map((book, i) => (
-                          <div key={i} onClick={() => navigate(`/book/${book.id}`)} className="cursor-pointer group">
-                             <div className="aspect-[2/3] rounded-xl overflow-hidden shadow-md bg-gray-100 dark:bg-slate-700 mb-2">
-                                 <img src={book.cover} className="w-full h-full object-cover group-hover:scale-105 transition" referrerPolicy="no-referrer" />
-                             </div>
-                             <h4 className="font-bold text-sm truncate dark:text-white">{book.title}</h4>
-                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{book.author}</p>
-                          </div>
-                      ))}
-                      {searchResults.length === 0 && <p>No results found.</p>}
-                  </div>
-              </div>
-          ) : (
-            <>
-              {/* HERO SECTION - Redesigned Height to be smaller */}
-              <div className="mb-12">
+          {/* Floating Search Bar */}
+          <div className="relative mx-auto max-w-lg mb-8">
+            <input 
+              type="text" 
+              placeholder="Search books, authors, tropes..." 
+              className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-800 rounded-full border border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 outline-none transition text-sm font-medium dark:text-white dark:placeholder-gray-400 shadow-lg"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          </div>
+          
+          {/* HERO SECTION */}
+          <div className="mb-12">
                    <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 dark:from-purple-950/50 dark:via-pink-950/30 dark:to-rose-950/50 rounded-[2rem] p-6 relative overflow-hidden shadow-sm border border-purple-50 dark:border-purple-900/50 min-h-[350px] flex items-center">
                        {/* Background Blur */}
                        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-200/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 animate-pulse-slow"></div>
@@ -311,7 +304,7 @@ export default function HomePage() {
                            </div>
                        </div>
                    </div>
-              </div>
+          </div>
 
               {/* GENRE ROWS - Expanded List */}
               {[
@@ -381,8 +374,6 @@ export default function HomePage() {
                       </button>
                   </div>
               ))}
-            </>
-          )}
 
       </div>
       

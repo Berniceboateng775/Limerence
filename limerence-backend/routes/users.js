@@ -114,7 +114,7 @@ router.post("/friend-response", auth, async (req, res) => {
            recipient: requesterId,
            sender: user._id,
            type: "friend_accept",
-           content: `${user.username || "A user"} accepted your friend request.`
+           content: `${user.name || user.username || "Someone"} accepted your friend request.`
        });
     } else {
        // Reject - just remove request

@@ -46,7 +46,7 @@ export default function Navbar() {
       const res = await axios.get("/api/clubs", {
         headers: { "x-auth-token": token }
       });
-      // Calculate unread - for now just show total recent messages
+      // Only show preview of recent messages
       let recentMsgs = [];
       let totalUnread = 0;
       res.data.forEach(club => {
@@ -57,10 +57,10 @@ export default function Navbar() {
             message: lastMsg.content?.substring(0, 30) + "...",
             user: lastMsg.username || "Someone"
           });
-          // Simple unread count (messages in last hour not from me)
-          const hourAgo = Date.now() - 3600000;
+          // Only count messages from last 5 MINUTES (not 1 hour) to avoid old messages
+          const fiveMinAgo = Date.now() - 300000; // 5 minutes
           club.messages.forEach(m => {
-            if (new Date(m.createdAt) > hourAgo && (m.user?._id || m.user) !== user?._id) {
+            if (new Date(m.createdAt) > fiveMinAgo && (m.user?._id || m.user) !== user?._id) {
               totalUnread++;
             }
           });
