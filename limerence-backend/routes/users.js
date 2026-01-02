@@ -9,8 +9,23 @@ router.get("/me", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId)
       .select("-password")
-      .populate("friends", "name avatar nickname")
+      .populate("friends", "name avatar nickname about badges shelf")
       .populate("friendRequests.from", "name avatar");
+    res.json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get user by ID (for viewing friend profiles)
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select("-password -email -friendRequests")
+      .populate("friends", "name avatar")
+      .populate("shelf.book", "title coverImage author");
+    if (!user) return res.status(404).json({ msg: "User not found" });
     res.json(user);
   } catch (err) {
     console.error(err);

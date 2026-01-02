@@ -22,6 +22,7 @@ app.use("/api/shelf", require("./routes/shelf"))
 app.use("/api/clubs", require("./routes/clubs"))
 app.use("/api/users", require("./routes/users"))
 app.use("/api/notifications", require("./routes/notifications"))
+app.use("/api/dm", require("./routes/dm"))
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))

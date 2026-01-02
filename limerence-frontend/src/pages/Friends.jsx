@@ -4,7 +4,7 @@ import axios from "axios";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "../components/Toast";
 
-// Premium wallpapers like Clubs
+// Premium wallpapers
 const WALLPAPERS = [
   { id: 'none', name: 'Default', preview: 'bg-slate-900' },
   { id: 'gradient1', name: 'Aurora', preview: 'bg-gradient-to-br from-purple-900 via-slate-900 to-pink-900' },
@@ -24,13 +24,26 @@ export default function Friends() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showWallpaperPicker, setShowWallpaperPicker] = useState(false);
   const [currentWallpaper, setCurrentWallpaper] = useState('gradient1');
+  const [customWallpaper, setCustomWallpaper] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
   const fileInputRef = useRef(null);
+  const wallpaperInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   useEffect(() => {
     fetchFriends();
   }, []);
+
+  useEffect(() => {
+    if (selectedFriend) {
+      fetchConversation(selectedFriend._id);
+    }
+  }, [selectedFriend]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -51,57 +64,180 @@ export default function Friends() {
     }
   };
 
+  // Fetch conversation with DM API
+  const fetchConversation = async (friendId) => {
+    try {
+      const res = await axios.get(`/api/dm/${friendId}`, {
+        headers: { "x-auth-token": token }
+      });
+      setMessages(res.data.messages || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Fetch fresh profile data from API
+  const fetchFriendProfile = async (friendId) => {
+    setLoadingProfile(true);
+    try {
+      const res = await axios.get(`/api/users/${friendId}`, {
+        headers: { "x-auth-token": token }
+      });
+      setViewProfile(res.data);
+    } catch (err) {
+      console.error(err);
+      toast("Failed to load profile", "error");
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
   // Add emoji to message
   const onEmojiClick = (emojiData) => {
     setNewMessage(prev => prev + emojiData.emoji);
     setShowEmojiPicker(false);
   };
 
-  // Handle image upload
-  const handleImageUpload = async (e) => {
+  // Handle custom wallpaper upload
+  const handleWallpaperUpload = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    
-    // For now, just show a toast - would need backend DM support
-    toast("Image sharing coming soon!", "success");
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomWallpaper(reader.result);
+        setCurrentWallpaper('custom');
+        setShowWallpaperPicker(false);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  // Send message (local only for now - needs backend DM routes)
+  // Handle image upload and send
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedFriend) return;
+    
+    const formData = new FormData();
+    formData.append('attachment', file);
+    formData.append('attachmentType', 'image');
+    formData.append('content', '');
+    
+    try {
+      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, formData, {
+        headers: { 
+          "x-auth-token": token,
+          "Content-Type": "multipart/form-data"
+        }
+      });
+      setMessages(prev => [...prev, res.data]);
+      toast("Image sent!", "success");
+    } catch (err) {
+      console.error(err);
+      toast("Failed to send image", "error");
+    }
+  };
+
+  // Voice recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error(err);
+      toast("Microphone access denied", "error");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const sendVoiceNote = async () => {
+    if (!audioBlob || !selectedFriend) return;
+    
+    const formData = new FormData();
+    formData.append('attachment', audioBlob, 'voice.webm');
+    formData.append('attachmentType', 'voice');
+    formData.append('content', '');
+    
+    try {
+      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, formData, {
+        headers: { 
+          "x-auth-token": token,
+          "Content-Type": "multipart/form-data"
+        }
+      });
+      setMessages(prev => [...prev, res.data]);
+      setAudioBlob(null);
+      toast("Voice note sent!", "success");
+    } catch (err) {
+      console.error(err);
+      toast("Failed to send voice note", "error");
+    }
+  };
+
+  // Send message via API
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedFriend) return;
     
-    setMessages(prev => [...prev, {
-      id: Date.now(),
-      content: newMessage,
-      sender: user,
-      createdAt: new Date(),
-      reactions: []
-    }]);
-    setNewMessage("");
+    try {
+      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, 
+        { content: newMessage },
+        { headers: { "x-auth-token": token } }
+      );
+      setMessages(prev => [...prev, res.data]);
+      setNewMessage("");
+    } catch (err) {
+      console.error(err);
+      toast("Failed to send message", "error");
+    }
   };
 
-  // Add reaction to message
-  const addReaction = (messageId, emoji) => {
-    setMessages(prev => prev.map(msg => {
-      if (msg.id === messageId) {
-        const existing = msg.reactions?.find(r => r.emoji === emoji);
-        if (existing) {
-          return {
-            ...msg,
-            reactions: msg.reactions.filter(r => r.emoji !== emoji)
-          };
-        }
-        return {
-          ...msg,
-          reactions: [...(msg.reactions || []), { emoji, user: user.name }]
-        };
-      }
-      return msg;
-    }));
+  // Add reaction via API
+  const addReaction = async (messageId, emoji) => {
+    if (!selectedFriend) return;
+    
+    try {
+      await axios.post(
+        `/api/dm/${selectedFriend._id}/message/${messageId}/reaction`,
+        { emoji },
+        { headers: { "x-auth-token": token } }
+      );
+      // Refresh conversation
+      fetchConversation(selectedFriend._id);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const getWallpaperStyle = () => {
+    if (currentWallpaper === 'custom' && customWallpaper) {
+      return { backgroundImage: `url(${customWallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    }
+    return {};
   };
 
   const getWallpaperClass = () => {
+    if (currentWallpaper === 'custom') return '';
     const wp = WALLPAPERS.find(w => w.id === currentWallpaper);
     return wp?.preview || 'bg-slate-900';
   };
@@ -119,7 +255,7 @@ export default function Friends() {
       <div className="max-w-7xl mx-auto px-4 h-[calc(100vh-80px)]">
         
         <div className="flex gap-0 h-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-slate-700">
-          {/* Friends List Sidebar */}
+          {/* Friends List */}
           <div className="w-80 bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex flex-col">
             <div className="p-4 border-b border-gray-100 dark:border-slate-700">
               <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white">Friends</h1>
@@ -165,10 +301,10 @@ export default function Friends() {
           <div className="flex-1 flex flex-col">
             {selectedFriend && !viewProfile ? (
               <>
-                {/* Chat Header - Clickable to view profile */}
+                {/* Chat Header */}
                 <div 
                   className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-slate-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 transition"
-                  onClick={() => setViewProfile(selectedFriend)}
+                  onClick={() => fetchFriendProfile(selectedFriend._id)}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold overflow-hidden">
@@ -197,16 +333,17 @@ export default function Friends() {
                   </button>
                 </div>
                 
-                {/* Wallpaper Picker Dropdown */}
+                {/* Wallpaper Picker */}
                 {showWallpaperPicker && (
-                  <div className="absolute right-4 top-32 bg-white dark:bg-slate-700 rounded-xl shadow-2xl p-3 z-50 border border-gray-200 dark:border-slate-600">
-                    <h4 className="text-xs font-bold text-gray-400 mb-2">Choose Wallpaper</h4>
-                    <div className="grid grid-cols-3 gap-2">
+                  <div className="absolute right-20 top-32 bg-white dark:bg-slate-700 rounded-xl shadow-2xl p-4 z-50 border border-gray-200 dark:border-slate-600">
+                    <h4 className="text-xs font-bold text-gray-400 mb-3">Choose Wallpaper</h4>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
                       {WALLPAPERS.map(wp => (
                         <button
                           key={wp.id}
                           onClick={() => {
                             setCurrentWallpaper(wp.id);
+                            setCustomWallpaper(null);
                             setShowWallpaperPicker(false);
                           }}
                           className={`w-16 h-16 rounded-lg ${wp.preview} ${currentWallpaper === wp.id ? 'ring-2 ring-purple-500' : ''}`}
@@ -214,11 +351,27 @@ export default function Friends() {
                         />
                       ))}
                     </div>
+                    <button
+                      onClick={() => wallpaperInputRef.current?.click()}
+                      className="w-full py-2 bg-purple-500 text-white rounded-lg text-sm font-bold hover:bg-purple-600 transition"
+                    >
+                      📷 Upload Custom
+                    </button>
+                    <input
+                      type="file"
+                      ref={wallpaperInputRef}
+                      onChange={handleWallpaperUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
                   </div>
                 )}
                 
                 {/* Messages Area */}
-                <div className={`flex-1 p-4 overflow-y-auto ${getWallpaperClass()}`}>
+                <div 
+                  className={`flex-1 p-4 overflow-y-auto ${getWallpaperClass()}`}
+                  style={getWallpaperStyle()}
+                >
                   {messages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400">
                       <span className="text-6xl mb-3">💬</span>
@@ -227,14 +380,33 @@ export default function Friends() {
                     </div>
                   ) : (
                     messages.map((msg) => (
-                      <div key={msg.id} className={`mb-4 flex ${msg.sender._id === user._id ? 'justify-end' : 'justify-start'}`}>
+                      <div key={msg._id} className={`mb-4 flex ${msg.sender?._id === user?._id || msg.sender === user?._id ? 'justify-end' : 'justify-start'}`}>
                         <div className="relative group max-w-[70%]">
                           <div className={`p-3 rounded-2xl shadow-md ${
-                            msg.sender._id === user._id 
+                            msg.sender?._id === user?._id || msg.sender === user?._id
                               ? 'bg-purple-500 text-white rounded-br-sm' 
                               : 'bg-white/90 dark:bg-slate-700/90 text-gray-800 dark:text-white rounded-bl-sm'
                           }`}>
-                            {msg.content}
+                            {/* Image attachment */}
+                            {msg.attachmentType === 'image' && msg.attachment && (
+                              <img 
+                                src={`http://localhost:5000${msg.attachment}`} 
+                                alt="Shared" 
+                                className="max-w-full rounded-lg mb-2 cursor-pointer"
+                                onClick={() => window.open(`http://localhost:5000${msg.attachment}`, '_blank')}
+                              />
+                            )}
+                            
+                            {/* Voice attachment */}
+                            {msg.attachmentType === 'voice' && msg.attachment && (
+                              <audio controls className="max-w-full">
+                                <source src={`http://localhost:5000${msg.attachment}`} type="audio/webm" />
+                              </audio>
+                            )}
+                            
+                            {/* Text content */}
+                            {msg.content && <p>{msg.content}</p>}
+                            
                             <div className="text-[10px] opacity-60 mt-1 text-right">
                               {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </div>
@@ -244,7 +416,7 @@ export default function Friends() {
                           {msg.reactions?.length > 0 && (
                             <div className="flex gap-1 mt-1">
                               {msg.reactions.map((r, i) => (
-                                <span key={i} className="text-sm bg-white/20 rounded-full px-1">{r.emoji}</span>
+                                <span key={i} className="text-sm bg-white/20 dark:bg-slate-600/50 rounded-full px-2 py-0.5">{r.emoji}</span>
                               ))}
                             </div>
                           )}
@@ -254,7 +426,7 @@ export default function Friends() {
                             {['❤️', '😂', '😮', '😢', '👍'].map(emoji => (
                               <button
                                 key={emoji}
-                                onClick={() => addReaction(msg.id, emoji)}
+                                onClick={() => addReaction(msg._id, emoji)}
                                 className="hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full p-1 text-sm"
                               >
                                 {emoji}
@@ -268,9 +440,18 @@ export default function Friends() {
                   <div ref={messagesEndRef} />
                 </div>
                 
+                {/* Voice note preview */}
+                {audioBlob && (
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900/30 flex items-center gap-3">
+                    <audio controls src={URL.createObjectURL(audioBlob)} className="flex-1" />
+                    <button onClick={sendVoiceNote} className="px-4 py-2 bg-purple-500 text-white rounded-full font-bold">Send</button>
+                    <button onClick={() => setAudioBlob(null)} className="text-gray-500 hover:text-gray-700">✕</button>
+                  </div>
+                )}
+                
                 {/* Message Input */}
                 <form onSubmit={handleSendMessage} className="p-4 bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 flex gap-2 items-center">
-                  {/* Emoji Button */}
+                  {/* Emoji */}
                   <div className="relative">
                     <button
                       type="button"
@@ -286,7 +467,7 @@ export default function Friends() {
                     )}
                   </div>
                   
-                  {/* Image Button */}
+                  {/* Image */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -302,13 +483,13 @@ export default function Friends() {
                     className="hidden"
                   />
                   
-                  {/* Voice Note Button */}
+                  {/* Voice */}
                   <button
                     type="button"
-                    onClick={() => toast("Voice notes coming soon!", "success")}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-xl"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`p-2 rounded-full transition text-xl ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-100 dark:hover:bg-slate-700'}`}
                   >
-                    🎤
+                    {isRecording ? '⏹️' : '🎤'}
                   </button>
                   
                   {/* Text Input */}
@@ -320,7 +501,7 @@ export default function Friends() {
                     className="flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-full px-4 py-3 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-300 outline-none"
                   />
                   
-                  {/* Send Button */}
+                  {/* Send */}
                   <button
                     type="submit"
                     disabled={!newMessage.trim()}
@@ -331,7 +512,7 @@ export default function Friends() {
                 </form>
               </>
             ) : viewProfile ? (
-              /* Friend Profile View */
+              /* Friend Profile View - Fetched fresh from API */
               <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-slate-900">
                 <button 
                   onClick={() => setViewProfile(null)}
@@ -340,45 +521,49 @@ export default function Friends() {
                   ← Back to chat
                 </button>
                 
-                <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 shadow-xl max-w-md w-full text-center">
-                  <div className="w-28 h-28 mx-auto bg-gradient-to-tr from-purple-400 to-pink-400 rounded-full p-1 shadow-xl mb-4">
-                    <div className="w-full h-full bg-white dark:bg-slate-700 rounded-full overflow-hidden flex items-center justify-center">
-                      {viewProfile.avatar ? (
-                        <img src={`http://localhost:5000${viewProfile.avatar}`} className="w-full h-full object-cover" alt="" />
-                      ) : (
-                        <span className="text-4xl font-bold text-gray-300">{viewProfile.name?.[0]}</span>
-                      )}
+                {loadingProfile ? (
+                  <div className="text-gray-400">Loading profile...</div>
+                ) : (
+                  <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 shadow-xl max-w-md w-full text-center">
+                    <div className="w-28 h-28 mx-auto bg-gradient-to-tr from-purple-400 to-pink-400 rounded-full p-1 shadow-xl mb-4">
+                      <div className="w-full h-full bg-white dark:bg-slate-700 rounded-full overflow-hidden flex items-center justify-center">
+                        {viewProfile.avatar ? (
+                          <img src={`http://localhost:5000${viewProfile.avatar}`} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                          <span className="text-4xl font-bold text-gray-300">{viewProfile.name?.[0]}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{viewProfile.name}</h2>
+                    <p className="text-gray-500 dark:text-gray-400 italic text-sm mt-2 mb-4">
+                      "{viewProfile.about || "Hey there! I'm using Limerence 📚"}"
+                    </p>
+                    
+                    {/* Badges */}
+                    <div className="mt-6">
+                      <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Badges</h4>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {viewProfile.badges?.map((b, i) => (
+                          <div key={i} className="text-2xl p-2 bg-gray-100 dark:bg-slate-700 rounded-lg" title={b.name}>{b.icon || "🏅"}</div>
+                        ))}
+                        {!viewProfile.badges?.length && <p className="text-xs text-gray-400">No badges yet</p>}
+                      </div>
+                    </div>
+                    
+                    {/* Stats */}
+                    <div className="mt-6 grid grid-cols-2 gap-4">
+                      <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
+                        <div className="text-2xl font-bold text-purple-500">{viewProfile.shelf?.length || 0}</div>
+                        <div className="text-xs text-gray-400">Books</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
+                        <div className="text-2xl font-bold text-purple-500">{viewProfile.friends?.length || 0}</div>
+                        <div className="text-xs text-gray-400">Friends</div>
+                      </div>
                     </div>
                   </div>
-                  
-                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{viewProfile.name}</h2>
-                  <p className="text-gray-500 dark:text-gray-400 italic text-sm mt-2 mb-4">
-                    "{viewProfile.about || "Hey there! I'm using Limerence 📚"}"
-                  </p>
-                  
-                  {/* Badges */}
-                  <div className="mt-6">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">Badges</h4>
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {viewProfile.badges?.map((b, i) => (
-                        <div key={i} className="text-2xl p-2 bg-gray-100 dark:bg-slate-700 rounded-lg" title={b.name}>{b.icon || "🏅"}</div>
-                      ))}
-                      {!viewProfile.badges?.length && <p className="text-xs text-gray-400">No badges yet</p>}
-                    </div>
-                  </div>
-                  
-                  {/* Stats */}
-                  <div className="mt-6 grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
-                      <div className="text-2xl font-bold text-purple-500">{viewProfile.shelf?.length || 0}</div>
-                      <div className="text-xs text-gray-400">Books</div>
-                    </div>
-                    <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
-                      <div className="text-2xl font-bold text-purple-500">{viewProfile.friends?.length || 0}</div>
-                      <div className="text-xs text-gray-400">Friends</div>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 dark:bg-slate-900">
