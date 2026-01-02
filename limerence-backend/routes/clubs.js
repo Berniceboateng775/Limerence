@@ -26,7 +26,7 @@ const upload = multer({ storage });
 router.get("/", async (req, res) => {
   try {
     const clubs = await Club.find()
-      .populate("members", "name avatar badges shelf")
+      .populate("members", "name avatar badges shelf about")
       .populate("admins", "name avatar")
       .sort({ createdAt: -1 });
     res.json(clubs);

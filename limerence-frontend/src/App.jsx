@@ -16,6 +16,7 @@ import Badges from "./pages/Badges";
 import SocialFeed from "./pages/SocialFeed";
 import Clubs from "./pages/Clubs";
 import Notifications from "./pages/Notifications";
+import Friends from "./pages/Friends";
 
 import Navbar from "./components/Navbar";
 import { ToastContainer } from "./components/Toast";
@@ -157,6 +158,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Notifications />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/friends"
+              element={
+                <ProtectedRoute>
+                  <Friends />
                 </ProtectedRoute>
               }
             />

@@ -225,7 +225,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-purple-100 selection:text-purple-900 overflow-x-hidden">
       {/* Navbar */}
       <nav className="absolute top-0 w-full p-6 flex justify-between items-center z-50 animate-fade-in-down">
-          <div className="text-2xl font-serif font-bold tracking-tighter text-slate-900">Limerence.</div>
+          <div className="text-2xl font-serif font-bold tracking-tighter text-slate-900">Limerence</div>
           <div className="flex gap-4">
               <Link to="/login" className="px-6 py-2 rounded-full font-bold hover:bg-gray-100 transition text-sm text-slate-700">Log In</Link>
               <Link to="/register" className="px-6 py-2 bg-slate-900 text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition text-sm">Sign Up</Link>
@@ -534,7 +534,7 @@ export default function LandingPage() {
       <footer className="bg-slate-950 text-slate-200 py-16 border-t border-slate-800">
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
               <div className="col-span-1 md:col-span-1">
-                  <h2 className="font-serif text-white text-3xl font-bold mb-6">Limerence.</h2>
+                  <h2 className="font-serif text-white text-3xl font-bold mb-6">Limerence</h2>
                   <p className="text-sm leading-relaxed opacity-70">
                       The world's most chaotic book club. Made for readers, by readers.
                   </p>
