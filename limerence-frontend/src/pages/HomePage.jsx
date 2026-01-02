@@ -117,8 +117,10 @@ export default function HomePage() {
   const fetchSearch = async (query) => {
       if (!query) return;
       try {
+          // Don't filter by exact match - OpenLibrary's fuzzy search handles partial terms
           const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20&fields=title,cover_i,author_name,key,ratings_average`);
           const data = await res.json();
+          // Only filter for books with covers, don't require exact title match
           const books = (data.docs || []).map(mapWork).filter(b => b.cover);
           setSearchResults(books);
       } catch (e) { console.error(e); }
@@ -143,7 +145,7 @@ export default function HomePage() {
           setLoading(false);
       };
       loadAll();
-      loadAll();
+      // Removed duplicate loadAll() call that was causing books to reload multiple times
   }, []);
 
   // Pick Random Hero from Dark Romance when loaded

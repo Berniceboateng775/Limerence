@@ -22,7 +22,8 @@ export default function Profile() {
       setEditForm({ 
         name: res.data.name, 
         email: res.data.email,
-        avatar: res.data.avatar || "" 
+        avatar: res.data.avatar || "",
+        about: res.data.about || "" 
       });
     } catch (err) {
       console.error(err);
@@ -78,8 +79,13 @@ export default function Profile() {
           
           {!isEditing ? (
             <>
-              <h1 className="text-3xl font-serif font-bold text-gray-800">{profile.name}</h1>
-              <p className="text-gray-500 mb-6">{profile.email}</p>
+              <h1 className="text-3xl font-serif font-bold text-gray-800 dark:text-white">{profile.name}</h1>
+              <p className="text-gray-500 dark:text-gray-400 mb-2">{profile.email}</p>
+              
+              {/* About Section */}
+              <p className="text-gray-600 dark:text-gray-300 italic text-sm mb-6 max-w-sm mx-auto">
+                "{profile.about || "Hey there! I'm using Limerence 📚"}"
+              </p>
               
               <div className="flex justify-center gap-4">
                 <button 
@@ -124,6 +130,21 @@ export default function Profile() {
                     accept="image/*"
                   />
                </div>
+               
+               {/* About Field */}
+               <div className="text-left">
+                   <label className="text-sm text-gray-500 dark:text-gray-400 ml-1">About (max 140 chars)</label>
+                   <textarea
+                    value={editForm.about}
+                    onChange={(e) => setEditForm({ ...editForm, about: e.target.value.slice(0, 140) })}
+                    className="w-full border dark:border-slate-600 p-2 rounded-lg bg-white dark:bg-slate-700 dark:text-white resize-none"
+                    placeholder="What's on your mind?"
+                    rows={2}
+                    maxLength={140}
+                   />
+                   <span className="text-xs text-gray-400">{editForm.about?.length || 0}/140</span>
+               </div>
+               
               <div className="flex justify-center gap-4">
                 <button 
                   type="button"

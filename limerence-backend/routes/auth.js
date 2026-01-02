@@ -98,7 +98,7 @@ router.post("/login", async (req, res) => {
 // ============================
 router.put("/me", auth, upload.single("avatar"), async (req, res) => {
   const updates = {}
-  const allowedFields = ["name", "gender"]
+  const allowedFields = ["name", "gender", "about"]
 
   allowedFields.forEach((field) => {
     if (req.body[field] !== undefined) updates[field] = req.body[field]

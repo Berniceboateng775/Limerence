@@ -7,7 +7,7 @@ const auth = require("../middleware/auth");
 // @desc    Get user's notifications
 router.get("/", auth, async (req, res) => {
   try {
-    const notifications = await Notification.find({ recipient: req.user.id })
+    const notifications = await Notification.find({ recipient: req.user.userId })
       .sort({ createdAt: -1 })
       .limit(50)
       .populate("sender", "username avatar");
@@ -27,7 +27,7 @@ router.put("/:id/read", auth, async (req, res) => {
     if (!notification) return res.status(404).json({ msg: "Notification not found" });
 
     // Verify ownership
-    if (notification.recipient.toString() !== req.user.id) {
+    if (notification.recipient.toString() !== req.user.userId) {
         return res.status(401).json({ msg: "Not authorized" });
     }
 
@@ -45,7 +45,7 @@ router.put("/:id/read", auth, async (req, res) => {
 router.put("/read-all", auth, async (req, res) => {
     try {
         await Notification.updateMany(
-            { recipient: req.user.id, isRead: false },
+            { recipient: req.user.userId, isRead: false },
             { $set: { isRead: true } }
         );
         res.json({ msg: "All marked as read" });

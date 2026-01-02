@@ -714,6 +714,28 @@ export default function Clubs() {
               </div>
               <h2 className="text-xl font-bold text-slate-800 dark:text-white mt-4">{viewProfile.name}</h2>
               
+              {/* About Status */}
+              <p className="text-gray-500 dark:text-gray-400 italic text-sm mt-2 px-4">
+                "{viewProfile.about || "Hey there! I'm using Limerence 📚"}"
+              </p>
+              
+              {/* Add Friend Button (only show if not self and not already friends) */}
+              {viewProfile._id !== user._id && (
+                <button 
+                  onClick={async () => {
+                    try {
+                      await axios.post(`/api/users/friend-request/${viewProfile._id}`, {}, { headers: { 'x-auth-token': token } });
+                      toast.success(`Friend request sent to ${viewProfile.name}!`);
+                    } catch (err) {
+                      toast.error(err.response?.data?.msg || 'Failed to send request');
+                    }
+                  }}
+                  className="mt-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition flex items-center gap-2 mx-auto"
+                >
+                  <span>👋</span> Add Friend
+                </button>
+              )}
+              
               {/* Badges */}
               <div className="mt-6">
                 <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase border-b border-gray-100 dark:border-slate-700 pb-2 mb-3">Badges</h4>

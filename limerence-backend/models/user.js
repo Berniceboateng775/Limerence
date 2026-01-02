@@ -30,6 +30,11 @@ const UserSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  about: {
+    type: String,
+    default: "Hey there! I'm using Limerence 📚",
+    maxlength: 140
+  },
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   friendRequests: [
     {
