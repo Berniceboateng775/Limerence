@@ -310,7 +310,7 @@ export default function Friends() {
     const isReactionPickerOpen = showReactionPicker === msg._id;
     
     return (
-      <div className={`flex flex-col ${msg.reactions?.length > 0 ? 'mb-8' : 'mb-4'} group ${isMe ? "items-end" : "items-start"} relative`}>
+      <div className={`flex flex-col mb-3 group ${isMe ? "items-end" : "items-start"} relative`}>
         {msg.replyTo && (
           <div className="text-xs mb-2 p-2.5 rounded-lg border-l-4 max-w-[70%] bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200">
             <span className="font-bold">{msg.replyTo.username}</span>: {msg.replyTo.content?.substring(0, 40)}...
@@ -352,16 +352,16 @@ export default function Friends() {
               </div>
             </div>
             
-            {/* Reactions Display - Positioned below bubble */}
+            {/* Reactions Display - Inline below bubble */}
             {msg.reactions?.length > 0 && (
-              <div className="absolute -bottom-6 left-2 flex gap-0.5 bg-white dark:bg-slate-600 rounded-full px-2 py-1 shadow-lg border-2 border-white dark:border-slate-800 z-10">
-                {msg.reactions.map((r, i) => <span key={i} className="text-base">{r.emoji}</span>)}
-                <span className="text-xs text-gray-500 ml-1">{msg.reactions.length}</span>
+              <div className="flex gap-0.5 bg-white dark:bg-slate-600 rounded-full px-2 py-1 shadow-md mt-1 w-fit">
+                {msg.reactions.map((r, i) => <span key={i} className="text-sm">{r.emoji}</span>)}
+                <span className="text-xs text-gray-500 dark:text-gray-300 ml-1">{msg.reactions.length}</span>
               </div>
             )}
             
-            {/* Hover Actions Bar - Visible above */}
-            <div className={`absolute ${isMe ? '-left-2' : '-right-2'} top-0 opacity-0 group-hover:opacity-100 transition-all bg-white dark:bg-slate-700 rounded-xl shadow-xl border border-gray-200 dark:border-slate-600 p-1.5 flex gap-1 z-30`}>
+            {/* Hover Actions Bar - Stays within container bounds */}
+            <div className={`absolute ${isMe ? 'right-full mr-1' : 'left-full ml-1'} top-1 opacity-0 group-hover:opacity-100 transition-all bg-white dark:bg-slate-700 rounded-xl shadow-xl border border-gray-200 dark:border-slate-600 p-1 flex gap-0.5 z-30`}>
               {['❤️', '😂', '😮', '👍', '😢'].map(emoji => (
                 <button key={emoji} onClick={() => addReaction(msg._id, emoji)}
                   className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition">
