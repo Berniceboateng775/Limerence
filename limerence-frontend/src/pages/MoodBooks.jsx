@@ -7,65 +7,105 @@ export default function MoodBooks() {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   
   const mood = MOODS.find(m => m.id === moodId);
+  const BOOKS_PER_PAGE = 50;
+
+  // Helper functions from HomePage
+  const shuffle = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
+  const toCover = (item) => {
+    if (item.cover_i) return `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`;
+    if (item.cover_id) return `https://covers.openlibrary.org/b/id/${item.cover_id}-M.jpg`;
+    return null;
+  };
+
+  const mapWork = (w) => ({
+    id: (w.key || w.title || Math.random()).toString().replace("/works/", ""),
+    title: w.title,
+    author: w.author_name?.[0] || w.authors?.[0]?.name || "Unknown",
+    cover: toCover(w),
+    rating: w.ratings_average ? Number(w.ratings_average.toFixed(1)) : (3.5 + Math.random() * 1.5).toFixed(1)
+  });
 
   useEffect(() => {
     if (mood) {
-      fetchBooks();
-    } else {
-      setLoading(false);
+      setBooks([]);
+      setPage(0);
+      setHasMore(true);
+      fetchBooks(0, true);
     }
-  }, [moodId, mood]);
+  }, [moodId]);
 
-  const fetchBooks = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchBooks = async (pageNum = 0, reset = false) => {
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
+    
     try {
-      // Use simpler search query for better results
-      const searchQuery = mood.searchTerm || mood.label;
-      const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(searchQuery)}&limit=40`;
+      const offset = pageNum * BOOKS_PER_PAGE;
       
-      console.log("Fetching from:", url);
+      // Use same approach as HomePage
+      let url;
+      if (mood.type === 'subject') {
+        url = `https://openlibrary.org/search.json?subject=${mood.query}&limit=${BOOKS_PER_PAGE}&offset=${offset}&fields=title,cover_i,author_name,key,ratings_average`;
+      } else {
+        url = `https://openlibrary.org/search.json?q=${encodeURIComponent(mood.query)}&limit=${BOOKS_PER_PAGE}&offset=${offset}&fields=title,cover_i,author_name,key,ratings_average`;
+      }
+      
+      console.log("Fetching:", url);
       
       const response = await fetch(url);
-      if (!response.ok) throw new Error("API error");
-      
       const data = await response.json();
-      console.log("Got data:", data.numFound, "books");
       
-      if (data.docs && data.docs.length > 0) {
-        const results = data.docs
-          .filter(doc => doc.cover_i) // Only books with covers
-          .slice(0, 30) // Limit to 30
-          .map(doc => ({
-            id: doc.key?.replace('/works/', '') || `book-${Math.random()}`,
-            title: doc.title,
-            author: doc.author_name?.[0] || 'Unknown Author',
-            cover: `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`,
-            year: doc.first_publish_year || '',
-            rating: (Math.random() * 1.5 + 3.5).toFixed(1),
-          }));
+      let newBooks = (data.docs || []).map(mapWork).filter(b => b.cover);
+      
+      if (newBooks.length > 0) {
+        newBooks = shuffle(newBooks);
         
-        setBooks(results);
+        if (reset) {
+          setBooks(newBooks);
+        } else {
+          setBooks(prev => [...prev, ...newBooks]);
+        }
+        
+        setHasMore(newBooks.length >= 20);
+        setPage(pageNum);
       } else {
-        setBooks([]);
+        if (reset) setBooks([]);
+        setHasMore(false);
       }
     } catch (err) {
-      console.error("Fetch error:", err);
-      setError(err.message);
+      console.error("Error:", err);
+      if (reset) setBooks([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const loadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchBooks(page + 1, false);
     }
   };
 
   if (!mood) {
     return (
-      <div className="min-h-screen bg-slate-800 flex items-center justify-center">
-        <div className="text-center text-white">
-          <p className="text-2xl font-bold mb-4">Mood not found</p>
-          <button onClick={() => navigate('/moods')} className="px-6 py-3 bg-purple-500 rounded-full font-bold">
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-xl font-bold text-gray-800 dark:text-white mb-4">Mood not found</p>
+          <button onClick={() => navigate('/moods')} className="px-5 py-2 bg-purple-600 text-white rounded-full text-sm font-bold">
             ← Back to Moods
           </button>
         </div>
@@ -74,87 +114,92 @@ export default function MoodBooks() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-800 pb-20 transition-colors duration-300">
-      {/* Header with mood color - extends into navbar area */}
-      <div className={`${mood.color} text-white pt-24 pb-8 px-4`}>
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 pt-16 transition-colors duration-300">
+      {/* Compact header */}
+      <div className="px-4 py-4 border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-6xl mx-auto">
           <button 
             onClick={() => navigate('/moods')} 
-            className="mb-4 text-white/70 hover:text-white transition flex items-center gap-2 text-sm"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white transition text-sm mb-2"
           >
             ← Back to Moods
           </button>
-          <div className="flex items-center gap-4">
-            <span className="text-6xl">{mood.emoji}</span>
-            <div>
-              <h1 className="text-4xl font-serif font-bold">{mood.label}</h1>
-              <p className="text-white/70 mt-1">
-                {loading ? 'Searching...' : books.length > 0 ? `${books.length} books found` : 'No books found'}
-              </p>
-            </div>
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">{mood.emoji}</span>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{mood.label}</h1>
           </div>
         </div>
       </div>
 
       {/* Books Grid */}
-      <div className="max-w-6xl mx-auto px-4 mt-8">
+      <div className="max-w-6xl mx-auto px-4 mt-6">
         {loading ? (
-          <div className="text-center py-20">
-            <div className="inline-block w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-400 mt-4 text-lg">Finding {mood.label} books...</p>
-            <p className="text-gray-500 text-sm mt-2">Searching OpenLibrary...</p>
-          </div>
-        ) : error ? (
-          <div className="text-center py-20 text-gray-400">
-            <span className="text-6xl block mb-4">⚠️</span>
-            <p className="text-xl font-bold text-red-400">Failed to load books</p>
-            <p className="mt-2">{error}</p>
-            <button onClick={fetchBooks} className="mt-4 px-6 py-2 bg-purple-500 text-white rounded-full">
-              Try Again
-            </button>
+          <div className="text-center py-16">
+            <div className="inline-block w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-500 dark:text-gray-400 mt-4">Finding {mood.label} books...</p>
           </div>
         ) : books.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <span className="text-6xl block mb-4">�</span>
-            <p className="text-xl font-bold">No books found for "{mood.label}"</p>
-            <p className="mt-2">Try a different mood!</p>
-            <button onClick={() => navigate('/moods')} className="mt-4 px-6 py-2 bg-purple-500 text-white rounded-full">
-              Browse Moods
+          <div className="text-center py-16">
+            <span className="text-5xl block mb-4">📚</span>
+            <p className="text-lg font-bold text-gray-800 dark:text-white">No books found</p>
+            <button onClick={() => navigate('/moods')} className="mt-4 px-5 py-2 bg-purple-600 text-white rounded-full text-sm">
+              Try another mood
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
-            {books.map((book) => (
-              <Link
-                key={book.id}
-                to={`/book/${encodeURIComponent(book.title)}`}
-                className="group cursor-pointer"
-              >
-                <div className="relative overflow-hidden rounded-xl shadow-lg group-hover:shadow-2xl transition-all duration-300 bg-slate-700">
-                  <img
-                    src={book.cover}
-                    alt={book.title}
-                    className="w-full h-52 object-cover group-hover:scale-110 transition-transform duration-500"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = 'https://via.placeholder.com/200x300/1e293b/94a3b8?text=No+Cover';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                    <div className="flex items-center gap-1 text-yellow-400 text-sm">
-                      ⭐ {book.rating}
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+              {books.map((book, index) => (
+                <Link
+                  key={`${book.id}-${index}`}
+                  to={`/book/${encodeURIComponent(book.title)}`}
+                  className="group"
+                >
+                  <div className="relative overflow-hidden rounded-xl shadow-md group-hover:shadow-xl transition-all duration-300 bg-gray-200 dark:bg-slate-800">
+                    <img
+                      src={book.cover}
+                      alt={book.title}
+                      className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'https://via.placeholder.com/150x220/e2e8f0/94a3b8?text=No+Cover';
+                      }}
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition">
+                      <span className="text-yellow-400 text-xs">⭐ {book.rating}</span>
                     </div>
                   </div>
-                </div>
-                <div className="mt-2 px-1">
-                  <h3 className="font-bold text-white text-sm truncate group-hover:text-purple-400 transition">
-                    {book.title}
-                  </h3>
-                  <p className="text-xs text-gray-400 truncate">{book.author}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
+                  <div className="mt-2 px-0.5">
+                    <h3 className="font-semibold text-gray-800 dark:text-white text-sm truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
+                      {book.title}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{book.author}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="text-center mt-8">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full font-bold transition disabled:opacity-50"
+                >
+                  {loadingMore ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      Loading...
+                    </span>
+                  ) : (
+                    'Load More Books'
+                  )}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
