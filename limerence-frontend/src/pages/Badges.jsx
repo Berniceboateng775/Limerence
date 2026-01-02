@@ -70,27 +70,27 @@ export default function Badges() {
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans pb-24 transition-colors duration-300">
             <div className="bg-slate-900 text-white py-12 px-4 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
-                <div className="max-w-4xl mx-auto relative z-10">
+                <div className="max-w-4xl mx-auto relative z-10 text-center">
                     <h1 className="text-3xl md:text-5xl font-serif font-bold mb-2">My Achievements</h1>
                     <p className="text-slate-400">Unlock badges as you read and interact.</p>
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto px-6 py-10">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="max-w-5xl mx-auto px-4 py-10">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {allBadges.map((badge) => {
                         const earned = isEarned(badge.name);
                         return (
                             <div 
                                 key={badge.name} 
-                                className={`relative p-6 rounded-2xl border transition-all duration-300 flex flex-col items-center text-center ${
+                                className={`relative p-4 rounded-xl border transition-all duration-300 flex flex-col items-center text-center ${
                                     earned 
-                                    ? "bg-white border-primary shadow-lg scale-105" 
-                                    : "bg-gray-100 border-transparent opacity-70 grayscale hover:grayscale-0"
+                                    ? "bg-white dark:bg-slate-800 border-purple-500 shadow-lg" 
+                                    : "bg-gray-100 dark:bg-slate-800 border-transparent opacity-70 grayscale hover:grayscale-0"
                                 }`}
                             >
-                                <div className={`w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-4 ${
-                                    earned ? "bg-primary/10" : "bg-gray-200"
+                                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl mb-3 ${
+                                    earned ? "bg-purple-100 dark:bg-purple-900/30" : "bg-gray-200 dark:bg-slate-700"
                                 }`}>
                                     {badge.icon}
                                 </div>

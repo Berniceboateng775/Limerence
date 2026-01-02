@@ -399,7 +399,7 @@ export default function Friends() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pt-20 pb-0 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pt-20 pb-0 transition-colors duration-300 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 h-[calc(100vh-80px)]">
         <div className="flex gap-0 h-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-slate-700">
           
@@ -528,7 +528,7 @@ export default function Friends() {
                 )}
                 
                 {/* Messages Area */}
-                <div className={`flex-1 p-4 overflow-y-auto ${getCurrentWallpaper() || ''}`} style={getCustomWallpaperStyle()}>
+                <div className={`flex-1 p-4 overflow-y-auto overflow-x-hidden ${getCurrentWallpaper() || ''}`} style={getCustomWallpaperStyle()}>
                   {messages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400">
                       <div className="w-24 h-24 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-4">
