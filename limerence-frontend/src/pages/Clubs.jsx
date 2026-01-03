@@ -16,6 +16,7 @@ export default function Clubs() {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null });
   
   // Forms
@@ -916,6 +917,31 @@ export default function Clubs() {
                 </button>
               )}
 
+              {/* Admin Add Members Button */}
+              {viewProfile.admins?.some(a => (a._id || a) === user._id) && (
+                <button onClick={() => setShowInviteModal(true)} className="mt-2 text-xs bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900 text-green-600 dark:text-green-400 px-4 py-2 rounded-full font-bold transition">
+                  👥 Add Members
+                </button>
+              )}
+
+              {/* Share Link Button (for all members) */}
+              {viewProfile.members?.some(m => (m._id || m) === user._id) && (
+                <button 
+                  onClick={async () => {
+                    const shareUrl = `${window.location.origin}/clubs?join=${viewProfile._id}`;
+                    try {
+                      await navigator.clipboard.writeText(shareUrl);
+                      toast("Club link copied to clipboard!", "success");
+                    } catch (err) {
+                      toast("Link: " + shareUrl, "info");
+                    }
+                  }} 
+                  className="mt-2 text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full font-bold transition"
+                >
+                  🔗 Share Link
+                </button>
+              )}
+
               {/* Admin Delete Club Button */}
               {viewProfile.admins?.some(a => (a._id || a) === user._id) && (
                 <button onClick={handleDeleteClub} className="mt-2 text-xs bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-600 dark:text-red-400 px-4 py-2 rounded-full font-bold transition">
@@ -990,12 +1016,18 @@ export default function Clubs() {
                   <div className="mt-4 inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-4 py-2 rounded-full text-sm font-bold">
                     <span>✓</span> Friends
                   </div>
+                ) : viewProfile.friendRequests?.some(req => (req.from?._id || req.from) === user._id && req.status === 'pending') ? (
+                  <div className="mt-4 inline-flex items-center gap-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 px-4 py-2 rounded-full text-sm font-bold">
+                    <span>⏳</span> Request Sent
+                  </div>
                 ) : (
                   <button 
                     onClick={async () => {
                       try {
                         await axios.post(`/api/users/friend-request/${viewProfile._id}`, {}, { headers: { 'x-auth-token': token } });
                         toast(`Friend request sent to ${viewProfile.name}!`, 'success');
+                        // Refresh viewProfile to show updated status
+                        fetchUserProfile(viewProfile._id);
                       } catch (err) {
                         toast(err.response?.data?.msg || 'Failed to send request', 'error');
                       }
@@ -1125,6 +1157,72 @@ export default function Clubs() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Members Modal */}
+      {showInviteModal && selectedClub && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-fade-in-up max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">Add Members to {selectedClub.name}</h2>
+              <button onClick={() => setShowInviteModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl">✕</button>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Select friends to add to your club</p>
+            
+            <div className="space-y-2">
+              {user.friends?.length > 0 ? user.friends.map(friend => {
+                const isMember = selectedClub.members?.some(m => (m._id || m) === friend._id);
+                const isBanned = selectedClub.bannedUsers?.some(b => (b._id || b) === friend._id);
+                
+                return (
+                  <div key={friend._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold overflow-hidden">
+                        {friend.avatar ? (
+                          <img src={`http://localhost:5000${friend.avatar}`} className="w-full h-full object-cover" alt="" />
+                        ) : friend.name?.[0]}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{friend.name}</span>
+                    </div>
+                    {isMember ? (
+                      <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 px-2 py-1 rounded-full font-bold">Member</span>
+                    ) : isBanned ? (
+                      <span className="text-xs bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-2 py-1 rounded-full font-bold">Banned</span>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await axios.post(`/api/clubs/${selectedClub._id}/invite`, 
+                              { userIdToInvite: friend._id }, 
+                              { headers: { "x-auth-token": token } }
+                            );
+                            setSelectedClub(res.data);
+                            if (viewProfile?._id === selectedClub._id) setViewProfile(res.data);
+                            toast(`${friend.name} added to club!`, "success");
+                          } catch (err) {
+                            toast(err.response?.data?.msg || "Failed to add member", "error");
+                          }
+                        }}
+                        className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-3 py-1.5 rounded-full font-bold hover:bg-purple-200 dark:hover:bg-purple-900/60 transition"
+                      >
+                        + Add
+                      </button>
+                    )}
+                  </div>
+                );
+              }) : (
+                <p className="text-center text-gray-400 dark:text-gray-500 py-4">You have no friends to invite</p>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => setShowInviteModal(false)}
+              className="w-full mt-4 py-3 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}

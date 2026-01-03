@@ -346,4 +346,75 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
+// Invite/Add a user to club (Admin only)
+router.post("/:id/invite", auth, async (req, res) => {
+  try {
+    const { userIdToInvite } = req.body;
+    const club = await Club.findById(req.params.id);
+
+    if (!club) return res.status(404).json({ msg: "Club not found" });
+
+    // Check if user is admin
+    const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
+    if (!isAdmin) {
+      return res.status(401).json({ msg: "Not authorized - admin only" });
+    }
+
+    // Check if user is already a member
+    if (club.members.some(m => m.toString() === userIdToInvite)) {
+      return res.status(400).json({ msg: "User is already a member" });
+    }
+
+    // Check if user is banned
+    if (club.bannedUsers?.some(b => b.toString() === userIdToInvite)) {
+      return res.status(400).json({ msg: "User is banned from this club" });
+    }
+
+    // Add user to members
+    club.members.push(userIdToInvite);
+    club.memberStats.push({ user: userIdToInvite, lastReadAt: new Date() });
+    await club.save();
+
+    // Create notification for invited user
+    const Notification = require("../models/Notification");
+    await Notification.create({
+      user: userIdToInvite,
+      type: "club_invite",
+      message: `You have been added to ${club.name}`,
+      read: false
+    });
+
+    // Return updated club
+    const updatedClub = await Club.findById(club._id)
+      .populate("members", "name avatar badges shelf about")
+      .populate("admins", "name avatar");
+
+    res.json(updatedClub);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+// Generate shareable club link (returns club ID for sharing)
+router.get("/:id/share", auth, async (req, res) => {
+  try {
+    const club = await Club.findById(req.params.id)
+      .populate("members", "name avatar");
+    
+    if (!club) return res.status(404).json({ msg: "Club not found" });
+
+    res.json({
+      clubId: club._id,
+      name: club.name,
+      description: club.description,
+      memberCount: club.members.length,
+      coverImage: club.coverImage
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
 module.exports = router;
