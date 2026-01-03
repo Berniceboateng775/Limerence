@@ -138,8 +138,6 @@ export default function Navbar() {
                     ? "text-primary font-bold border-t-2 border-primary md:border-t-0 md:border-b-2" 
                     : "text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 }`}
-                onMouseEnter={() => link.path === '/clubs' && setShowClubsPreview(true)}
-                onMouseLeave={() => link.path === '/clubs' && setShowClubsPreview(false)}
               >
                 <span className="text-xl md:text-lg mb-1 md:mb-0 md:mr-2 relative">
                   {link.icon}
@@ -158,18 +156,7 @@ export default function Navbar() {
                 </span>
                 <span className="text-xs md:text-sm hidden md:inline">{link.label}</span>
                 
-                {/* Clubs hover preview */}
-                {link.path === '/clubs' && showClubsPreview && recentClubMessages.length > 0 && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white dark:bg-slate-700 rounded-xl shadow-2xl p-3 w-64 z-50 border border-gray-200 dark:border-slate-600 hidden md:block">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Recent Messages</h4>
-                    {recentClubMessages.map((msg, i) => (
-                      <div key={i} className="mb-2 last:mb-0">
-                        <p className="text-xs font-bold text-gray-800 dark:text-white">{msg.clubName}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{msg.user}: {msg.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+
               </Link>
             ))}
             

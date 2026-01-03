@@ -102,18 +102,13 @@ export default function Clubs() {
 
   useEffect(() => {
     fetchClubs();
-    // Only fetch when not typing to prevent flickering
-    const interval = setInterval(() => {
-      // Skip fetch if user is actively typing (has message content) - use ref to avoid dependency
-      if (!messageRef.current.trim()) {
-        fetchClubs();
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [fetchClubs]); // Remove message from deps - use ref instead
+    // No interval - fetch only on initial load and specific actions to prevent flickering
+  }, []);
 
   // Detect ?join= URL parameter for join popup
   useEffect(() => {
+    if (!user?._id) return; // Wait for user to be loaded
+    
     const urlParams = new URLSearchParams(window.location.search);
     const joinClubId = urlParams.get('join');
     
@@ -135,7 +130,7 @@ export default function Clubs() {
         window.history.replaceState({}, '', '/clubs');
       }
     }
-  }, [clubs, user._id]);
+  }, [clubs, user?._id]);
   // Scroll to first unread or bottom when opening chat
   useEffect(() => {
     if (selectedClub && chatContainerRef.current) {
@@ -766,7 +761,7 @@ export default function Clubs() {
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {isMember && lastMsg 
-                      ? `${lastMsg.username}: ${lastMsg.content?.substring(0, 25)}${lastMsg.content?.length > 25 ? '...' : ''}` 
+                      ? `${lastMsg.username || 'Unknown'}: ${lastMsg.content?.substring(0, 25)}${lastMsg.content?.length > 25 ? '...' : ''}` 
                       : club.description}
                   </p>
                 </div>
@@ -956,19 +951,19 @@ export default function Clubs() {
                             {/* Admin Action Buttons - Grid Layout */}
               {viewProfile.admins?.some(a => (a._id || a) === user._id) && (
                 <div className="grid grid-cols-2 gap-2 mt-4">
-                  <button onClick={openEdit} className="text-xs bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-600 dark:text-purple-400 px-4 py-2 rounded-full font-bold transition">
+                  <button onClick={openEdit} className="text-xs bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-600 dark:text-purple-400 px-3 py-2 rounded-full font-bold transition whitespace-nowrap">
                     ✏️ Edit Club
                   </button>
-                  <button onClick={() => setShowInviteModal(true)} className="text-xs bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900 text-green-600 dark:text-green-400 px-4 py-2 rounded-full font-bold transition">
+                  <button onClick={() => setShowInviteModal(true)} className="text-xs bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900 text-green-600 dark:text-green-400 px-3 py-2 rounded-full font-bold transition whitespace-nowrap">
                     👥 Add Members
                   </button>
                   <button 
                     onClick={() => setShowShareModal(true)} 
-                    className="text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full font-bold transition"
+                    className="text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 px-3 py-2 rounded-full font-bold transition whitespace-nowrap"
                   >
                     🔗 Share Link
                   </button>
-                  <button onClick={handleDeleteClub} className="text-xs bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-600 dark:text-red-400 px-4 py-2 rounded-full font-bold transition">
+                  <button onClick={handleDeleteClub} className="text-xs bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-600 dark:text-red-400 px-3 py-2 rounded-full font-bold transition whitespace-nowrap">
                     🗑️ Delete Club
                   </button>
                 </div>
@@ -1307,8 +1302,11 @@ export default function Clubs() {
                               { content: shareMsg }, 
                               { headers: { "x-auth-token": token } }
                             );
+                            // Mark as read immediately so it doesn't count as unread
+                            await markAsRead(club._id);
                             toast(`Shared to ${club.name}!`, "success");
                             setShowShareModal(false);
+                            fetchClubs(); // Refresh to update message list
                           } catch (err) {
                             toast("Failed to share", "error");
                           }

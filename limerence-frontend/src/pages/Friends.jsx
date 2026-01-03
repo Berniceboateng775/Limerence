@@ -35,6 +35,7 @@ export default function Friends() {
   const [unreadCounts, setUnreadCounts] = useState({});
   const [lastMessages, setLastMessages] = useState({}); // For WhatsApp-style preview in list
   const [showReactionPicker, setShowReactionPicker] = useState(null); // Which message to show picker for
+  const [joinClubModal, setJoinClubModal] = useState(null); // Club join popup: { clubId, clubName, loading }
   
   // Per-friend wallpaper settings (stored in localStorage)
   const [friendWallpapers, setFriendWallpapers] = useState(() => {
@@ -309,7 +310,7 @@ export default function Friends() {
     const avatarColor = getAvatarColor(senderName);
     const isReactionPickerOpen = showReactionPicker === msg._id;
     
-    // Helper to make URLs clickable
+    // Helper to make URLs clickable - detect club join links
     const renderWithLinks = (text) => {
       if (!text) return null;
       const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -318,6 +319,38 @@ export default function Friends() {
         if (urlRegex.test(part)) {
           // Reset regex lastIndex
           urlRegex.lastIndex = 0;
+          
+          // Check if this is a club join link
+          if (part.includes('/clubs?join=')) {
+            const clubId = new URL(part).searchParams.get('join');
+            return (
+              <button 
+                key={i} 
+                className="underline text-blue-300 hover:text-blue-200 break-all"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  // Show join popup
+                  try {
+                    setJoinClubModal({ clubId, loading: true });
+                    const res = await axios.get("/api/clubs", { headers: { "x-auth-token": token } });
+                    const club = res.data.find(c => c._id === clubId);
+                    if (club) {
+                      setJoinClubModal({ clubId, club, loading: false });
+                    } else {
+                      toast("Club not found", "error");
+                      setJoinClubModal(null);
+                    }
+                  } catch (err) {
+                    toast("Failed to load club", "error");
+                    setJoinClubModal(null);
+                  }
+                }}
+              >
+                {part}
+              </button>
+            );
+          }
+          
           return (
             <a 
               key={i} 
@@ -685,6 +718,56 @@ export default function Friends() {
           </div>
         </div>
       </div>
+
+      {/* Join Club Modal - When clicking club link in DM */}
+      {joinClubModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
+            {joinClubModal.loading ? (
+              <div className="text-gray-400 py-8">Loading club...</div>
+            ) : joinClubModal.club ? (
+              <>
+                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-purple-400 to-pink-400 rounded-xl flex items-center justify-center text-white text-3xl font-bold overflow-hidden mb-4">
+                  {joinClubModal.club.coverImage ? (
+                    <img src={`http://localhost:5000${joinClubModal.club.coverImage}`} className="w-full h-full object-cover" alt="" />
+                  ) : joinClubModal.club.name?.[0]}
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white">{joinClubModal.club.name}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">{joinClubModal.club.description}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{joinClubModal.club.members?.length} members</p>
+                
+                <div className="flex gap-3 mt-6">
+                  <button 
+                    onClick={() => setJoinClubModal(null)}
+                    className="flex-1 py-3 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await axios.post(`/api/clubs/${joinClubModal.clubId}/join`, {}, 
+                          { headers: { "x-auth-token": token } }
+                        );
+                        toast("Joined club successfully!", "success");
+                        setJoinClubModal(null);
+                      } catch (err) {
+                        toast(err.response?.data?.msg || "Failed to join club", "error");
+                        setJoinClubModal(null);
+                      }
+                    }}
+                    className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl shadow-lg hover:from-purple-600 hover:to-pink-600 transition"
+                  >
+                    Join Club
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-gray-400 py-8">Club not found</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

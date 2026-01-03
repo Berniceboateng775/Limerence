@@ -91,8 +91,15 @@ router.post("/:id/join", auth, async (req, res) => {
 // Post a message (with optional attachment)
 router.post("/:id/message", auth, upload.single("attachment"), async (req, res) => {
   try {
-    const { content, username, replyTo } = req.body;
+    let { content, username, replyTo } = req.body;
     const club = await Club.findById(req.params.id);
+    
+    // If username not provided, fetch from User model
+    if (!username) {
+      const User = require("../models/User");
+      const sender = await User.findById(req.user.userId);
+      username = sender?.name || "Unknown";
+    }
     
     let attachment = null;
     if (req.file) {
@@ -379,7 +386,7 @@ router.post("/:id/invite", auth, async (req, res) => {
       await Notification.create({
         recipient: userIdToInvite,
         type: "club_invite",
-        content: `You have been added to ${club.name}`,
+        content: `You have been added to the ${club.name} club`,
         relatedId: club._id
       });
     } catch (notifErr) {
