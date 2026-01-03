@@ -148,7 +148,8 @@ export default function Clubs() {
   const markAsRead = async (clubId) => {
     try { 
       await axios.post(`/api/clubs/${clubId}/read`, {}, { headers: { "x-auth-token": token } });
-      fetchUnreadClubMessages();
+      fetchUnreadClubMessages(); // Update global badge
+      fetchClubs(); // Update sidebar counts
     } catch (e) { console.error(e); }
   };
 
