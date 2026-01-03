@@ -309,6 +309,32 @@ export default function Friends() {
     const avatarColor = getAvatarColor(senderName);
     const isReactionPickerOpen = showReactionPicker === msg._id;
     
+    // Helper to make URLs clickable
+    const renderWithLinks = (text) => {
+      if (!text) return null;
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const parts = text.split(urlRegex);
+      return parts.map((part, i) => {
+        if (urlRegex.test(part)) {
+          // Reset regex lastIndex
+          urlRegex.lastIndex = 0;
+          return (
+            <a 
+              key={i} 
+              href={part} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline text-blue-300 hover:text-blue-200 break-all"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {part}
+            </a>
+          );
+        }
+        return part;
+      });
+    };
+    
     return (
       <div className={`flex flex-col mb-3 group ${isMe ? "items-end" : "items-start"} relative`}>
         {msg.replyTo && (
@@ -345,7 +371,7 @@ export default function Friends() {
                 <audio controls className="max-w-[180px]"><source src={`http://localhost:5000${msg.attachment}`} type="audio/webm" /></audio>
               )}
               
-              {msg.content && <p>{msg.content}</p>}
+              {msg.content && <p>{renderWithLinks(msg.content)}</p>}
               
               <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-purple-200' : 'opacity-50'}`}>
                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
