@@ -43,6 +43,7 @@ export default function Clubs() {
   const firstUnreadRef = useRef(null);
   const chatContainerRef = useRef(null);
   const messageRefs = useRef({}); // Map of message IDs to refs for scrolling
+  const selectedClubIdRef = useRef(null); // Track selected club ID to prevent stale closures
 
   // Premium Wallpaper Gradients
   const wallpapers = {
@@ -70,17 +71,23 @@ export default function Clubs() {
     localStorage.setItem("chatFontSize", fontSize);
   }, [clubWallpapers, clubCustomWallpapers, fontSize]);
 
+  // Keep ref in sync with selectedClub
+  useEffect(() => {
+    selectedClubIdRef.current = selectedClub?._id || null;
+  }, [selectedClub]);
+
   const fetchClubs = useCallback(async () => {
     try {
       const res = await axios.get("/api/clubs");
       setClubs(res.data);
-      // Update selected club if it exists
-      if (selectedClub) {
-        const updated = res.data.find(c => c._id === selectedClub._id);
+      // Update selected club if it exists - use ref to avoid stale closure
+      const currentSelectedId = selectedClubIdRef.current;
+      if (currentSelectedId) {
+        const updated = res.data.find(c => c._id === currentSelectedId);
         if (updated) setSelectedClub(updated);
       }
     } catch (err) { console.error(err); }
-  }, [selectedClub]);
+  }, []); // No dependencies needed - uses ref
 
   useEffect(() => {
     fetchClubs();
@@ -92,7 +99,7 @@ export default function Clubs() {
       }
     }, 15000);
     return () => clearInterval(interval);
-  }, [message]);
+  }, [fetchClubs, message]);
 
   // Scroll to first unread or bottom when opening chat
   useEffect(() => {
@@ -203,7 +210,7 @@ export default function Clubs() {
       
       setAttachment(null);
       setReplyingTo(null);
-      markAsRead(selectedClub._id);
+      await markAsRead(selectedClub._id); // Await to ensure read state is updated before fetching
       fetchClubs(); 
     } catch (err) { 
       console.error(err); 
@@ -342,11 +349,18 @@ export default function Clubs() {
       onConfirm: async () => {
         try {
           await axios.post(`/api/clubs/${selectedClub._id}/kick`, { userIdToKick: memberId }, { headers: { "x-auth-token": token } });
-          fetchClubs();
+          // Fetch fresh club data
+          const res = await axios.get("/api/clubs");
+          setClubs(res.data);
           toast(`${memberName} removed`, "success");
+          
+          // Update viewProfile with fresh data if viewing club
           if (viewProfile?.members) {
-            const updated = clubs.find(c => c._id === selectedClub._id);
-            if (updated) setViewProfile(updated);
+            const updated = res.data.find(c => c._id === selectedClub._id);
+            if (updated) {
+              setViewProfile(updated);
+              setSelectedClub(updated);
+            }
           }
         } catch (err) { 
           console.error(err);
@@ -640,12 +654,17 @@ export default function Clubs() {
           {filteredClubs.map(club => {
             const unread = calculateUnread(club);
             const isMember = club.members.some(m => (m._id || m) === user._id);
+            const isBanned = club.bannedUsers?.some(b => (b._id || b) === user._id);
             const lastMsg = club.messages?.[club.messages.length - 1];
             
             return (
               <div 
                 key={club._id} 
                 onClick={() => { 
+                  if (isBanned) {
+                    toast("You have been banned from this club", "error");
+                    return;
+                  }
                   if (isMember) { 
                     setSelectedClub(club); 
                     setViewProfile(null); // Close any open profile when switching clubs
@@ -687,7 +706,8 @@ export default function Clubs() {
                 
                 {/* Badges */}
                 <div className="flex flex-col items-end gap-1">
-                  {!isMember && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold">Join</span>}
+                  {isBanned && <span className="text-[10px] bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-bold">Banned</span>}
+                  {!isMember && !isBanned && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold">Join</span>}
                   {unread > 0 && isMember && (
                     <span className="min-w-[20px] h-5 rounded-full bg-purple-500 text-white text-[11px] font-bold flex items-center justify-center px-1.5">
                       {unread}

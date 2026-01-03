@@ -234,6 +234,21 @@ router.post("/:id/kick", auth, async (req, res) => {
     }
 
     await club.save();
+    
+    // Create notification for kicked user
+    try {
+      const Notification = require("../models/Notification");
+      const notification = new Notification({
+        recipient: userIdToKick,
+        type: "club_removed",
+        message: `You have been removed from the club "${club.name}" by an admin.`,
+        data: { clubId: club._id, clubName: club.name }
+      });
+      await notification.save();
+    } catch (notifErr) {
+      console.error("Failed to create kick notification:", notifErr);
+    }
+    
     res.json({ members: club.members, bannedUser: userIdToKick, clubName: club.name });
   } catch (err) {
     console.error(err);
