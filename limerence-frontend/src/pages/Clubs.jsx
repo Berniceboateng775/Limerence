@@ -2,12 +2,14 @@ import React, { useState, useEffect, useContext, useRef, useCallback, useMemo } 
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { NotificationContext } from "../context/NotificationContext";
 import { toast } from "../components/Toast";
 import EmojiPicker from "emoji-picker-react";
 
 export default function Clubs() {
   const { token, user } = useContext(AuthContext);
   const { theme } = useTheme();
+  const { fetchUnreadClubMessages } = useContext(NotificationContext);
   const [clubs, setClubs] = useState([]);
   const [selectedClub, setSelectedClub] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
@@ -145,7 +147,8 @@ export default function Clubs() {
 
   const markAsRead = async (clubId) => {
     try { 
-      await axios.post(`/api/clubs/${clubId}/read`, {}, { headers: { "x-auth-token": token } }); 
+      await axios.post(`/api/clubs/${clubId}/read`, {}, { headers: { "x-auth-token": token } });
+      fetchUnreadClubMessages();
     } catch (e) { console.error(e); }
   };
 

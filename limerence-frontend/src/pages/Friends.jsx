@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { NotificationContext } from "../context/NotificationContext";
 import axios from "axios";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "../components/Toast";
@@ -18,6 +19,7 @@ const WALLPAPERS = {
 export default function Friends() {
   const { token, user } = useContext(AuthContext);
   const { theme } = useTheme();
+  const { fetchUnreadDMs } = useContext(NotificationContext);
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedFriend, setSelectedFriend] = useState(null);
@@ -125,6 +127,10 @@ export default function Friends() {
       const res = await axios.get(`/api/dm/${friendId}`, { headers: { "x-auth-token": token } });
       setMessages(res.data.messages || []);
       setUnreadCounts(prev => ({ ...prev, [friendId]: 0 }));
+      
+      // Mark as read on backend & update navbar
+      await axios.post(`/api/dm/${friendId}/read`, {}, { headers: { "x-auth-token": token } });
+      fetchUnreadDMs();
     } catch (err) {
       console.error(err);
     }

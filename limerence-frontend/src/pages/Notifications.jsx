@@ -2,9 +2,11 @@ import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { NotificationContext } from "../context/NotificationContext";
 
 export default function Notifications() {
     const { token } = useContext(AuthContext);
+    const { fetchUnreadNotifications } = useContext(NotificationContext);
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
@@ -35,6 +37,8 @@ export default function Notifications() {
             });
             // Update UI locally
             setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+            // Update global badge
+            fetchUnreadNotifications();
         } catch (err) {
             console.error(err);
         }
@@ -46,6 +50,8 @@ export default function Notifications() {
                 headers: { 'x-auth-token': token }
             });
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            // Update global badge
+            fetchUnreadNotifications();
         } catch (err) {
             console.error(err);
         }

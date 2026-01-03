@@ -2,6 +2,7 @@ import React, { useContext, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, AuthContext } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import SplashScreen from "./components/SplashScreen";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -70,6 +71,7 @@ export default function App() {
           </Routes>
         ) : (
           // 🌸 Main App Flow
+          <NotificationProvider>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -181,6 +183,7 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/register" replace />} />
           </Routes>
+          </NotificationProvider>
         )}
           </AuthProvider>
         </BrowserRouter>

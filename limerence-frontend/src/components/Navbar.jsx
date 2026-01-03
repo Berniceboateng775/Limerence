@@ -2,110 +2,29 @@ import React, { useContext, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { NotificationContext } from "../context/NotificationContext";
 import axios from "axios";
 
 export default function Navbar() {
   const { logout, token, user } = useContext(AuthContext);
   const { theme, toggleTheme } = useTheme();
+  const { 
+    unreadNotifications, 
+    unreadMessages, 
+    unreadDMs, 
+    fetchUnreadNotifications, 
+    refreshAllRules 
+  } = useContext(NotificationContext);
   const location = useLocation();
   
-  // Notification & message counts
-  const [unreadNotifications, setUnreadNotifications] = useState([]);
-  const [unreadMessages, setUnreadMessages] = useState(0);
-  const [unreadDMs, setUnreadDMs] = useState(0);
   const [showNotifPreview, setShowNotifPreview] = useState(false);
   const [showClubsPreview, setShowClubsPreview] = useState(false);
-  const [recentClubMessages, setRecentClubMessages] = useState([]);
-
+  
+  // Refresh counts on route change
   useEffect(() => {
-    if (token) {
-      fetchUnreadNotifications();
-      fetchUnreadClubMessages();
-      fetchUnreadDMs();
-      // Poll every 30 seconds
-      const interval = setInterval(() => {
-        fetchUnreadNotifications();
-        fetchUnreadClubMessages();
-        fetchUnreadDMs();
-      }, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [token]);
+    refreshAllRules();
+  }, [location.pathname]);
 
-  const fetchUnreadNotifications = async () => {
-    try {
-      const res = await axios.get("/api/notifications", {
-        headers: { "x-auth-token": token }
-      });
-      const unread = res.data.filter(n => !n.isRead);
-      setUnreadNotifications(unread.slice(0, 5)); // Keep top 5 for preview
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchUnreadClubMessages = async () => {
-    try {
-      const res = await axios.get("/api/clubs", {
-        headers: { "x-auth-token": token }
-      });
-      
-      let recentMsgs = [];
-      let totalUnread = 0;
-      
-      res.data.forEach(club => {
-        // Only process clubs user is a member of - use toString for reliable comparison
-        const isMember = club.members?.some(m => {
-          const memberId = (m._id || m).toString();
-          return memberId === user?._id?.toString();
-        });
-        if (!isMember) return;
-        
-        if (club.messages?.length > 0) {
-          const lastMsg = club.messages[club.messages.length - 1];
-          recentMsgs.push({
-            clubName: club.name,
-            message: lastMsg.content?.substring(0, 30) + "...",
-            user: lastMsg.username || "Someone"
-          });
-          
-          // Use memberStats for proper unread tracking
-          const stats = club.memberStats?.find(s => {
-            const statsUserId = (s.user?._id || s.user).toString();
-            return statsUserId === user?._id?.toString();
-          });
-          const lastRead = stats ? new Date(stats.lastReadAt).getTime() : 0;
-          
-          club.messages.forEach(m => {
-            const senderId = (m.user?._id || m.user).toString();
-            const isMe = senderId === user?._id?.toString();
-            const msgTime = new Date(m.createdAt).getTime();
-            // Not my message and after last read
-            if (!isMe && msgTime > lastRead) {
-              totalUnread++;
-            }
-          });
-        }
-      });
-      
-      setUnreadMessages(Math.min(totalUnread, 99));
-      setRecentClubMessages(recentMsgs.slice(0, 3));
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchUnreadDMs = async () => {
-    try {
-      // Use backend unread endpoint which uses proper lastReadBy tracking
-      const res = await axios.get("/api/dm/unread/count", {
-        headers: { "x-auth-token": token }
-      });
-      setUnreadDMs(res.data.count || 0);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const isActive = (path) => location.pathname === path;
 
