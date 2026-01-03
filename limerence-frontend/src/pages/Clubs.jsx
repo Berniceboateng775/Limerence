@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
+import React, { useState, useEffect, useContext, useRef, useCallback, useMemo } from "react";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -491,19 +491,22 @@ export default function Clubs() {
     return {};
   };
 
-  const filteredClubs = clubs
-    .filter(c => 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      c.description.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a, b) => {
-      // Sort by latest message time (most recent first)
-      const aLastMsg = a.messages?.[a.messages.length - 1];
-      const bLastMsg = b.messages?.[b.messages.length - 1];
-      const aTime = aLastMsg ? new Date(aLastMsg.createdAt).getTime() : 0;
-      const bTime = bLastMsg ? new Date(bLastMsg.createdAt).getTime() : 0;
-      return bTime - aTime;
-    });
+  // Memoize filteredClubs to prevent recalculation on every keystroke
+  const filteredClubs = useMemo(() => {
+    return clubs
+      .filter(c => 
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        c.description.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .sort((a, b) => {
+        // Sort by latest message time (most recent first)
+        const aLastMsg = a.messages?.[a.messages.length - 1];
+        const bLastMsg = b.messages?.[b.messages.length - 1];
+        const aTime = aLastMsg ? new Date(aLastMsg.createdAt).getTime() : 0;
+        const bTime = bLastMsg ? new Date(bLastMsg.createdAt).getTime() : 0;
+        return bTime - aTime;
+      });
+  }, [clubs, searchQuery]); // Only recalculate when these change
 
   // Generate unique colors per USER (using userId for uniqueness)
   const getNameColor = (name, uniqueId) => {
@@ -552,6 +555,58 @@ export default function Clubs() {
     const senderId = msg.user?._id || msg.user;
     const isMe = senderId === user._id;
     const userColors = getNameColor(msg.username, senderId); // Use senderId for unique colors
+    
+    // Helper to make URLs clickable - detect club join links
+    const renderWithLinks = (text) => {
+      if (!text) return null;
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const parts = text.split(urlRegex);
+      return parts.map((part, i) => {
+        if (urlRegex.test(part)) {
+          urlRegex.lastIndex = 0;
+          
+          // Check if this is a club join link
+          if (part.includes('/clubs?join=')) {
+            try {
+              const clubId = new URL(part).searchParams.get('join');
+              return (
+                <button 
+                  key={i} 
+                  className="underline text-blue-400 hover:text-blue-300 break-all"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const club = clubs.find(c => c._id === clubId);
+                    if (club) {
+                      setShowJoinModal(club);
+                    } else {
+                      toast("Club not found", "error");
+                    }
+                  }}
+                >
+                  {part}
+                </button>
+              );
+            } catch (err) {
+              // If URL parsing fails, fall through to normal link
+            }
+          }
+          
+          return (
+            <a 
+              key={i} 
+              href={part} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline text-blue-400 hover:text-blue-300 break-all"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {part}
+            </a>
+          );
+        }
+        return part;
+      });
+    };
     
     return (
       <div 
@@ -628,7 +683,7 @@ export default function Clubs() {
               )}
               
               {/* Message content */}
-              <span className={msg.pending ? "opacity-70" : ""}>{msg.content}</span>
+              <span className={msg.pending ? "opacity-70" : ""}>{renderWithLinks(msg.content)}</span>
               
               {/* Timestamp */}
               <span className={`text-[10px] opacity-70 block mt-1 text-right ${isMe ? "" : ""}`}>

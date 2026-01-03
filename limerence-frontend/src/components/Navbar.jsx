@@ -54,8 +54,11 @@ export default function Navbar() {
       let totalUnread = 0;
       
       res.data.forEach(club => {
-        // Only process clubs user is a member of
-        const isMember = club.members?.some(m => (m._id || m) === user?._id);
+        // Only process clubs user is a member of - use toString for reliable comparison
+        const isMember = club.members?.some(m => {
+          const memberId = (m._id || m).toString();
+          return memberId === user?._id?.toString();
+        });
         if (!isMember) return;
         
         if (club.messages?.length > 0) {
@@ -67,12 +70,15 @@ export default function Navbar() {
           });
           
           // Use memberStats for proper unread tracking
-          const stats = club.memberStats?.find(s => (s.user?._id || s.user) === user?._id);
+          const stats = club.memberStats?.find(s => {
+            const statsUserId = (s.user?._id || s.user).toString();
+            return statsUserId === user?._id?.toString();
+          });
           const lastRead = stats ? new Date(stats.lastReadAt).getTime() : 0;
           
           club.messages.forEach(m => {
-            const senderId = m.user?._id || m.user;
-            const isMe = senderId === user?._id;
+            const senderId = (m.user?._id || m.user).toString();
+            const isMe = senderId === user?._id?.toString();
             const msgTime = new Date(m.createdAt).getTime();
             // Not my message and after last read
             if (!isMe && msgTime > lastRead) {
@@ -92,7 +98,7 @@ export default function Navbar() {
   const fetchUnreadDMs = async () => {
     try {
       // Use backend unread endpoint which uses proper lastReadBy tracking
-      const res = await axios.get("/api/dm/unread", {
+      const res = await axios.get("/api/dm/unread/count", {
         headers: { "x-auth-token": token }
       });
       setUnreadDMs(res.data.count || 0);
