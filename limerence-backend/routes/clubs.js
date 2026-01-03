@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Club = require("../models/Club");
+const Notification = require("../models/Notification");
 const auth = require("../middleware/auth"); 
 const multer = require("multer");
 const path = require("path");
@@ -237,14 +238,12 @@ router.post("/:id/kick", auth, async (req, res) => {
     
     // Create notification for kicked user
     try {
-      const Notification = require("../models/Notification");
-      const notification = new Notification({
+      await Notification.create({
         recipient: userIdToKick,
-        type: "club_removed",
-        message: `You have been removed from the club "${club.name}" by an admin.`,
-        data: { clubId: club._id, clubName: club.name }
+        type: "club_kick",
+        content: `You have been removed from the club "${club.name}" by an admin.`,
+        relatedId: club._id
       });
-      await notification.save();
     } catch (notifErr) {
       console.error("Failed to create kick notification:", notifErr);
     }
@@ -375,19 +374,24 @@ router.post("/:id/invite", auth, async (req, res) => {
     club.memberStats.push({ user: userIdToInvite, lastReadAt: new Date() });
     await club.save();
 
-    // Create notification for invited user
-    const Notification = require("../models/Notification");
-    await Notification.create({
-      user: userIdToInvite,
-      type: "club_invite",
-      message: `You have been added to ${club.name}`,
-      read: false
-    });
+    // Create notification for invited user (non-blocking)
+    try {
+      await Notification.create({
+        recipient: userIdToInvite,
+        type: "club_invite",
+        content: `You have been added to ${club.name}`,
+        relatedId: club._id
+      });
+    } catch (notifErr) {
+      console.error("Failed to create notification:", notifErr);
+      // Don't fail the whole request if notification fails
+    }
 
     // Return updated club
     const updatedClub = await Club.findById(club._id)
       .populate("members", "name avatar badges shelf about")
-      .populate("admins", "name avatar");
+      .populate("admins", "name avatar")
+      .populate("bannedUsers", "_id");
 
     res.json(updatedClub);
   } catch (err) {

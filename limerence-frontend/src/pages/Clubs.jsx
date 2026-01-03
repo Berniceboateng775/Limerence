@@ -17,6 +17,9 @@ export default function Clubs() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareTab, setShareTab] = useState('groups'); // 'groups' or 'friends'
+  const [showJoinModal, setShowJoinModal] = useState(null); // club object to join
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null });
   
   // Forms
@@ -105,10 +108,34 @@ export default function Clubs() {
       if (!messageRef.current.trim()) {
         fetchClubs();
       }
-    }, 15000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [fetchClubs]); // Remove message from deps - use ref instead
 
+  // Detect ?join= URL parameter for join popup
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinClubId = urlParams.get('join');
+    
+    if (joinClubId && clubs.length > 0) {
+      const clubToJoin = clubs.find(c => c._id === joinClubId);
+      if (clubToJoin) {
+        const isMember = clubToJoin.members?.some(m => (m._id || m) === user._id);
+        const isBanned = clubToJoin.bannedUsers?.some(b => (b._id || b) === user._id);
+        
+        if (!isMember && !isBanned) {
+          setShowJoinModal(clubToJoin);
+        } else if (isBanned) {
+          toast("You are banned from this club", "error");
+        } else {
+          // Already a member, just select it
+          setSelectedClub(clubToJoin);
+        }
+        // Clear the URL param
+        window.history.replaceState({}, '', '/clubs');
+      }
+    }
+  }, [clubs, user._id]);
   // Scroll to first unread or bottom when opening chat
   useEffect(() => {
     if (selectedClub && chatContainerRef.current) {
@@ -127,9 +154,9 @@ export default function Clubs() {
     } catch (e) { console.error(e); }
   };
 
-  // Fetch populated friends when invite modal opens
+  // Fetch populated friends when invite or share modal opens
   useEffect(() => {
-    if (showInviteModal) {
+    if (showInviteModal || showShareModal) {
       const fetchFriends = async () => {
         try {
           const res = await axios.get("/api/users/me", { headers: { "x-auth-token": token } });
@@ -140,7 +167,7 @@ export default function Clubs() {
       };
       fetchFriends();
     }
-  }, [showInviteModal, token]);
+  }, [showInviteModal, showShareModal, token]);
 
   const calculateUnread = (club) => {
     const stats = club.memberStats?.find(s => s.user === user._id || s.user?._id === user._id);
@@ -926,50 +953,40 @@ export default function Clubs() {
               </div>
               <h2 className="text-xl font-bold text-slate-800 dark:text-white">{viewProfile.name}</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{viewProfile.description}</p>
-              
+                            {/* Admin Action Buttons - Grid Layout */}
               {viewProfile.admins?.some(a => (a._id || a) === user._id) && (
-                <button onClick={openEdit} className="mt-4 text-xs bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-600 dark:text-purple-400 px-4 py-2 rounded-full font-bold transition">
-                  ✏️ Edit Club
-                </button>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <button onClick={openEdit} className="text-xs bg-purple-100 dark:bg-purple-900/50 hover:bg-purple-200 dark:hover:bg-purple-900 text-purple-600 dark:text-purple-400 px-4 py-2 rounded-full font-bold transition">
+                    ✏️ Edit Club
+                  </button>
+                  <button onClick={() => setShowInviteModal(true)} className="text-xs bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900 text-green-600 dark:text-green-400 px-4 py-2 rounded-full font-bold transition">
+                    👥 Add Members
+                  </button>
+                  <button 
+                    onClick={() => setShowShareModal(true)} 
+                    className="text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full font-bold transition"
+                  >
+                    🔗 Share Link
+                  </button>
+                  <button onClick={handleDeleteClub} className="text-xs bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-600 dark:text-red-400 px-4 py-2 rounded-full font-bold transition">
+                    🗑️ Delete Club
+                  </button>
+                </div>
               )}
 
-              {/* Admin Add Members Button */}
-              {viewProfile.admins?.some(a => (a._id || a) === user._id) && (
-                <button onClick={() => setShowInviteModal(true)} className="mt-2 text-xs bg-green-100 dark:bg-green-900/50 hover:bg-green-200 dark:hover:bg-green-900 text-green-600 dark:text-green-400 px-4 py-2 rounded-full font-bold transition">
-                  👥 Add Members
-                </button>
-              )}
-
-              {/* Share Link Button (for all members) */}
-              {viewProfile.members?.some(m => (m._id || m) === user._id) && (
-                <button 
-                  onClick={async () => {
-                    const shareUrl = `${window.location.origin}/clubs?join=${viewProfile._id}`;
-                    try {
-                      await navigator.clipboard.writeText(shareUrl);
-                      toast("Club link copied to clipboard!", "success");
-                    } catch (err) {
-                      toast("Link: " + shareUrl, "info");
-                    }
-                  }} 
-                  className="mt-2 text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full font-bold transition"
-                >
-                  🔗 Share Link
-                </button>
-              )}
-
-              {/* Admin Delete Club Button */}
-              {viewProfile.admins?.some(a => (a._id || a) === user._id) && (
-                <button onClick={handleDeleteClub} className="mt-2 text-xs bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 text-red-600 dark:text-red-400 px-4 py-2 rounded-full font-bold transition">
-                  🗑️ Delete Club
-                </button>
-              )}
-
-              {/* Leave Club Button (for non-admin members) */}
+              {/* Non-admin member buttons */}
               {viewProfile.members?.some(m => (m._id || m) === user._id) && !viewProfile.admins?.some(a => (a._id || a) === user._id) && (
-                <button onClick={handleLeaveClub} className="mt-4 text-xs bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full font-bold transition">
-                  🚪 Leave Club
-                </button>
+                <div className="grid grid-cols-2 gap-2 mt-4">
+                  <button 
+                    onClick={() => setShowShareModal(true)} 
+                    className="text-xs bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full font-bold transition"
+                  >
+                    🔗 Share Link
+                  </button>
+                  <button onClick={handleLeaveClub} className="text-xs bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-gray-300 px-4 py-2 rounded-full font-bold transition">
+                    🚪 Leave Club
+                  </button>
+                </div>
               )}
 
               <div className="mt-8 text-left">
@@ -1217,6 +1234,7 @@ export default function Clubs() {
                             setSelectedClub(res.data);
                             if (viewProfile?._id === selectedClub._id) setViewProfile(res.data);
                             toast(`${friend.name} added to club!`, "success");
+                            fetchClubs(); // Refresh clubs list
                           } catch (err) {
                             toast(err.response?.data?.msg || "Failed to add member", "error");
                           }
@@ -1243,6 +1261,149 @@ export default function Clubs() {
         </div>
       )}
 
+      {/* Share Modal - To Groups or To Friends */}
+      {showShareModal && selectedClub && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-fade-in-up max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">Share {selectedClub.name}</h2>
+              <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl">✕</button>
+            </div>
+            
+            {/* Tabs */}
+            <div className="flex gap-2 mb-4">
+              <button 
+                onClick={() => setShareTab('groups')}
+                className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${shareTab === 'groups' ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
+              >
+                💬 To Groups
+              </button>
+              <button 
+                onClick={() => setShareTab('friends')}
+                className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${shareTab === 'friends' ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
+              >
+                👤 To Friends
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {shareTab === 'groups' ? (
+                // Show clubs user is member of
+                clubs.filter(c => c.members?.some(m => (m._id || m) === user._id) && c._id !== selectedClub._id).length > 0 ? 
+                  clubs.filter(c => c.members?.some(m => (m._id || m) === user._id) && c._id !== selectedClub._id).map(club => (
+                    <div key={club._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold overflow-hidden">
+                          {club.coverImage ? <img src={`http://localhost:5000${club.coverImage}`} className="w-full h-full object-cover" alt="" /> : club.name[0]}
+                        </div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{club.name}</span>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const shareUrl = `${window.location.origin}/clubs?join=${selectedClub._id}`;
+                          const shareMsg = `Join my club ${selectedClub.name}! ${shareUrl}`;
+                          try {
+                            await axios.post(`/api/clubs/${club._id}/message`, 
+                              { content: shareMsg }, 
+                              { headers: { "x-auth-token": token } }
+                            );
+                            toast(`Shared to ${club.name}!`, "success");
+                            setShowShareModal(false);
+                          } catch (err) {
+                            toast("Failed to share", "error");
+                          }
+                        }}
+                        className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-3 py-1.5 rounded-full font-bold hover:bg-purple-200 dark:hover:bg-purple-900/60 transition"
+                      >
+                        Share
+                      </button>
+                    </div>
+                  ))
+                : <p className="text-center text-gray-400 dark:text-gray-500 py-4">No other groups to share to</p>
+              ) : (
+                // Show friends to DM
+                myFriends.length > 0 ? myFriends.map(friend => (
+                  <div key={friend._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold overflow-hidden">
+                        {friend.avatar ? <img src={`http://localhost:5000${friend.avatar}`} className="w-full h-full object-cover" alt="" /> : friend.name?.[0]}
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{friend.name}</span>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const shareUrl = `${window.location.origin}/clubs?join=${selectedClub._id}`;
+                        const shareMsg = `Join my club ${selectedClub.name}! ${shareUrl}`;
+                        try {
+                          await axios.post(`/api/dm/${friend._id}/message`, 
+                            { content: shareMsg }, 
+                            { headers: { "x-auth-token": token } }
+                          );
+                          toast(`Sent to ${friend.name}!`, "success");
+                          setShowShareModal(false);
+                        } catch (err) {
+                          toast("Failed to send", "error");
+                        }
+                      }}
+                      className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-3 py-1.5 rounded-full font-bold hover:bg-purple-200 dark:hover:bg-purple-900/60 transition"
+                    >
+                      Send
+                    </button>
+                  </div>
+                )) : <p className="text-center text-gray-400 dark:text-gray-500 py-4">No friends to share with</p>
+              )}
+            </div>
+            
+            {/* Copy Link Option */}
+            <button 
+              onClick={async () => {
+                const shareUrl = `${window.location.origin}/clubs?join=${selectedClub._id}`;
+                try {
+                  await navigator.clipboard.writeText(shareUrl);
+                  toast("Link copied!", "success");
+                } catch (err) {
+                  toast("Link: " + shareUrl, "info");
+                }
+              }}
+              className="w-full mt-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl shadow-lg hover:from-purple-600 hover:to-pink-600 transition"
+            >
+              📋 Copy Link
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Join Club Modal - When clicking shared link */}
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-fade-in-up text-center">
+            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-purple-400 to-pink-400 rounded-xl flex items-center justify-center text-white text-3xl font-bold overflow-hidden mb-4">
+              {showJoinModal.coverImage ? <img src={`http://localhost:5000${showJoinModal.coverImage}`} className="w-full h-full object-cover" alt="" /> : showJoinModal.name?.[0]}
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white">{showJoinModal.name}</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">{showJoinModal.description}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{showJoinModal.members?.length} members</p>
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setShowJoinModal(null)}
+                className="flex-1 py-3 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={async () => {
+                  await handleJoin(showJoinModal._id);
+                  setShowJoinModal(null);
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl shadow-lg hover:from-purple-600 hover:to-pink-600 transition"
+              >
+                Join Club
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Custom Confirmation Modal */}
       {confirmModal.show && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
