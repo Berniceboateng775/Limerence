@@ -842,6 +842,12 @@ export default function Clubs() {
               {audioBlob && (
                 <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2">
                    <audio controls src={URL.createObjectURL(audioBlob)} className="h-8 w-48" />
+                   <button 
+                     onClick={(e) => handleSendMessage({ preventDefault: () => {} })}
+                     className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold rounded-full transition"
+                   >
+                     Send
+                   </button>
                    <button onClick={cancelRecording} className="text-gray-400 hover:text-red-500">✕</button>
                 </div>
               )}
@@ -867,7 +873,7 @@ export default function Clubs() {
                 />
                 <button 
                   type="submit" 
-                  disabled={!message.trim() && !attachment}
+                  disabled={!message.trim() && !attachment && !audioBlob}
                   className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg hover:from-purple-600 hover:to-pink-600 transition w-12 h-12 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="text-xl">➤</span>
