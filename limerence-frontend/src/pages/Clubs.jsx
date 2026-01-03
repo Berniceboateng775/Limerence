@@ -39,6 +39,7 @@ export default function Clubs() {
     return saved ? JSON.parse(saved) : {};
   });
   const [fontSize, setFontSize] = useState(localStorage.getItem("chatFontSize") || "medium");
+  const [myFriends, setMyFriends] = useState([]); // Populated friends for invite modal
   
   const messagesEndRef = useRef(null);
   const firstUnreadRef = useRef(null);
@@ -125,6 +126,21 @@ export default function Clubs() {
       await axios.post(`/api/clubs/${clubId}/read`, {}, { headers: { "x-auth-token": token } }); 
     } catch (e) { console.error(e); }
   };
+
+  // Fetch populated friends when invite modal opens
+  useEffect(() => {
+    if (showInviteModal) {
+      const fetchFriends = async () => {
+        try {
+          const res = await axios.get("/api/users/me", { headers: { "x-auth-token": token } });
+          setMyFriends(res.data.friends || []);
+        } catch (err) {
+          console.error("Failed to fetch friends:", err);
+        }
+      };
+      fetchFriends();
+    }
+  }, [showInviteModal, token]);
 
   const calculateUnread = (club) => {
     const stats = club.memberStats?.find(s => s.user === user._id || s.user?._id === user._id);
@@ -1172,7 +1188,7 @@ export default function Clubs() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Select friends to add to your club</p>
             
             <div className="space-y-2">
-              {user.friends?.length > 0 ? user.friends.map(friend => {
+              {myFriends?.length > 0 ? myFriends.map(friend => {
                 const isMember = selectedClub.members?.some(m => (m._id || m) === friend._id);
                 const isBanned = selectedClub.bannedUsers?.some(b => (b._id || b) === friend._id);
                 
