@@ -296,7 +296,15 @@ router.put("/:id", auth, upload.single("coverImage"), async (req, res) => {
 
     if (name) club.name = name;
     if (description) club.description = description;
-    if (currentBook !== undefined) club.currentBook = currentBook;
+    
+    // Handle currentBook - can be string (title only) or object
+    if (currentBook !== undefined) {
+      if (typeof currentBook === 'string') {
+        club.currentBook = { title: currentBook, author: '', coverImage: '' };
+      } else {
+        club.currentBook = currentBook;
+      }
+    }
     
     // Handle cover image upload
     if (req.file) {

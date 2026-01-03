@@ -44,6 +44,7 @@ export default function Clubs() {
   const chatContainerRef = useRef(null);
   const messageRefs = useRef({}); // Map of message IDs to refs for scrolling
   const selectedClubIdRef = useRef(null); // Track selected club ID to prevent stale closures
+  const messageRef = useRef(""); // Track message content to prevent flickering
 
   // Premium Wallpaper Gradients
   const wallpapers = {
@@ -89,17 +90,22 @@ export default function Clubs() {
     } catch (err) { console.error(err); }
   }, []); // No dependencies needed - uses ref
 
+  // Keep messageRef in sync
+  useEffect(() => {
+    messageRef.current = message;
+  }, [message]);
+
   useEffect(() => {
     fetchClubs();
     // Only fetch when not typing to prevent flickering
     const interval = setInterval(() => {
-      // Skip fetch if user is actively typing (has message content)
-      if (!message.trim()) {
+      // Skip fetch if user is actively typing (has message content) - use ref to avoid dependency
+      if (!messageRef.current.trim()) {
         fetchClubs();
       }
     }, 15000);
     return () => clearInterval(interval);
-  }, [fetchClubs, message]);
+  }, [fetchClubs]); // Remove message from deps - use ref instead
 
   // Scroll to first unread or bottom when opening chat
   useEffect(() => {
@@ -230,9 +236,14 @@ export default function Clubs() {
       }
 
       if (showEditModal && selectedClub) {
-        await axios.put(`/api/clubs/${selectedClub._id}`, formData, { 
+        const res = await axios.put(`/api/clubs/${selectedClub._id}`, formData, { 
           headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" } 
         });
+        // Update selectedClub and viewProfile with new data
+        setSelectedClub(res.data);
+        if (viewProfile?._id === selectedClub._id) {
+          setViewProfile(res.data);
+        }
         toast("Club updated!", "success");
         setShowEditModal(false);
       } else {
@@ -245,7 +256,8 @@ export default function Clubs() {
       setClubForm({ name: "", description: "", currentBook: "", coverImageFile: null });
       fetchClubs();
     } catch (err) {
-      toast("Operation failed", "error");
+      console.error("Club operation failed:", err);
+      toast(err.response?.data?.msg || "Operation failed", "error");
     }
   };
 
@@ -700,7 +712,9 @@ export default function Clubs() {
                     )}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {lastMsg ? `${lastMsg.username}: ${lastMsg.content?.substring(0, 25)}${lastMsg.content?.length > 25 ? '...' : ''}` : club.description}
+                    {isMember && lastMsg 
+                      ? `${lastMsg.username}: ${lastMsg.content?.substring(0, 25)}${lastMsg.content?.length > 25 ? '...' : ''}` 
+                      : club.description}
                   </p>
                 </div>
                 
