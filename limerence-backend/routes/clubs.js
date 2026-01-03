@@ -174,16 +174,17 @@ router.delete("/:id/messages/:msgId", auth, async (req, res) => {
         const club = await Club.findById(req.params.id);
         if (!club) return res.status(404).json({ msg: "Club not found" });
 
-        // Check if requester is admin
-        const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
-        if (!isAdmin) {
-            return res.status(401).json({ msg: "Not authorized - admin only" });
-        }
-
-        // Find and remove the message
         const msgIndex = club.messages.findIndex(m => m._id.toString() === req.params.msgId);
         if (msgIndex === -1) {
             return res.status(404).json({ msg: "Message not found" });
+        }
+
+        const msg = club.messages[msgIndex];
+        const isSender = msg.user.toString() === req.user.userId;
+        const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
+
+        if (!isAdmin && !isSender) {
+            return res.status(401).json({ msg: "Not authorized" });
         }
 
         club.messages.splice(msgIndex, 1);

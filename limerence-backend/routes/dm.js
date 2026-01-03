@@ -43,7 +43,11 @@ router.get("/:friendId", auth, async (req, res) => {
       await conversation.save();
     }
 
-    res.json(conversation);
+    const convObj = conversation.toObject();
+    convObj.messages = convObj.messages.filter(m => 
+      !m.deletedBy || !m.deletedBy.some(id => id.toString() === userId)
+    );
+    res.json(convObj);
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
@@ -203,6 +207,50 @@ router.post("/:friendId/read", auth, async (req, res) => {
 
     await conversation.save();
     res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+// Delete Message
+router.delete("/:friendId/message/:msgId", auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { friendId, msgId } = req.params;
+    const { mode } = req.body; // 'me' or 'everyone'
+
+    const conversation = await DirectMessage.findOne({
+      participants: { $all: [userId, friendId] }
+    });
+
+    if (!conversation) return res.status(404).json({ msg: "Conversation not found" });
+
+    const msg = conversation.messages.id(msgId);
+    if (!msg) return res.status(404).json({ msg: "Message not found" });
+
+    if (mode === 'everyone') {
+      if (msg.sender.toString() !== userId) {
+        return res.status(401).json({ msg: "Unauthorized" });
+      }
+      // Remove message from array
+      conversation.messages.pull(msgId);
+    } else {
+      // Delete for me
+      if (!msg.deletedBy.some(id => id.toString() === userId)) {
+        msg.deletedBy.push(userId);
+      }
+    }
+
+    await conversation.save();
+    
+    // Return updated filtered messages
+    const convObj = conversation.toObject();
+    const visibleMessages = convObj.messages.filter(m => 
+      !m.deletedBy || !m.deletedBy.some(id => id.toString() === userId)
+    );
+    res.json(visibleMessages);
+    
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });

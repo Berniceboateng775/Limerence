@@ -36,7 +36,11 @@ const DirectMessageSchema = new mongoose.Schema({
     createdAt: {
       type: Date,
       default: Date.now
-    }
+    },
+    deletedBy: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }]
   }],
   // Track when each participant last read the conversation
   lastReadBy: [{

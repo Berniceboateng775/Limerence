@@ -162,6 +162,8 @@ const ClubMessageBubble = ({
               <div className="mb-2">
                 {msg.attachment.fileType === 'image' ? (
                   <img src={`http://localhost:5000${msg.attachment.url}`} className="rounded-lg max-h-48 object-cover" alt="" />
+                ) : msg.attachment.fileType === 'audio' ? (
+                  <audio controls className="max-w-[200px]" src={`http://localhost:5000${msg.attachment.url}`} />
                 ) : (
                   <div className="bg-black/10 p-2 rounded flex items-center gap-2">📄 {msg.attachment.name}</div>
                 )}
@@ -191,7 +193,7 @@ const ClubMessageBubble = ({
             <button onClick={() => handleReaction(msg._id, "👍")} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full text-sm">👍</button>
             <button onClick={() => handleReaction(msg._id, "😂")} className="p-1.5 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded-full text-sm">😂</button>
             <button onClick={() => setReactionTarget(reactionTarget === msg._id ? null : msg._id)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full text-sm">➕</button>
-            {selectedClub?.admins?.some(a => (a._id || a) === user._id) && (
+            {(selectedClub?.admins?.some(a => (a._id || a) === user._id) || calculatedIsMe) && (
               <button onClick={() => handleDeleteMessage(msg._id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full text-sm text-red-500" title="Delete message">🗑️</button>
             )}
           </div>

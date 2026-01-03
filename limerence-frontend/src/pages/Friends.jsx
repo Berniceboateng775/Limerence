@@ -27,6 +27,7 @@ export default function Friends() {
   const [newMessage, setNewMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showWallpaperPicker, setShowWallpaperPicker] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -161,16 +162,27 @@ export default function Friends() {
     setShowWallpaperPicker(false);
   };
 
-  const handleCustomWallpaperUpload = (e) => {
+  const handleCustomWallpaperUpload = async (e) => {
     const file = e.target.files[0];
     if (file && selectedFriend) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFriendCustomWallpapers(prev => ({ ...prev, [selectedFriend._id]: reader.result }));
+      try {
+        const formData = new FormData();
+        formData.append("wallpaper", file);
+        
+        toast("Uploading wallpaper...", "info");
+        const res = await axios.post("/api/users/upload-wallpaper", formData, {
+            headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
+        });
+        
+        const fullUrl = `http://localhost:5000${res.data.url}`;
+        setFriendCustomWallpapers(prev => ({ ...prev, [selectedFriend._id]: fullUrl }));
         setFriendWallpapers(prev => ({ ...prev, [selectedFriend._id]: 'custom' }));
         setShowWallpaperPicker(false);
-      };
-      reader.readAsDataURL(file);
+        toast("Wallpaper uploaded!", "success");
+      } catch (err) {
+        console.error(err);
+        toast("Failed to upload wallpaper", "error");
+      }
     }
   };
 
@@ -292,6 +304,26 @@ export default function Friends() {
       setShowReactionPicker(null);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const confirmDelete = async (mode) => {
+    if (!deleteTarget || !selectedFriend) return;
+    try {
+      await axios.delete(`/api/dm/${selectedFriend._id}/message/${deleteTarget._id}`, {
+        data: { mode },
+        headers: { "x-auth-token": token }
+      });
+      // Update local state by filtering out deleted message (faster UI)
+      setMessages(prev => prev.filter(m => m._id !== deleteTarget._id));
+      
+      // Also fetch to be sure
+      // fetchConversation(selectedFriend._id); 
+      toast("Message deleted", "success");
+    } catch (err) {
+      toast(err.response?.data?.msg || "Failed to delete", "error");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -440,6 +472,10 @@ export default function Friends() {
               <button onClick={() => setReplyingTo(msg)}
                 className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition" title="Reply">
                 ↩️
+              </button>
+              <button onClick={() => setDeleteTarget(msg)}
+                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition text-red-500" title="Delete">
+                🗑️
               </button>
             </div>
 
@@ -771,6 +807,41 @@ export default function Friends() {
             ) : (
               <div className="text-gray-400 py-8">Club not found</div>
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-fade-in-up">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-3">Delete Message?</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">You can delete this message for everyone or just for yourself.</p>
+            
+            <div className="flex flex-col gap-2">
+              {(deleteTarget.sender?._id || deleteTarget.sender) === user._id && (
+                <button 
+                    onClick={() => confirmDelete('everyone')}
+                    className="w-full py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition shadow-lg"
+                >
+                    Delete for Everyone
+                </button>
+              )}
+              
+              <button 
+                onClick={() => confirmDelete('me')}
+                className="w-full py-3 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 font-bold rounded-xl hover:bg-purple-200 dark:hover:bg-purple-900/60 transition"
+              >
+                Delete for Me
+              </button>
+              
+              <button 
+                onClick={() => setDeleteTarget(null)}
+                className="w-full py-3 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -65,6 +65,12 @@ export default function Clubs() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [reactionTarget, setReactionTarget] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  // Audio Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
   // Per-club wallpaper settings
   const [clubWallpapers, setClubWallpapers] = useState(() => {
     const saved = localStorage.getItem("clubWallpapers");
@@ -243,9 +249,38 @@ export default function Clubs() {
     });
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+      mediaRecorder.onstop = () => {
+        setAudioBlob(new Blob(audioChunksRef.current, { type: 'audio/webm' }));
+        stream.getTracks().forEach(track => track.stop());
+      };
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      toast("Microphone access denied", "error");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const cancelRecording = () => {
+    setAudioBlob(null);
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!message.trim() && !attachment) return;
+    if (!message.trim() && !attachment && !audioBlob) return;
 
     // Optimistic update
     const tempMsg = {
@@ -275,6 +310,8 @@ export default function Clubs() {
       formData.append("content", msgContent);
       formData.append("username", user.name);
       if (attachment) formData.append("attachment", attachment);
+      if (audioBlob) formData.append("attachment", audioBlob, "voice.webm");
+      
       if (replyingTo) {
         // Map _id to id for backend schema compatibility
         formData.append("replyTo", JSON.stringify({
@@ -289,6 +326,7 @@ export default function Clubs() {
       });
       
       setAttachment(null);
+      setAudioBlob(null);
       setReplyingTo(null);
       await markAsRead(selectedClub._id); // Await to ensure read state is updated before fetching
       fetchClubs(); 
@@ -458,12 +496,17 @@ export default function Clubs() {
   };
 
   // Delete message (admin only) - shows custom modal
+  // Delete message (Admin or Sender)
   const handleDeleteMessage = (msgId) => {
     if (!selectedClub) return;
-    // Check if current user is admin
+    
+    // Check if current user is admin OR sender
     const isAdmin = selectedClub.admins?.some(a => (a._id || a) === user._id);
-    if (!isAdmin) {
-      toast("Only admins can delete messages", "error");
+    const msg = selectedClub.messages?.find(m => m._id === msgId);
+    const isMe = msg && (msg.user?._id || msg.user) === user._id;
+
+    if (!isAdmin && !isMe) {
+      toast("You can only delete your own messages", "error");
       return;
     }
     
@@ -478,7 +521,7 @@ export default function Clubs() {
           toast("Message deleted", "success");
         } catch (err) { 
           console.error(err);
-          toast("Failed to delete message", "error"); 
+          toast(err.response?.data?.msg || "Failed to delete message", "error"); 
         }
         setConfirmModal({ show: false, title: '', message: '', onConfirm: null });
       }
@@ -487,15 +530,25 @@ export default function Clubs() {
 
   const handleFileSelect = (e) => { if (e.target.files[0]) setAttachment(e.target.files[0]); };
 
-  const handleWallpaperUpload = (e) => {
+  const handleWallpaperUpload = async (e) => {
     const file = e.target.files[0];
     if (file && selectedClub) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setClubCustomWallpapers(prev => ({ ...prev, [selectedClub._id]: reader.result }));
+      try {
+        const formData = new FormData();
+        formData.append("wallpaper", file);
+        
+        const res = await axios.post("/api/users/upload-wallpaper", formData, {
+            headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
+        });
+        
+        const fullUrl = `http://localhost:5000${res.data.url}`;
+        setClubCustomWallpapers(prev => ({ ...prev, [selectedClub._id]: fullUrl }));
         setClubWallpapers(prev => ({ ...prev, [selectedClub._id]: 'custom' }));
-      };
-      reader.readAsDataURL(file);
+        toast("Wallpaper uploaded!", "success");
+      } catch (err) {
+        console.error("Wallpaper upload failed", err);
+        toast("Failed to upload wallpaper (check console)", "error");
+      }
     }
   };
 
@@ -785,6 +838,14 @@ export default function Clubs() {
                 </div>
               )}
 
+              {/* Audio Preview */}
+              {audioBlob && (
+                <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2">
+                   <audio controls src={URL.createObjectURL(audioBlob)} className="h-8 w-48" />
+                   <button onClick={cancelRecording} className="text-gray-400 hover:text-red-500">✕</button>
+                </div>
+              )}
+
               <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
                 <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-3 text-2xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition">
                   😊
@@ -792,6 +853,10 @@ export default function Clubs() {
                 <label className="p-3 text-gray-400 hover:text-purple-600 cursor-pointer transition text-xl">
                   📎 <input type="file" className="hidden" onChange={handleFileSelect} />
                 </label>
+                <button type="button" onClick={isRecording ? stopRecording : startRecording}
+                        className={`p-3 text-xl rounded-full transition ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 hover:text-purple-600'}`}>
+                  {isRecording ? '⏹️' : '🎤'}
+                </button>
                 <textarea 
                   className={`flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-2xl p-3 outline-none resize-none ${fontSizes[fontSize]} max-h-32 focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 dark:text-white dark:placeholder-gray-400 transition`}
                   placeholder={`Message #${selectedClub.name}`} 

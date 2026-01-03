@@ -3,6 +3,38 @@ const router = express.Router();
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const auth = require("../middleware/auth");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// Configure Multer for Wallpapers
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, "..", "uploads", "wallpapers");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `wp-${Date.now()}${ext}`);
+  },
+});
+const upload = multer({ storage });
+
+// Upload Custom Wallpaper
+router.post("/upload-wallpaper", auth, upload.single("wallpaper"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ msg: "No file uploaded" });
+    const url = `/uploads/wallpapers/${req.file.filename}`;
+    // Optional: Save to user profile if desired, for now just return URL
+    res.json({ url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
 
 // Get current user profile (with friends)
 router.get("/me", auth, async (req, res) => {
