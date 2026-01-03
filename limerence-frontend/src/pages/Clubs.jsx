@@ -1031,20 +1031,40 @@ export default function Clubs() {
               <div className="mt-6">
                 <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase border-b border-gray-100 dark:border-slate-700 pb-2 mb-3">Member Of</h4>
                 <div className="space-y-2">
-                  {clubs.filter(c => c.members.some(m => (m._id || m) === viewProfile._id)).map(club => (
-                    <div 
-                      key={club._id} 
-                      onClick={() => { setSelectedClub(club); setViewProfile(null); }}
-                      className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-slate-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-600 transition"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
-                        {club.coverImage ? (
-                          <img src={`http://localhost:5000${club.coverImage}`} className="w-full h-full object-cover" alt="" />
-                        ) : club.name[0]}
+                  {clubs.filter(c => c.members.some(m => (m._id || m) === viewProfile._id)).map(club => {
+                    // Check if current user is banned from this club
+                    const isBanned = club.bannedUsers?.some(b => (b._id || b) === user._id);
+                    const isMember = club.members.some(m => (m._id || m) === user._id);
+                    
+                    return (
+                      <div 
+                        key={club._id} 
+                        onClick={() => { 
+                          if (isBanned) {
+                            toast("You have been banned from this club", "error");
+                            return;
+                          }
+                          if (!isMember) {
+                            handleJoin(club._id);
+                            setViewProfile(null);
+                          } else {
+                            setSelectedClub(club); 
+                            setViewProfile(null); 
+                          }
+                        }}
+                        className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-slate-700 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
+                          {club.coverImage ? (
+                            <img src={`http://localhost:5000${club.coverImage}`} className="w-full h-full object-cover" alt="" />
+                          ) : club.name[0]}
+                        </div>
+                        <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">{club.name}</span>
+                        {isBanned && <span className="text-[9px] bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded font-bold">Banned</span>}
+                        {!isMember && !isBanned && <span className="text-[9px] bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded font-bold">Join</span>}
                       </div>
-                      <span className="text-sm text-gray-700 dark:text-gray-200 font-medium">{club.name}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {clubs.filter(c => c.members.some(m => (m._id || m) === viewProfile._id)).length === 0 && (
                     <p className="text-xs text-gray-400 dark:text-gray-500">Not in any clubs</p>
                   )}
