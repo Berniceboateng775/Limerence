@@ -452,10 +452,19 @@ export default function Clubs() {
     return {};
   };
 
-  const filteredClubs = clubs.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredClubs = clubs
+    .filter(c => 
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      c.description.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Sort by latest message time (most recent first)
+      const aLastMsg = a.messages?.[a.messages.length - 1];
+      const bLastMsg = b.messages?.[b.messages.length - 1];
+      const aTime = aLastMsg ? new Date(aLastMsg.createdAt).getTime() : 0;
+      const bTime = bLastMsg ? new Date(bLastMsg.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
 
   // Generate unique colors per USER (using userId for uniqueness)
   const getNameColor = (name, uniqueId) => {

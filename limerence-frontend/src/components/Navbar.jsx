@@ -49,10 +49,15 @@ export default function Navbar() {
       const res = await axios.get("/api/clubs", {
         headers: { "x-auth-token": token }
       });
-      // Only show preview of recent messages
+      
       let recentMsgs = [];
       let totalUnread = 0;
+      
       res.data.forEach(club => {
+        // Only process clubs user is a member of
+        const isMember = club.members?.some(m => (m._id || m) === user?._id);
+        if (!isMember) return;
+        
         if (club.messages?.length > 0) {
           const lastMsg = club.messages[club.messages.length - 1];
           recentMsgs.push({
@@ -60,16 +65,24 @@ export default function Navbar() {
             message: lastMsg.content?.substring(0, 30) + "...",
             user: lastMsg.username || "Someone"
           });
-          // Only count messages from last 5 MINUTES (not 1 hour) to avoid old messages
-          const fiveMinAgo = Date.now() - 300000; // 5 minutes
+          
+          // Use memberStats for proper unread tracking
+          const stats = club.memberStats?.find(s => (s.user?._id || s.user) === user?._id);
+          const lastRead = stats ? new Date(stats.lastReadAt).getTime() : 0;
+          
           club.messages.forEach(m => {
-            if (new Date(m.createdAt) > fiveMinAgo && (m.user?._id || m.user) !== user?._id) {
+            const senderId = m.user?._id || m.user;
+            const isMe = senderId === user?._id;
+            const msgTime = new Date(m.createdAt).getTime();
+            // Not my message and after last read
+            if (!isMe && msgTime > lastRead) {
               totalUnread++;
             }
           });
         }
       });
-      setUnreadMessages(Math.min(totalUnread, 99)); // Cap at 99
+      
+      setUnreadMessages(Math.min(totalUnread, 99));
       setRecentClubMessages(recentMsgs.slice(0, 3));
     } catch (err) {
       console.error(err);
@@ -78,30 +91,11 @@ export default function Navbar() {
 
   const fetchUnreadDMs = async () => {
     try {
-      // Get all conversations and count unread
-      const meRes = await axios.get("/api/users/me", {
+      // Use backend unread endpoint which uses proper lastReadBy tracking
+      const res = await axios.get("/api/dm/unread", {
         headers: { "x-auth-token": token }
       });
-      const friends = meRes.data.friends || [];
-      let totalUnread = 0;
-      
-      for (const friend of friends) {
-        try {
-          const convRes = await axios.get(`/api/dm/${friend._id}`, {
-            headers: { "x-auth-token": token }
-          });
-          const msgs = convRes.data.messages || [];
-          const fiveMinAgo = Date.now() - 300000;
-          msgs.forEach(m => {
-            if ((m.sender?._id || m.sender) !== user?._id && 
-                new Date(m.createdAt).getTime() > fiveMinAgo) {
-              totalUnread++;
-            }
-          });
-        } catch (e) { /* no conversation */ }
-      }
-      
-      setUnreadDMs(Math.min(totalUnread, 99));
+      setUnreadDMs(res.data.count || 0);
     } catch (err) {
       console.error(err);
     }

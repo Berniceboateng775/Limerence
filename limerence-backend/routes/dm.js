@@ -158,14 +158,51 @@ router.get("/unread/count", auth, async (req, res) => {
     let unreadCount = 0;
     
     conversations.forEach(conv => {
+      // Find user's last read time for this conversation
+      const userReadInfo = conv.lastReadBy?.find(r => r.user.toString() === userId);
+      const lastReadAt = userReadInfo ? new Date(userReadInfo.lastReadAt).getTime() : 0;
+      
       conv.messages.forEach(msg => {
-        if (msg.sender.toString() !== userId && msg.createdAt > fiveMinAgo) {
+        const msgTime = new Date(msg.createdAt).getTime();
+        // Not my message and after my last read
+        if (msg.sender.toString() !== userId && msgTime > lastReadAt) {
           unreadCount++;
         }
       });
     });
 
     res.json({ count: Math.min(unreadCount, 99) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+// Mark conversation as read
+router.post("/:friendId/read", auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const friendId = req.params.friendId;
+
+    const conversation = await DirectMessage.findOne({
+      participants: { $all: [userId, friendId] }
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ msg: "Conversation not found" });
+    }
+
+    // Update or add read entry
+    const readIndex = conversation.lastReadBy?.findIndex(r => r.user.toString() === userId);
+    if (readIndex > -1) {
+      conversation.lastReadBy[readIndex].lastReadAt = Date.now();
+    } else {
+      if (!conversation.lastReadBy) conversation.lastReadBy = [];
+      conversation.lastReadBy.push({ user: userId, lastReadAt: Date.now() });
+    }
+
+    await conversation.save();
+    res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
