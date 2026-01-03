@@ -84,9 +84,15 @@ export default function Clubs() {
 
   useEffect(() => {
     fetchClubs();
-    const interval = setInterval(fetchClubs, 15000); // Reduced from 5s to 15s to prevent blinking
+    // Only fetch when not typing to prevent flickering
+    const interval = setInterval(() => {
+      // Skip fetch if user is actively typing (has message content)
+      if (!message.trim()) {
+        fetchClubs();
+      }
+    }, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [message]);
 
   // Scroll to first unread or bottom when opening chat
   useEffect(() => {
@@ -182,7 +188,14 @@ export default function Clubs() {
       formData.append("content", msgContent);
       formData.append("username", user.name);
       if (attachment) formData.append("attachment", attachment);
-      if (replyingTo) formData.append("replyTo", JSON.stringify(replyingTo));
+      if (replyingTo) {
+        // Map _id to id for backend schema compatibility
+        formData.append("replyTo", JSON.stringify({
+          id: replyingTo._id,
+          username: replyingTo.username,
+          content: replyingTo.content
+        }));
+      }
 
       await axios.post(`/api/clubs/${selectedClub._id}/message`, formData, {
         headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
@@ -267,7 +280,10 @@ export default function Clubs() {
       await axios.post(`/api/clubs/${id}/join`, {}, { headers: { "x-auth-token": token } });
       fetchClubs();
       toast("Joined!", "success");
-    } catch (err) { toast("Failed", "error"); }
+    } catch (err) { 
+      // Show banned message if user is banned
+      toast(err.response?.data?.msg || "Failed to join", "error"); 
+    }
   };
 
   // Leave club - shows custom modal
@@ -335,6 +351,34 @@ export default function Clubs() {
         } catch (err) { 
           console.error(err);
           toast("Failed to remove member", "error"); 
+        }
+        setConfirmModal({ show: false, title: '', message: '', onConfirm: null });
+      }
+    });
+  };
+
+  // Delete message (admin only) - shows custom modal
+  const handleDeleteMessage = (msgId) => {
+    if (!selectedClub) return;
+    // Check if current user is admin
+    const isAdmin = selectedClub.admins?.some(a => (a._id || a) === user._id);
+    if (!isAdmin) {
+      toast("Only admins can delete messages", "error");
+      return;
+    }
+    
+    setConfirmModal({
+      show: true,
+      title: 'Delete Message',
+      message: 'Are you sure you want to delete this message?',
+      onConfirm: async () => {
+        try {
+          await axios.delete(`/api/clubs/${selectedClub._id}/messages/${msgId}`, { headers: { "x-auth-token": token } });
+          fetchClubs();
+          toast("Message deleted", "success");
+        } catch (err) { 
+          console.error(err);
+          toast("Failed to delete message", "error"); 
         }
         setConfirmModal({ show: false, title: '', message: '', onConfirm: null });
       }
@@ -455,7 +499,7 @@ export default function Clubs() {
         {/* Reply Context - Clickable to scroll to original message */}
         {msg.replyTo && (
           <div 
-            onClick={() => scrollToMessage(msg.replyTo._id)}
+            onClick={() => scrollToMessage(msg.replyTo.id || msg.replyTo._id)}
             className={`text-xs mb-2 p-2.5 rounded-lg border-l-4 max-w-[70%] cursor-pointer hover:opacity-80 transition ${
               isMe 
                 ? "bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200" 
@@ -536,6 +580,10 @@ export default function Clubs() {
               <button onClick={() => handleReaction(msg._id, "👍")} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full text-sm">👍</button>
               <button onClick={() => handleReaction(msg._id, "😂")} className="p-1.5 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded-full text-sm">😂</button>
               <button onClick={() => setReactionTarget(reactionTarget === msg._id ? null : msg._id)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full text-sm">➕</button>
+              {/* Admin delete button */}
+              {selectedClub?.admins?.some(a => (a._id || a) === user._id) && (
+                <button onClick={() => handleDeleteMessage(msg._id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full text-sm text-red-500" title="Delete message">🗑️</button>
+              )}
             </div>
             
             {/* Full Emoji Picker */}

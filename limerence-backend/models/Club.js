@@ -29,6 +29,13 @@ const ClubSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  // Users who have been kicked and cannot rejoin
+  bannedUsers: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
   coverImage: String, // URL to club profile picture
   currentBook: {
     title: String,

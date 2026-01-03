@@ -70,6 +70,11 @@ router.post("/:id/join", auth, async (req, res) => {
     const club = await Club.findById(req.params.id);
     if (!club) return res.status(404).json({ msg: "Club not found" });
 
+    // Check if user is banned from this club
+    if (club.bannedUsers && club.bannedUsers.some(b => b.toString() === req.user.userId)) {
+      return res.status(403).json({ msg: "You have been banned from this club and cannot rejoin." });
+    }
+
     if (club.members.includes(req.user.userId)) {
       return res.status(400).json({ msg: "Already a member" });
     }
@@ -155,6 +160,33 @@ router.post("/:id/messages/:msgId/react", auth, async (req, res) => {
     }
 });
 
+// Delete a message (Admin only)
+router.delete("/:id/messages/:msgId", auth, async (req, res) => {
+    try {
+        const club = await Club.findById(req.params.id);
+        if (!club) return res.status(404).json({ msg: "Club not found" });
+
+        // Check if requester is admin
+        const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
+        if (!isAdmin) {
+            return res.status(401).json({ msg: "Not authorized - admin only" });
+        }
+
+        // Find and remove the message
+        const msgIndex = club.messages.findIndex(m => m._id.toString() === req.params.msgId);
+        if (msgIndex === -1) {
+            return res.status(404).json({ msg: "Message not found" });
+        }
+
+        club.messages.splice(msgIndex, 1);
+        await club.save();
+        res.json({ msg: "Message deleted", messages: club.messages });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: "Server Error" });
+    }
+});
+
 // Mark club as read
 router.post("/:id/read", auth, async (req, res) => {
     try {
@@ -185,16 +217,24 @@ router.post("/:id/kick", auth, async (req, res) => {
     if (!club) return res.status(404).json({ msg: "Club not found" });
 
     // Check if requester is admin
-    if (!club.admins.includes(req.user.userId)) {
-      return res.status(401).json({ msg: "Not authorized" });
+    const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
+    if (!isAdmin) {
+      return res.status(401).json({ msg: "Not authorized - admin only" });
     }
 
+    // Remove from members
     club.members = club.members.filter(m => m.toString() !== userIdToKick);
     // Also remove from admins if they were one
     club.admins = club.admins.filter(a => a.toString() !== userIdToKick);
+    
+    // Add to bannedUsers so they can't rejoin
+    if (!club.bannedUsers) club.bannedUsers = [];
+    if (!club.bannedUsers.some(b => b.toString() === userIdToKick)) {
+      club.bannedUsers.push(userIdToKick);
+    }
 
     await club.save();
-    res.json(club.members);
+    res.json({ members: club.members, bannedUser: userIdToKick, clubName: club.name });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
