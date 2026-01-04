@@ -804,9 +804,21 @@ export default function Clubs() {
                     )}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {isMember && lastMsg 
-                      ? `${lastMsg.username || 'Unknown'}: ${lastMsg.content?.substring(0, 25)}${lastMsg.content?.length > 25 ? '...' : ''}` 
-                      : club.description}
+                    {isMember && lastMsg ? (
+                      <>
+                        <span className={(lastMsg.user?._id || lastMsg.user) === user._id ? "text-purple-500 font-bold" : ""}>
+                          {(lastMsg.user?._id || lastMsg.user) === user._id ? "You" : (lastMsg.username || 'Unknown')}: 
+                        </span>{" "}
+                        {lastMsg.content || (
+                             lastMsg.attachment ? (
+                               typeof lastMsg.attachment === 'string' && lastMsg.attachment.includes('.webm') ? '🎤 Voice message' : 
+                               typeof lastMsg.attachment === 'string' && (lastMsg.attachment.includes('.jpg') || lastMsg.attachment.includes('.png')) ? '📷 Photo' : 
+                               lastMsg.poll ? '📊 Poll' : '📎 Attachment'
+                             ) : 
+                             lastMsg.poll ? '📊 Poll' : ''
+                        )}
+                      </>
+                    ) : club.description}
                   </p>
                 </div>
                 
@@ -995,7 +1007,7 @@ export default function Clubs() {
                   </button>
                   {showAttachmentMenu && (
                     <div className="absolute bottom-16 left-0 z-50 animate-fade-in-up">
-                       <AttachmentMenu onSelect={handleAttachmentSelect} />
+                       <AttachmentMenu onSelect={handleAttachmentSelect} showPoll={true} />
                     </div>
                   )}
                 </div>
