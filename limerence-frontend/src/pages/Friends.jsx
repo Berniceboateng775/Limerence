@@ -107,7 +107,13 @@ export default function Friends() {
             const lastMsg = msgs[msgs.length - 1];
             timestamps[friend._id] = new Date(lastMsg.createdAt).getTime();
             lastMsgs[friend._id] = {
-              content: lastMsg.content || (lastMsg.attachmentType === 'image' ? '📷 Photo' : lastMsg.attachmentType === 'voice' ? '🎤 Voice message' : ''),
+              content: lastMsg.content || (
+                lastMsg.attachmentType === 'image' ? '📷 Photo' : 
+                lastMsg.attachmentType === 'voice' ? '🎤 Voice message' : 
+                lastMsg.attachmentType === 'file' ? '📄 Document' : 
+                lastMsg.attachmentType === 'video' ? '🎥 Video' : 
+                lastMsg.attachmentType === 'location' ? '📍 Location' : ''
+              ),
               time: new Date(lastMsg.createdAt),
               isMe: (lastMsg.sender?._id || lastMsg.sender) === user._id
             };
@@ -238,6 +244,7 @@ export default function Friends() {
       });
       setMessages(prev => [...prev, res.data]);
       setAttachment(null); setImagePreview(null); setNewMessage(""); setReplyingTo(null);
+      fetchFriends();
       toast("Sent!", "success");
     } catch (err) {
       toast("Failed to send", "error");
@@ -283,6 +290,7 @@ export default function Friends() {
       });
       setMessages(prev => [...prev, res.data]);
       setNewMessage(""); 
+      fetchFriends();
       toast("File sent!", "success");
     } catch (err) {
       toast("Failed to send file", "error");
@@ -336,6 +344,7 @@ export default function Friends() {
       });
       setMessages(prev => [...prev, res.data]);
       setAudioBlob(null);
+      fetchFriends();
       toast("Voice note sent!", "success");
     } catch (err) {
       toast("Failed to send", "error");
@@ -355,6 +364,7 @@ export default function Friends() {
       const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, payload, { headers: { "x-auth-token": token } });
       setMessages(prev => [...prev, res.data]);
       setNewMessage(""); setReplyingTo(null);
+      fetchFriends();
     } catch (err) {
       toast("Failed to send", "error");
     }
@@ -380,6 +390,7 @@ export default function Friends() {
       });
       // Update local state by filtering out deleted message (faster UI)
       setMessages(prev => prev.filter(m => m._id !== deleteTarget._id));
+      fetchFriends();
       
       // Also fetch to be sure
       // fetchConversation(selectedFriend._id); 

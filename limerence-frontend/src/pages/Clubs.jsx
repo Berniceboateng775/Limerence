@@ -330,13 +330,17 @@ export default function Clubs() {
         }));
       }
 
-      await axios.post(`/api/clubs/${selectedClub._id}/message`, formData, {
+      const res = await axios.post(`/api/clubs/${selectedClub._id}/message`, formData, {
         headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
       });
       
       setAttachment(null);
       setAudioBlob(null);
       setReplyingTo(null);
+      
+      // Update with server response (messages array)
+      setSelectedClub(prev => ({ ...prev, messages: res.data }));
+      
       await markAsRead(selectedClub._id); // Await to ensure read state is updated before fetching
       fetchClubs(); 
     } catch (err) { 
@@ -526,6 +530,13 @@ export default function Clubs() {
       onConfirm: async () => {
         try {
           await axios.delete(`/api/clubs/${selectedClub._id}/messages/${msgId}`, { headers: { "x-auth-token": token } });
+          
+          // Update local state immediately
+          setSelectedClub(prev => ({
+            ...prev,
+            messages: prev.messages.filter(m => m._id !== msgId)
+          }));
+          
           fetchClubs();
           toast("Message deleted", "success");
         } catch (err) { 
@@ -884,6 +895,7 @@ export default function Clubs() {
                     handleDeleteMessage={handleDeleteMessage}
                     messageRefs={messageRefs}
                     firstUnreadRef={firstUnreadRef}
+                    onUpdateMessages={(newMsgs) => setSelectedClub(prev => ({...prev, messages: newMsgs}))}
                   />
                 );
               })}

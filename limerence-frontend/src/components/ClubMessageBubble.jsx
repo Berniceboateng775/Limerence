@@ -53,7 +53,8 @@ const ClubMessageBubble = ({
   handleDeleteMessage,
   messageRefs,
   firstUnreadRef,
-  isMe
+  isMe,
+  onUpdateMessages
 }) => {
   const { theme } = useTheme();
   const { token } = useContext(AuthContext);
@@ -69,10 +70,11 @@ const ClubMessageBubble = ({
       if (voting) return;
       setVoting(true);
       try {
-          await axios.post(`/api/clubs/${selectedClub._id}/messages/${msg._id}/vote`, 
+          const res = await axios.post(`/api/clubs/${selectedClub._id}/messages/${msg._id}/vote`, 
              { optionIndex }, 
              { headers: { "x-auth-token": token } }
           );
+          if (onUpdateMessages) onUpdateMessages(res.data);
       } catch (err) {
           toast(err.response?.data?.msg || "Vote failed", "error");
       } finally {
