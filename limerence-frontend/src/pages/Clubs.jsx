@@ -85,6 +85,7 @@ export default function Clubs() {
   // Chat State
   const [message, setMessage] = useState("");
   const [attachment, setAttachment] = useState(null);
+  const [pendingLocation, setPendingLocation] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [reactionTarget, setReactionTarget] = useState(null);
@@ -305,11 +306,17 @@ export default function Clubs() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!message.trim() && !attachment && !audioBlob) return;
+    if (!message.trim() && !attachment && !audioBlob && !pendingLocation) return;
 
     // Determine type for optimistic update
     let optAttachmentType = 'none';
+    let optContent = message;
+
     if (audioBlob) optAttachmentType = 'voice';
+    else if (pendingLocation) {
+        optAttachmentType = 'location';
+        optContent = `https://www.google.com/maps?q=${pendingLocation.latitude},${pendingLocation.longitude}`;
+    }
     else if (attachment) {
        if (attachment.type?.startsWith('image')) optAttachmentType = 'image';
        else if (attachment.type?.startsWith('video')) optAttachmentType = 'video';
@@ -321,21 +328,37 @@ export default function Clubs() {
       _id: Date.now().toString(),
       user: user._id,
       username: user.name,
-      content: message,
-      attachmentType: optAttachmentType, // Add type for immediate UI update
+      content: optContent,
+      attachmentType: optAttachmentType,
       createdAt: new Date().toISOString(),
       reactions: [],
       pending: true
     };
 
+    // Update SELECTED CLUB messages immediately
     setSelectedClub(prev => ({
       ...prev,
       messages: [...(prev.messages || []), tempMsg]
     }));
     
-    const msgContent = message;
+    // Optimistically update the CLUBS list for the sidebar preview (CRITICAL FIX FOR LAG)
+    setClubs(prevClubs => prevClubs.map(c => {
+      if (c._id === selectedClub._id) {
+        return { 
+          ...c, 
+          messages: [...(c.messages || []), tempMsg] 
+        };
+      }
+      return c;
+    }));
+
+    const msgContent = optContent;
     setMessage("");
     setShowEmojiPicker(false);
+    setAttachment(null);
+    setPendingLocation(null);
+    setAudioBlob(null);
+    setReplyingTo(null);
     
     // Scroll to bottom
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -349,13 +372,13 @@ export default function Clubs() {
       if (audioBlob) {
           formData.append("attachment", audioBlob, "voice.webm");
           formData.append("attachmentType", "voice");
+      } else if (pendingLocation) {
+          formData.append("attachmentType", "location");
       } else if (attachment) {
           formData.append("attachment", attachment);
           if (attachment.type?.startsWith('image')) formData.append("attachmentType", "image");
           else if (attachment.type?.startsWith('video')) formData.append("attachmentType", "video");
           else formData.append("attachmentType", "file");
-      } else if (optAttachmentType === 'location') { // If we had location support here (future proofing)
-          formData.append("attachmentType", "location"); 
       }
       
       if (replyingTo) {
@@ -600,47 +623,17 @@ export default function Clubs() {
           toast("Geolocation not supported", "error");
           return;
       }
-      navigator.geolocation.getCurrentPosition(async (pos) => {
+      navigator.geolocation.getCurrentPosition((pos) => {
           const { latitude, longitude } = pos.coords;
-          const content = `https://www.google.com/maps?q=${latitude},${longitude}`;
-          
-          try {
-            // Optimistic update
-            const tempMsg = {
-                _id: Date.now().toString(),
-                user: user._id,
-                username: user.name,
-                content: content,
-                attachmentType: 'location',
-                createdAt: new Date().toISOString(),
-                reactions: [],
-                pending: true
-            };
-            setSelectedClub(prev => ({ ...prev, messages: [...(prev.messages || []), tempMsg] }));
-
-            const formData = new FormData();
-            formData.append("content", content);
-            formData.append("username", user.name);
-            formData.append("attachmentType", "location");
-
-            const res = await axios.post(`/api/clubs/${selectedClub._id}/message`, formData, {
-                headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
-            });
-            
-            setSelectedClub(prev => ({ ...prev, messages: res.data }));
-            fetchClubs();
-            toast("Location sent!", "success");
-          } catch (err) {
-            console.error(err);
-            toast("Failed to send location", "error");
-          }
+          setPendingLocation({ latitude, longitude });
+          toast("Location captured! Click send to share.", "success");
       }, () => toast("Location access denied", "error"));
   };
 
   const handleDocumentSelect = (e) => {
       const file = e.target.files[0];
-      if (file && selectedClub) {
-          sendFile(file, 'file');
+      if (file) {
+          setAttachment(file);
       }
   };
 
@@ -1012,6 +1005,18 @@ export default function Clubs() {
                 </div>
               )}
 
+              {/* Location Preview */}
+              {pendingLocation && (
+                <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2 w-fit">
+                    <span className="text-2xl">📍</span>
+                    <div className="flex-1 min-w-0">
+                       <p className="text-xs text-gray-500 dark:text-gray-400">Location selected</p>
+                       <p className="text-sm font-bold text-purple-700 dark:text-purple-300">Ready to share</p>
+                    </div>
+                    <button onClick={() => setPendingLocation(null)} className="text-gray-400 hover:text-red-500">✕</button>
+                </div>
+              )}
+
               {/* Attachment Preview */}
               {attachment && (
                 <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2">
@@ -1093,7 +1098,7 @@ export default function Clubs() {
                 ) : (
                   <button 
                     type="submit" 
-                    disabled={!message.trim() && !attachment}
+                    disabled={!message.trim() && !attachment && !pendingLocation}
                     className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg hover:from-purple-600 hover:to-pink-600 transition w-12 h-12 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     ➤
