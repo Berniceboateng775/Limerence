@@ -5,6 +5,9 @@ import { NotificationContext } from "../context/NotificationContext";
 import axios from "axios";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "../components/Toast";
+import CustomAudioPlayer from "../components/CustomAudioPlayer";
+import AttachmentMenu from "../components/AttachmentMenu";
+import CameraModal from "../components/CameraModal";
 
 // Premium Wallpaper Gradients (same as Clubs)
 const WALLPAPERS = {
@@ -39,6 +42,12 @@ export default function Friends() {
   const [lastMessages, setLastMessages] = useState({}); // For WhatsApp-style preview in list
   const [showReactionPicker, setShowReactionPicker] = useState(null); // Which message to show picker for
   const [joinClubModal, setJoinClubModal] = useState(null); // Club join popup: { clubId, clubName, loading }
+  
+  // New States for UI Overhaul
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const documentInputRef = useRef(null); // For generic files
+
   
   // Per-friend wallpaper settings (stored in localStorage)
   const [friendWallpapers, setFriendWallpapers] = useState(() => {
@@ -233,6 +242,61 @@ export default function Friends() {
     } catch (err) {
       toast("Failed to send", "error");
     }
+  };
+
+  /* Attachment Handlers */
+  const handleAttachmentSelect = (type) => {
+    setShowAttachmentMenu(false);
+    if (type === 'image') fileInputRef.current?.click();
+    if (type === 'file') documentInputRef.current?.click();
+    if (type === 'camera') setCameraOpen(true);
+    if (type === 'location') sendLocation();
+  };
+
+  const sendLocation = () => {
+    if (!navigator.geolocation) {
+      toast("Geolocation not supported", "error");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition((pos) => {
+      const { latitude, longitude } = pos.coords;
+      const mapLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
+      setNewMessage(prev => prev + (prev ? "\n" : "") + `📍 My Location: ${mapLink}`);
+    }, () => toast("Location access denied", "error"));
+  };
+
+  const handleDocumentSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && selectedFriend) {
+      sendDocument(file);
+    }
+  };
+
+  const sendDocument = async (file) => {
+    const formData = new FormData();
+    formData.append('attachment', file);
+    formData.append('attachmentType', 'file');
+    formData.append('content', newMessage);
+    try {
+      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, formData, {
+        headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
+      });
+      setMessages(prev => [...prev, res.data]);
+      setNewMessage(""); 
+      toast("File sent!", "success");
+    } catch (err) {
+      toast("Failed to send file", "error");
+    }
+  };
+
+  const handleCameraCapture = (file) => {
+    setAttachment(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result);
+    reader.readAsDataURL(file);
+    // Auto-send or let user confirm? User logic implies send like image.
+    // Existing logic uses `attachment` state + sendImage.
+    // We already set attachment, so user sees preview and clicks send.
   };
 
   const startRecording = async () => {
@@ -432,14 +496,41 @@ export default function Friends() {
               {!isMe && <span className="block text-[12px] font-bold mb-0.5 text-purple-600 dark:text-purple-400">{senderName}</span>}
               
               {msg.attachmentType === 'image' && msg.attachment && (
-                <img src={`http://localhost:5000${msg.attachment}`} alt="Shared" 
-                  className="max-w-[200px] max-h-[200px] rounded-lg mb-2 cursor-pointer object-cover"
-                  onClick={() => window.open(`http://localhost:5000${msg.attachment}`, '_blank')}
-                />
+                <div className="relative group">
+                  <img src={`http://localhost:5000${msg.attachment}`} alt="Shared" 
+                    className="max-w-[280px] max-h-[300px] rounded-lg mb-2 cursor-pointer object-cover hover:brightness-95 transition"
+                    onClick={() => window.open(`http://localhost:5000${msg.attachment}`, '_blank')}
+                  />
+                  <a href={`http://localhost:5000${msg.attachment}`} download target="_blank" rel="noopener noreferrer" 
+                     className="absolute bottom-4 right-2 bg-black/50 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition hover:bg-black/70"
+                     onClick={(e) => e.stopPropagation()}>
+                    ⬇
+                  </a>
+                </div>
               )}
               
               {msg.attachmentType === 'voice' && msg.attachment && (
-                <audio controls className="max-w-[180px]"><source src={`http://localhost:5000${msg.attachment}`} type="audio/webm" /></audio>
+                <div className="mb-2">
+                   <CustomAudioPlayer src={`http://localhost:5000${msg.attachment}`} dark={isMe} />
+                </div>
+              )}
+
+              {msg.attachmentType === 'file' && msg.attachment && (
+                <div className="mb-2">
+                   <div className={`flex items-center gap-3 p-3 rounded-xl ${isMe ? 'bg-purple-600' : 'bg-gray-100 dark:bg-slate-800'}`}>
+                     <div className="text-2xl">📄</div>
+                     <div className="flex-1 min-w-0">
+                       <p className={`text-sm font-bold truncate ${isMe ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
+                         {msg.attachment.split('/').pop()}
+                       </p>
+                       <p className={`text-xs opacity-70 ${isMe ? 'text-purple-200' : 'text-gray-500'}`}>Document</p>
+                     </div>
+                     <a href={`http://localhost:5000${msg.attachment}`} download target="_blank" rel="noopener noreferrer" 
+                        className={`p-2 rounded-full ${isMe ? 'hover:bg-purple-500' : 'hover:bg-gray-200 dark:hover:bg-slate-700'} transition`}>
+                       ⬇
+                     </a>
+                   </div>
+                </div>
               )}
               
               {msg.content && <p>{renderWithLinks(msg.content)}</p>}
@@ -452,7 +543,9 @@ export default function Friends() {
             {/* Reactions Display - Inline below bubble */}
             {msg.reactions?.length > 0 && (
               <div className="flex gap-0.5 bg-white dark:bg-slate-600 rounded-full px-2 py-1 shadow-md mt-1 w-fit">
-                {msg.reactions.map((r, i) => <span key={i} className="text-sm">{r.emoji}</span>)}
+                {[...new Set(msg.reactions.map(r => r.emoji))].slice(0, 5).map((emoji, i) => (
+                  <span key={i} className="text-sm">{emoji}</span>
+                ))}
                 <span className="text-xs text-gray-500 dark:text-gray-300 ml-1">{msg.reactions.length}</span>
               </div>
             )}
@@ -644,68 +737,94 @@ export default function Friends() {
                   <div ref={messagesEndRef} />
                 </div>
                 
-                {/* Reply Preview */}
-                {replyingTo && (
-                  <div className="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 flex items-center justify-between border-t-2 border-purple-500">
-                    <div className="flex-1 text-sm">
-                      <span className="text-purple-500 font-bold">↩ Replying to {replyingTo.sender?.name}</span>
-                      <p className="text-gray-500 truncate">{replyingTo.content?.substring(0, 50)}...</p>
-                    </div>
-                    <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-600 text-xl ml-2">✕</button>
-                  </div>
-                )}
+
+            {/* Chat Input Area */}
+            <div className="p-4 bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700">
+              {imagePreview && (
+                <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2 w-fit">
+                   <img src={imagePreview} alt="Preview" className="h-10 w-10 rounded object-cover" />
+                   <span className="text-xs text-gray-500 dark:text-gray-400">Image selected</span>
+                   <button onClick={() => { setAttachment(null); setImagePreview(null); }} className="text-gray-400 hover:text-red-500">✕</button>
+                </div>
+              )}
+        
+              {/* Audio Preview */}
+              {audioBlob && (
+                <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2 w-fit animate-fade-in">
+                   <audio controls src={URL.createObjectURL(audioBlob)} className="h-8 max-w-[200px]" />
+                   <button onClick={() => setAudioBlob(null)} className="text-gray-400 hover:text-red-500">✕</button>
+                </div>
+              )}
+
+              {replyingTo && (
+                <div className="flex items-center justify-between bg-gray-100 dark:bg-slate-700 p-2 rounded-lg mb-2 text-sm border-l-4 border-purple-500">
+                  <span className="text-gray-600 dark:text-gray-300">Replying to <b>{replyingTo.sender?.name}</b></span>
+                  <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-red-500 px-2">✕</button>
+                </div>
+              )}
+
+              <form onSubmit={handleSendMessage} className="flex gap-2 items-end relative">
+                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-3 text-2xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-gray-400">
+                  <span className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition">😊</span>
+                </button>
                 
-                {/* Image Preview */}
-                {imagePreview && (
-                  <div className="px-4 py-3 bg-gray-100 dark:bg-slate-700 border-t border-gray-200 dark:border-slate-600">
-                    <div className="flex items-center gap-3">
-                      <img src={imagePreview} alt="Preview" className="w-20 h-20 object-cover rounded-lg shadow" />
-                      <div className="flex-1">
-                        <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="Add a caption..." className="w-full bg-transparent border-none text-gray-800 dark:text-white placeholder-gray-400 outline-none" />
-                      </div>
-                      <button onClick={sendImage} className="px-4 py-2 bg-purple-500 text-white rounded-full font-bold">Send</button>
-                      <button onClick={() => { setAttachment(null); setImagePreview(null); }} className="text-gray-400 text-xl">✕</button>
-                    </div>
-                  </div>
-                )}
+                {/* Attachment Menu Trigger */}
+                <div className="relative">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} 
+                    className="p-3 text-xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-gray-400 hover:text-purple-600"
+                  >
+                    ➕
+                  </button>
+                  {showAttachmentMenu && (
+                    <AttachmentMenu onSelect={handleAttachmentSelect} />
+                  )}
+                </div>
                 
-                {/* Voice Preview */}
-                {audioBlob && (
-                  <div className="p-3 bg-purple-100 dark:bg-purple-900/30 flex items-center gap-3 border-t">
-                    <audio controls src={URL.createObjectURL(audioBlob)} className="flex-1" />
-                    <button onClick={sendVoiceNote} className="px-4 py-2 bg-purple-500 text-white rounded-full font-bold">Send</button>
-                    <button onClick={() => setAudioBlob(null)} className="text-gray-500 text-xl">✕</button>
-                  </div>
-                )}
+                {/* Hidden Inputs */}
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageSelect} />
+                <input type="file" ref={documentInputRef} className="hidden" onChange={handleDocumentSelect} />
+
+                <button type="button" onClick={isRecording ? stopRecording : startRecording}
+                        className={`p-3 text-xl rounded-full transition ${isRecording ? 'bg-red-500 text-white animate-pulse shadow-lg ring-4 ring-red-200 dark:ring-900' : 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 hover:text-purple-600'}`}>
+                  {isRecording ? '⏹️' : '🎙️'}
+                </button>
                 
-                {/* Message Input */}
-                {!imagePreview && (
-                  <form onSubmit={handleSendMessage} className="p-3 bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700 flex gap-2 items-center">
-                    <div className="relative">
-                      <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-xl">😊</button>
-                      {showEmojiPicker && (
-                        <div className="absolute bottom-14 left-0 z-50"><EmojiPicker onEmojiClick={onEmojiClick} theme="dark" /></div>
-                      )}
-                    </div>
-                    
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-xl">📷</button>
-                    <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
-                    
-                    <button type="button" onClick={isRecording ? stopRecording : startRecording}
-                      className={`p-2.5 rounded-full text-xl ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-100 dark:hover:bg-slate-700'}`}>
-                      {isRecording ? '⏹️' : '🎤'}
-                    </button>
-                    
-                    <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..."
-                      className="flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-full px-5 py-3 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-400 outline-none" />
-                    
-                    <button type="submit" disabled={!newMessage.trim()} 
-                      className="w-12 h-12 bg-purple-500 text-white rounded-full font-bold hover:bg-purple-600 disabled:opacity-50 flex items-center justify-center text-xl shadow-lg">
-                      ➤
-                    </button>
-                  </form>
+                <textarea 
+                  className={`flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-2xl p-3 outline-none resize-none max-h-32 focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 dark:text-white dark:placeholder-gray-400 transition min-h-[48px]`}
+                  placeholder="Type a message..." 
+                  rows="1"
+                  value={newMessage}
+                  onChange={e => setNewMessage(e.target.value)}
+                  onKeyDown={e => { if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); }}}
+                />
+                
+                {audioBlob ? (
+                   <button 
+                     type="button"
+                     onClick={sendVoiceNote}
+                     className="p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:from-green-600 hover:to-emerald-600 transition w-12 h-12 flex items-center justify-center animate-scale-up"
+                   >
+                     ➤
+                   </button>
+                ) : (
+                  <button 
+                    type="submit" 
+                    disabled={!newMessage.trim() && !attachment}
+                    className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg hover:from-purple-600 hover:to-pink-600 transition w-12 h-12 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ➤
+                  </button>
                 )}
+              </form>
+              
+              {showEmojiPicker && (
+                <div className="absolute bottom-20 left-4 z-50">
+                   <EmojiPicker onEmojiClick={onEmojiClick} theme={theme} height={400} />
+                </div>
+              )}
+            </div>
               </>
             ) : viewProfile ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-slate-900">
@@ -810,6 +929,14 @@ export default function Friends() {
           </div>
         </div>
       )}
+
+      <CameraModal 
+         isOpen={cameraOpen} 
+         onClose={() => setCameraOpen(false)}
+         onCapture={handleCameraCapture}
+      />
+
+
       
       {/* Delete Confirmation Modal */}
       {deleteTarget && (

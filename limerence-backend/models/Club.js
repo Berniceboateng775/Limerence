@@ -64,6 +64,15 @@ const ClubSchema = new mongoose.Schema({
               emoji: String
           }
       ],
+      poll: {
+          question: String,
+          options: [
+              {
+                  text: String,
+                  votes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+              }
+          ]
+      },
       createdAt: { type: Date, default: Date.now },
     },
   ],

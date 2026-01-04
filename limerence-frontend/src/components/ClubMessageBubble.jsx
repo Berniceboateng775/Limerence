@@ -1,7 +1,10 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
-import { toast } from "./Toast"; // Assuming Toast is in components folder
+import { toast } from "./Toast";
 import { useTheme } from "../context/ThemeContext";
+import CustomAudioPlayer from "./CustomAudioPlayer";
+import axios from "axios";
+import { AuthContext } from "../context/AuthContext";
 
 // Generate unique colors per USER
 const getNameColor = (name, uniqueId) => {
@@ -53,12 +56,69 @@ const ClubMessageBubble = ({
   isMe
 }) => {
   const { theme } = useTheme();
-  // isMe passed from parent or calculated?
-  // Let's recalculate to be safe if not passed, but parent has context too.
-  // Actually parent passes it as prop? No, I added isMe to logic below.
+  const { token } = useContext(AuthContext);
+  const [voting, setVoting] = useState(false);
+
+  // IsMe Logic
   const senderId = msg.user?._id || msg.user;
   const calculatedIsMe = user?._id === senderId;
   const userColors = getNameColor(msg.username, senderId);
+
+  // Poll Logic
+  const handleVote = async (optionIndex) => {
+      if (voting) return;
+      setVoting(true);
+      try {
+          await axios.post(`/api/clubs/${selectedClub._id}/messages/${msg._id}/vote`, 
+             { optionIndex }, 
+             { headers: { "x-auth-token": token } }
+          );
+      } catch (err) {
+          toast(err.response?.data?.msg || "Vote failed", "error");
+      } finally {
+          setVoting(false);
+      }
+  };
+
+  const renderPoll = () => {
+    if (!msg.poll) return null;
+    const totalVotes = msg.poll.options.reduce((acc, opt) => acc + opt.votes.length, 0);
+    const userVoteIndex = msg.poll.options.findIndex(opt => opt.votes.includes(user._id));
+
+    return (
+        <div className={`mt-2 p-3 rounded-xl min-w-[250px] ${calculatedIsMe ? 'bg-white/10' : 'bg-black/5 dark:bg-white/5'}`}>
+            <h4 className="font-bold text-sm mb-3 opacity-90">{msg.poll.question}</h4>
+            <div className="space-y-2">
+                {msg.poll.options.map((opt, idx) => {
+                    const percent = totalVotes === 0 ? 0 : Math.round((opt.votes.length / totalVotes) * 100);
+                    const isSelected = userVoteIndex === idx;
+                    return (
+                        <div key={idx} className="relative">
+                           <button 
+                             onClick={() => handleVote(idx)}
+                             disabled={voting}
+                             className={`relative z-10 w-full text-left text-xs p-2 rounded-lg border transition-all flex justify-between items-center ${
+                                 isSelected 
+                                 ? 'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-300 font-bold' 
+                                 : 'border-gray-200 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 opacity-80'
+                             }`}
+                           >
+                               <span>{opt.text}</span>
+                               <span className="text-[10px]">{percent}%</span>
+                           </button>
+                           {/* Progress Bar Background */}
+                           <div 
+                             className={`absolute top-0 left-0 h-full rounded-lg transition-all duration-500 ${isSelected ? 'bg-purple-200/50 dark:bg-purple-900/30' : 'bg-gray-200/50 dark:bg-gray-700/50'}`} 
+                             style={{ width: `${percent}%`, zIndex: 0 }}
+                           />
+                        </div>
+                    );
+                })}
+            </div>
+            <p className="text-[10px] opacity-60 mt-2 text-right">{totalVotes} votes</p>
+        </div>
+    );
+  };
 
   // Helper to make URLs clickable
   const renderWithLinks = (text) => {
@@ -70,31 +130,11 @@ const ClubMessageBubble = ({
         urlRegex.lastIndex = 0;
         if (part.includes('/clubs?join=')) {
           try {
-            const clubId = new URL(part).searchParams.get('join');
-            return (
-              <button 
-                key={i} 
-                className="underline text-blue-400 hover:text-blue-300 break-all"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const club = clubs.find(c => c._id === clubId);
-                  if (club) {
-                    setShowJoinModal(club);
-                  } else {
-                    toast("Club not found", "error");
-                  }
-                }}
-              >
-                {part}
-              </button>
-            );
-          } catch (err) {}
+             const clubId = new URL(part).searchParams.get('join');
+             return <button key={i} onClick={(e)=>{e.stopPropagation();}} className="underline text-blue-400 break-all">{part}</button>
+          } catch(e){}
         }
-        return (
-          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline text-blue-400 hover:text-blue-300 break-all" onClick={(e) => e.stopPropagation()}>
-            {part}
-          </a>
-        );
+        return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline text-blue-400 hover:text-blue-300 break-all" onClick={e=>e.stopPropagation()}>{part}</a>;
       }
       return part;
     });
@@ -129,7 +169,7 @@ const ClubMessageBubble = ({
         </div>
       )}
 
-      <div className="flex gap-2 max-w-[75%]">
+      <div className="flex gap-2 max-w-[85%] md:max-w-[75%]">
         {!calculatedIsMe && (
           <div 
             onClick={() => fetchUserProfile(msg.user)} 
@@ -158,14 +198,42 @@ const ClubMessageBubble = ({
               </span>
             )}
             
+            {msg.poll && renderPoll()}
+
             {msg.attachment && (
               <div className="mb-2">
                 {msg.attachment.fileType === 'image' ? (
-                  <img src={`http://localhost:5000${msg.attachment.url}`} className="rounded-lg max-h-48 object-cover" alt="" />
+                  <div className="relative group/img">
+                    <img src={`http://localhost:5000${msg.attachment.url}`} className="rounded-lg max-h-64 object-cover" alt="" />
+                    <a 
+                      href={`http://localhost:5000${msg.attachment.url}`} 
+                      download 
+                      className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover/img:opacity-100 transition"
+                      title="Download"
+                    >
+                      ⬇️
+                    </a>
+                  </div>
                 ) : msg.attachment.fileType === 'audio' ? (
-                  <audio controls className="max-w-[200px]" src={`http://localhost:5000${msg.attachment.url}`} />
+                  <CustomAudioPlayer src={`http://localhost:5000${msg.attachment.url}`} dark={calculatedIsMe} />
                 ) : (
-                  <div className="bg-black/10 p-2 rounded flex items-center gap-2">📄 {msg.attachment.name}</div>
+                  <div className="bg-black/5 dark:bg-white/10 p-3 rounded-lg flex items-center gap-3 border border-black/5 select-none">
+                     <div className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded text-xl">
+                       📄
+                     </div>
+                     <div className="flex-1 min-w-0">
+                       <p className="text-xs font-bold truncate">{msg.attachment.name}</p>
+                       <p className="text-[10px] opacity-70 uppercase">{msg.attachment.url.split('.').pop()}</p>
+                     </div>
+                     <a 
+                       href={`http://localhost:5000${msg.attachment.url}`} 
+                       download 
+                       className="p-2 hover:bg-black/10 rounded-full transition" 
+                       title="Download"
+                     >
+                       ⬇️
+                     </a>
+                  </div>
                 )}
               </div>
             )}
@@ -178,6 +246,7 @@ const ClubMessageBubble = ({
             </span>
           </div>
 
+          {/* Reactions */}
           {msg.reactions?.length > 0 && (
             <div className="flex gap-0.5 bg-white dark:bg-slate-700 shadow-md rounded-full px-1.5 py-0.5 border border-gray-100 dark:border-slate-600 mt-1 w-fit">
               {[...new Set(msg.reactions.map(r => r.emoji))].slice(0, 5).map((emoji, i) => (
@@ -187,6 +256,7 @@ const ClubMessageBubble = ({
             </div>
           )}
 
+          {/* Action Menu (Hover) */}
           <div className={`absolute ${calculatedIsMe ? 'right-full mr-1' : 'left-full ml-1'} top-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 bg-white dark:bg-slate-700 p-1 rounded-full shadow-lg border dark:border-slate-600 z-20`}>
             <button onClick={() => setReplyingTo(msg)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full text-sm" title="Reply">↩️</button>
             <button onClick={() => handleReaction(msg._id, "❤️")} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full text-sm">❤️</button>

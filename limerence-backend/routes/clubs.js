@@ -122,13 +122,27 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
         try { parsedReplyTo = JSON.parse(replyTo); } catch(e) { parsedReplyTo = replyTo; }
     }
 
+    let poll = null;
+    if (req.body.poll) {
+        try {
+            poll = JSON.parse(req.body.poll);
+            // Initialize votes
+            if (poll.options) {
+                poll.options = poll.options.map(opt => ({ text: opt.text, votes: [] }));
+            }
+        } catch (e) {
+            console.error("Poll parse error", e);
+        }
+    }
+
     const newMessage = {
       user: req.user.userId,
       username,
       content: content || "",
       attachment,
       replyTo: parsedReplyTo,
-      reactions: []
+      reactions: [],
+      poll
     };
 
     club.messages.push(newMessage);
@@ -138,6 +152,33 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
     console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
+});
+
+// Vote on a poll
+router.post("/:id/messages/:msgId/vote", auth, async (req, res) => {
+    try {
+        const { optionIndex } = req.body;
+        const club = await Club.findById(req.params.id);
+        const msg = club.messages.id(req.params.msgId);
+
+        if (!msg || !msg.poll) return res.status(404).json({ msg: "Poll not found" });
+
+        // Remove user from all options (Single choice for now)
+        msg.poll.options.forEach(opt => {
+            opt.votes = opt.votes.filter(v => v.toString() !== req.user.userId);
+        });
+
+        // Add to selected option
+        if (msg.poll.options[optionIndex]) {
+            msg.poll.options[optionIndex].votes.push(req.user.userId);
+        }
+
+        await club.save();
+        res.json(club.messages);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: "Server error" });
+    }
 });
 
 // React to a message

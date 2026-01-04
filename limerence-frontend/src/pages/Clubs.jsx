@@ -6,6 +6,10 @@ import { NotificationContext } from "../context/NotificationContext";
 import { toast } from "../components/Toast";
 import EmojiPicker from "emoji-picker-react";
 import ClubMessageBubble from "../components/ClubMessageBubble";
+import CustomAudioPlayer from "../components/CustomAudioPlayer";
+import AttachmentMenu from "../components/AttachmentMenu";
+import CameraModal from "../components/CameraModal";
+import PollModal from "../components/PollModal";
 
 // Generate unique colors per USER (using userId for uniqueness)
 const getNameColor = (name, uniqueId) => {
@@ -41,6 +45,26 @@ export default function Clubs() {
   const { token, user } = useContext(AuthContext);
   const { theme } = useTheme();
   const { fetchUnreadClubMessages } = useContext(NotificationContext);
+
+  // Premium Wallpaper Gradients
+  const wallpapers = {
+    romantic: "bg-gradient-to-br from-pink-100 via-rose-50 to-purple-100 dark:from-pink-950/30 dark:via-rose-950/20 dark:to-purple-950/30",
+    ocean: "bg-gradient-to-br from-cyan-100 via-blue-50 to-indigo-100 dark:from-cyan-950/30 dark:via-blue-950/20 dark:to-indigo-950/30",
+    sunset: "bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-yellow-950/30",
+    forest: "bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 dark:from-green-950/30 dark:via-emerald-950/20 dark:to-teal-950/30",
+    galaxy: "bg-gradient-to-br from-violet-200 via-purple-100 to-indigo-200 dark:from-violet-950/40 dark:via-purple-950/30 dark:to-indigo-950/40",
+    midnight: "bg-gradient-to-br from-slate-200 via-gray-100 to-zinc-200 dark:from-slate-900 dark:via-gray-900 dark:to-zinc-900",
+    lavender: "bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 dark:from-purple-950/30 dark:via-violet-950/20 dark:to-fuchsia-950/30",
+  };
+  
+  // Font sizes
+  const fontSizes = {
+    small: "text-[13px]",
+    medium: "text-[15px]",
+    large: "text-[17px]",
+    xlarge: "text-[19px]"
+  };
+
   const [clubs, setClubs] = useState([]);
   const [selectedClub, setSelectedClub] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
@@ -71,6 +95,26 @@ export default function Clubs() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
+  // New UI States
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [pollModalOpen, setPollModalOpen] = useState(false);
+  // Refs
+  const chatContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const firstUnreadRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const messageRefs = useRef({});
+
+  // Friends & Profile
+  const [myFriends, setMyFriends] = useState([]);
+  
+  // UI State
+  const [imagePreview, setImagePreview] = useState(null);
+  const [fontSize, setFontSize] = useState("medium");
+
+  const documentInputRef = useRef(null);
+
   // Per-club wallpaper settings
   const [clubWallpapers, setClubWallpapers] = useState(() => {
     const saved = localStorage.getItem("clubWallpapers");
@@ -80,45 +124,10 @@ export default function Clubs() {
     const saved = localStorage.getItem("clubCustomWallpapers");
     return saved ? JSON.parse(saved) : {};
   });
-  const [fontSize, setFontSize] = useState(localStorage.getItem("chatFontSize") || "medium");
-  const [myFriends, setMyFriends] = useState([]); // Populated friends for invite modal
-  
-  const messagesEndRef = useRef(null);
-  const firstUnreadRef = useRef(null);
-  const chatContainerRef = useRef(null);
-  const messageRefs = useRef({}); // Map of message IDs to refs for scrolling
-  const selectedClubIdRef = useRef(null); // Track selected club ID to prevent stale closures
-  const messageRef = useRef(""); // Track message content to prevent flickering
-
-  // Premium Wallpaper Gradients
-  const wallpapers = {
-    romantic: "bg-gradient-to-br from-pink-100 via-rose-50 to-purple-100 dark:from-pink-950/30 dark:via-rose-950/20 dark:to-purple-950/30",
-    ocean: "bg-gradient-to-br from-cyan-100 via-blue-50 to-indigo-100 dark:from-cyan-950/30 dark:via-blue-950/20 dark:to-indigo-950/30",
-    sunset: "bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-yellow-950/30",
-    forest: "bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 dark:from-green-950/30 dark:via-emerald-950/20 dark:to-teal-950/30",
-    galaxy: "bg-gradient-to-br from-violet-200 via-purple-100 to-indigo-200 dark:from-violet-950/40 dark:via-purple-950/30 dark:to-indigo-950/40",
-    midnight: "bg-gradient-to-br from-slate-200 via-gray-100 to-zinc-200 dark:from-slate-900 dark:via-gray-900 dark:to-zinc-900",
-    lavender: "bg-gradient-to-br from-purple-100 via-violet-50 to-fuchsia-100 dark:from-purple-950/30 dark:via-violet-950/20 dark:to-fuchsia-950/30",
-  };
-
-  // Font sizes
-  const fontSizes = {
-    small: "text-[13px]",
-    medium: "text-[15px]",
-    large: "text-[17px]",
-    xlarge: "text-[19px]"
-  };
-
-  // Save preferences
-  useEffect(() => {
-    localStorage.setItem("clubWallpapers", JSON.stringify(clubWallpapers));
-    localStorage.setItem("clubCustomWallpapers", JSON.stringify(clubCustomWallpapers));
-    localStorage.setItem("chatFontSize", fontSize);
-  }, [clubWallpapers, clubCustomWallpapers, fontSize]);
 
   // Keep ref in sync with selectedClub
   useEffect(() => {
-    selectedClubIdRef.current = selectedClub?._id || null;
+    // selectedClubIdRef.current = selectedClub?._id || null; // This ref is removed
   }, [selectedClub]);
 
   const fetchClubs = useCallback(async () => {
@@ -126,17 +135,17 @@ export default function Clubs() {
       const res = await axios.get("/api/clubs");
       setClubs(res.data);
       // Update selected club if it exists - use ref to avoid stale closure
-      const currentSelectedId = selectedClubIdRef.current;
-      if (currentSelectedId) {
-        const updated = res.data.find(c => c._id === currentSelectedId);
-        if (updated) setSelectedClub(updated);
-      }
+      // const currentSelectedId = selectedClubIdRef.current; // This ref is removed
+      // if (currentSelectedId) {
+      //   const updated = res.data.find(c => c._id === currentSelectedId);
+      //   if (updated) setSelectedClub(updated);
+      // }
     } catch (err) { console.error(err); }
   }, []); // No dependencies needed - uses ref
 
   // Keep messageRef in sync
   useEffect(() => {
-    messageRef.current = message;
+    // messageRef.current = message; // This ref is removed
   }, [message]);
 
   useEffect(() => {
@@ -528,6 +537,88 @@ export default function Clubs() {
     });
   };
 
+  /* Handlers for New Features */
+  const handleAttachmentSelect = (type) => {
+    setShowAttachmentMenu(false);
+    if (type === 'image') fileInputRef.current?.click();
+    if (type === 'file') documentInputRef.current?.click();
+    if (type === 'camera') setCameraOpen(true);
+    if (type === 'location') sendLocation();
+    if (type === 'poll') setPollModalOpen(true);
+  };
+
+  const sendLocation = () => {
+      if (!navigator.geolocation) {
+          toast("Geolocation not supported", "error");
+          return;
+      }
+      navigator.geolocation.getCurrentPosition((pos) => {
+          const { latitude, longitude } = pos.coords;
+          const mapLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
+          setMessage(prev => prev + (prev ? "\n" : "") + `📍 My Location: ${mapLink}`);
+      }, () => toast("Location access denied", "error"));
+  };
+
+  const handleDocumentSelect = (e) => {
+      const file = e.target.files[0];
+      if (file && selectedClub) {
+          sendFile(file, 'file');
+      }
+  };
+
+  const handleCameraCapture = (file) => {
+      setAttachment(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+  };
+
+  const handlePollCreate = async (pollData) => {
+      if (!selectedClub) return;
+      try {
+          const payload = {
+              content: "📊 New Poll",
+              username: user.name,
+              poll: JSON.stringify(pollData)
+          };
+          const res = await axios.post(`/api/clubs/${selectedClub._id}/message`, payload, {
+              headers: { "x-auth-token": token }
+          });
+          // Update message list
+          setSelectedClub(prev => ({ ...prev, messages: res.data }));
+          toast("Poll created!", "success");
+      } catch (err) {
+          toast("Failed to create poll", "error");
+      }
+  };
+
+  const sendFile = async (file, type) => {
+      const formData = new FormData();
+      formData.append('attachment', file);
+      formData.append('username', user.name);
+      formData.append('content', message);
+      if (replyingTo) {
+          formData.append('replyTo', JSON.stringify({
+             id: replyingTo._id,
+             username: replyingTo.username,
+             content: replyingTo.content
+          }));
+      }
+      
+      try {
+          const res = await axios.post(`/api/clubs/${selectedClub._id}/message`, formData, {
+              headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
+          });
+          
+          setSelectedClub(prev => ({...prev, messages: res.data}));
+          setMessage(""); setAttachment(null); setImagePreview(null);
+          setReplyingTo(null);
+          toast("Sent!", "success");
+      } catch (err) {
+          toast("Failed to send", "error");
+      }
+  };
+
   const handleFileSelect = (e) => { if (e.target.files[0]) setAttachment(e.target.files[0]); };
 
   const handleWallpaperUpload = async (e) => {
@@ -832,52 +923,81 @@ export default function Clubs() {
               {/* Attachment Preview */}
               {attachment && (
                 <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2">
-                  <span className="text-2xl">📎</span>
-                  <span className="text-sm text-purple-700 dark:text-purple-300 truncate flex-1">{attachment.name}</span>
-                  <button onClick={() => setAttachment(null)} className="text-gray-400 hover:text-red-500">✕</button>
+                   {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="h-10 w-10 rounded object-cover" />
+                   ) : (
+                      <span className="text-2xl">📎</span>
+                   )}
+                   <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Selected File</p>
+                      <p className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{attachment.name}</p>
+                   </div>
+                   <button onClick={() => { setAttachment(null); setImagePreview(null); }} className="text-gray-400 hover:text-red-500">✕</button>
                 </div>
               )}
 
               {/* Audio Preview */}
               {audioBlob && (
-                <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2">
-                   <audio controls src={URL.createObjectURL(audioBlob)} className="h-8 w-48" />
-                   <button 
-                     onClick={(e) => handleSendMessage({ preventDefault: () => {} })}
-                     className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold rounded-full transition"
-                   >
-                     Send
-                   </button>
-                   <button onClick={cancelRecording} className="text-gray-400 hover:text-red-500">✕</button>
+                <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2 w-fit animate-fade-in">
+                   <audio controls src={URL.createObjectURL(audioBlob)} className="h-8 max-w-[200px]" />
+                   <button onClick={() => setAudioBlob(null)} className="text-gray-400 hover:text-red-500">✕</button>
                 </div>
               )}
 
-              <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
-                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-3 text-2xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition">
-                  😊
+              <form onSubmit={handleSendMessage} className="flex gap-2 items-end relative">
+                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-3 text-2xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-gray-400">
+                   <span className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition">😊</span>
                 </button>
-                <label className="p-3 text-gray-400 hover:text-purple-600 cursor-pointer transition text-xl">
-                  📎 <input type="file" className="hidden" onChange={handleFileSelect} />
-                </label>
+                
+                {/* Attachment Menu Trigger */}
+                <div className="relative">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} 
+                    className="p-3 text-xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-gray-400 hover:text-purple-600"
+                  >
+                    ➕
+                  </button>
+                  {showAttachmentMenu && (
+                    <AttachmentMenu onSelect={handleAttachmentSelect} showPoll={true} />
+                  )}
+                </div>
+
+                {/* Hidden Inputs */}
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
+                <input type="file" ref={documentInputRef} className="hidden" onChange={handleDocumentSelect} />
+
                 <button type="button" onClick={isRecording ? stopRecording : startRecording}
-                        className={`p-3 text-xl rounded-full transition ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 hover:text-purple-600'}`}>
-                  {isRecording ? '⏹️' : '🎤'}
+                        className={`p-3 text-xl rounded-full transition ${isRecording ? 'bg-red-500 text-white animate-pulse shadow-lg ring-4 ring-red-200 dark:ring-red-900' : 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 hover:text-purple-600'}`}>
+                  {isRecording ? '⏹️' : '🎙️'}
                 </button>
+                
                 <textarea 
-                  className={`flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-2xl p-3 outline-none resize-none ${fontSizes[fontSize]} max-h-32 focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 dark:text-white dark:placeholder-gray-400 transition`}
+                  className={`flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-2xl p-3 outline-none resize-none ${fontSizes[fontSize]} max-h-32 focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 dark:text-white dark:placeholder-gray-400 transition min-h-[48px]`}
                   placeholder={`Message #${selectedClub.name}`} 
                   rows="1"
                   value={message}
                   onChange={e => setMessage(e.target.value)}
                   onKeyDown={e => { if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); }}}
                 />
-                <button 
-                  type="submit" 
-                  disabled={!message.trim() && !attachment && !audioBlob}
-                  className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg hover:from-purple-600 hover:to-pink-600 transition w-12 h-12 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="text-xl">➤</span>
-                </button>
+                
+                {audioBlob ? (
+                   <button 
+                     type="button"
+                     onClick={(e) => handleSendMessage({ preventDefault: () => {} })}
+                     className="p-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:from-green-600 hover:to-emerald-600 transition w-12 h-12 flex items-center justify-center animate-scale-up"
+                   >
+                     ➤
+                   </button>
+                ) : (
+                  <button 
+                    type="submit" 
+                    disabled={!message.trim() && !attachment}
+                    className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg hover:from-purple-600 hover:to-pink-600 transition w-12 h-12 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ➤
+                  </button>
+                )}
               </form>
             </div>
           </>
@@ -1390,6 +1510,18 @@ export default function Clubs() {
           </div>
         </div>
       )}
+      
+      <CameraModal 
+         isOpen={cameraOpen} 
+         onClose={() => setCameraOpen(false)}
+         onCapture={handleCameraCapture}
+      />
+      
+      <PollModal 
+         isOpen={pollModalOpen} 
+         onClose={() => setPollModalOpen(false)}
+         onSubmit={handlePollCreate} 
+      />
 
       {/* CSS Animations */}
       <style>{`
