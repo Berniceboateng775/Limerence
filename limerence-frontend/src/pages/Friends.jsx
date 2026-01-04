@@ -46,6 +46,7 @@ export default function Friends() {
   // New States for UI Overhaul
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [pendingLocation, setPendingLocation] = useState(null);
   const documentInputRef = useRef(null); // For generic files
 
   
@@ -229,29 +230,7 @@ export default function Friends() {
     }
   };
 
-  const sendImage = async () => {
-    if (!attachment || !selectedFriend) return;
-    const formData = new FormData();
-    formData.append('attachment', attachment);
-    formData.append('attachmentType', 'image');
-    formData.append('content', newMessage);
-    if (replyingTo) {
-      formData.append('replyToId', replyingTo._id);
-      formData.append('replyToContent', replyingTo.content);
-      formData.append('replyToUsername', replyingTo.sender?.name || 'Unknown');
-    }
-    try {
-      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, formData, {
-        headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
-      });
-      setMessages(prev => [...prev, res.data]);
-      setAttachment(null); setImagePreview(null); setNewMessage(""); setReplyingTo(null);
-      fetchFriends();
-      toast("Sent!", "success");
-    } catch (err) {
-      toast("Failed to send", "error");
-    }
-  };
+
 
   /* Attachment Handlers */
   const handleAttachmentSelect = (type) => {
@@ -269,35 +248,19 @@ export default function Friends() {
     }
     navigator.geolocation.getCurrentPosition((pos) => {
       const { latitude, longitude } = pos.coords;
-      const mapLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-      setNewMessage(prev => prev + (prev ? "\n" : "") + `📍 My Location: ${mapLink}`);
+      setPendingLocation({ latitude, longitude });
+      toast("Location captured! Click send to share.", "success");
     }, () => toast("Location access denied", "error"));
   };
 
   const handleDocumentSelect = (e) => {
     const file = e.target.files[0];
-    if (file && selectedFriend) {
-      sendDocument(file);
+    if (file) {
+      setAttachment(file);
     }
   };
 
-  const sendDocument = async (file) => {
-    const formData = new FormData();
-    formData.append('attachment', file);
-    formData.append('attachmentType', 'file');
-    formData.append('content', newMessage);
-    try {
-      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, formData, {
-        headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
-      });
-      setMessages(prev => [...prev, res.data]);
-      setNewMessage(""); 
-      fetchFriends();
-      toast("File sent!", "success");
-    } catch (err) {
-      toast("Failed to send file", "error");
-    }
-  };
+
 
   const handleCameraCapture = (file) => {
     setAttachment(file);
@@ -368,27 +331,56 @@ export default function Friends() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  /* Unified Send Message Logic */
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if ((!newMessage.trim() && !attachment) || !selectedFriend) return;
-
-    if (attachment) {
-      await sendImage();
-      return;
-    }
+    if (!newMessage.trim() && !attachment && !audioBlob && !pendingLocation) return;
+    if (!selectedFriend) return;
 
     try {
-      const payload = { content: newMessage };
-      if (replyingTo) {
-        payload.replyToId = replyingTo._id;
-        payload.replyToContent = replyingTo.content;
-        payload.replyToUsername = replyingTo.sender?.name || 'Unknown';
+      const formData = new FormData();
+      let contentToSend = newMessage;
+
+      // Handle Location
+      if (pendingLocation) {
+        contentToSend = (contentToSend ? contentToSend + "\n" : "") + `https://www.google.com/maps?q=${pendingLocation.latitude},${pendingLocation.longitude}`;
+        formData.append('attachmentType', 'location');
+      } 
+      // Handle Attachments (Image/File)
+      else if (attachment) {
+        formData.append('attachment', attachment);
+        if (attachment.type.startsWith('image')) {
+            formData.append('attachmentType', 'image');
+        } else if (attachment.type.startsWith('video')) {
+            formData.append('attachmentType', 'video');
+        } else {
+            formData.append('attachmentType', 'file');
+        }
       }
-      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, payload, { headers: { "x-auth-token": token } });
+
+      formData.append('content', contentToSend);
+
+      if (replyingTo) {
+        formData.append('replyToId', replyingTo._id);
+        formData.append('replyToContent', replyingTo.content);
+        formData.append('replyToUsername', replyingTo.sender?.name || 'Unknown');
+      }
+
+      const res = await axios.post(`/api/dm/${selectedFriend._id}/message`, formData, {
+        headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
+      });
+
       setMessages(prev => [...prev, res.data]);
-      setNewMessage(""); setReplyingTo(null);
+      setNewMessage(""); 
+      setReplyingTo(null);
+      setAttachment(null);
+      setImagePreview(null);
+      setPendingLocation(null);
+      setAudioBlob(null);
       fetchFriends();
+      toast("Sent!", "success");
     } catch (err) {
+      console.error(err);
       toast("Failed to send", "error");
     }
   };
@@ -774,10 +766,31 @@ export default function Friends() {
 
             {/* Chat Input Area */}
             <div className="p-4 bg-white dark:bg-slate-800 border-t border-gray-100 dark:border-slate-700">
-              {imagePreview && (
+              
+              {/* Location Preview */}
+              {pendingLocation && (
                 <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2 w-fit">
-                   <img src={imagePreview} alt="Preview" className="h-10 w-10 rounded object-cover" />
-                   <span className="text-xs text-gray-500 dark:text-gray-400">Image selected</span>
+                    <span className="text-2xl">📍</span>
+                    <div className="flex-1 min-w-0">
+                       <p className="text-xs text-gray-500 dark:text-gray-400">Location selected</p>
+                       <p className="text-sm font-bold text-purple-700 dark:text-purple-300">Ready to share</p>
+                    </div>
+                    <button onClick={() => setPendingLocation(null)} className="text-gray-400 hover:text-red-500">✕</button>
+                </div>
+              )}
+
+              {/* Attachment Preview (Image or File) */}
+              {attachment && (
+                <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2">
+                   {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="h-10 w-10 rounded object-cover" />
+                   ) : (
+                      <span className="text-2xl">📄</span>
+                   )}
+                   <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Selected File</p>
+                      <p className="text-sm font-bold text-purple-700 dark:text-purple-300 max-w-[200px] truncate">{attachment.name}</p>
+                   </div>
                    <button onClick={() => { setAttachment(null); setImagePreview(null); }} className="text-gray-400 hover:text-red-500">✕</button>
                 </div>
               )}
