@@ -307,12 +307,22 @@ export default function Clubs() {
     e.preventDefault();
     if (!message.trim() && !attachment && !audioBlob) return;
 
+    // Determine type for optimistic update
+    let optAttachmentType = 'none';
+    if (audioBlob) optAttachmentType = 'voice';
+    else if (attachment) {
+       if (attachment.type?.startsWith('image')) optAttachmentType = 'image';
+       else if (attachment.type?.startsWith('video')) optAttachmentType = 'video';
+       else optAttachmentType = 'file';
+    }
+
     // Optimistic update
     const tempMsg = {
       _id: Date.now().toString(),
       user: user._id,
       username: user.name,
       content: message,
+      attachmentType: optAttachmentType, // Add type for immediate UI update
       createdAt: new Date().toISOString(),
       reactions: [],
       pending: true
@@ -334,8 +344,19 @@ export default function Clubs() {
       const formData = new FormData();
       formData.append("content", msgContent);
       formData.append("username", user.name);
-      if (attachment) formData.append("attachment", attachment);
-      if (audioBlob) formData.append("attachment", audioBlob, "voice.webm");
+      
+      // Append specific attachment type
+      if (audioBlob) {
+          formData.append("attachment", audioBlob, "voice.webm");
+          formData.append("attachmentType", "voice");
+      } else if (attachment) {
+          formData.append("attachment", attachment);
+          if (attachment.type?.startsWith('image')) formData.append("attachmentType", "image");
+          else if (attachment.type?.startsWith('video')) formData.append("attachmentType", "video");
+          else formData.append("attachmentType", "file");
+      } else if (optAttachmentType === 'location') { // If we had location support here (future proofing)
+          formData.append("attachmentType", "location"); 
+      }
       
       if (replyingTo) {
         // Map _id to id for backend schema compatibility
@@ -579,10 +600,40 @@ export default function Clubs() {
           toast("Geolocation not supported", "error");
           return;
       }
-      navigator.geolocation.getCurrentPosition((pos) => {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
           const { latitude, longitude } = pos.coords;
-          const mapLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
-          setMessage(prev => prev + (prev ? "\n" : "") + `📍 My Location: ${mapLink}`);
+          const content = `https://www.google.com/maps?q=${latitude},${longitude}`;
+          
+          try {
+            // Optimistic update
+            const tempMsg = {
+                _id: Date.now().toString(),
+                user: user._id,
+                username: user.name,
+                content: content,
+                attachmentType: 'location',
+                createdAt: new Date().toISOString(),
+                reactions: [],
+                pending: true
+            };
+            setSelectedClub(prev => ({ ...prev, messages: [...(prev.messages || []), tempMsg] }));
+
+            const formData = new FormData();
+            formData.append("content", content);
+            formData.append("username", user.name);
+            formData.append("attachmentType", "location");
+
+            const res = await axios.post(`/api/clubs/${selectedClub._id}/message`, formData, {
+                headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" }
+            });
+            
+            setSelectedClub(prev => ({ ...prev, messages: res.data }));
+            fetchClubs();
+            toast("Location sent!", "success");
+          } catch (err) {
+            console.error(err);
+            toast("Failed to send location", "error");
+          }
       }, () => toast("Location access denied", "error"));
   };
 
@@ -810,12 +861,13 @@ export default function Clubs() {
                           {(lastMsg.user?._id || lastMsg.user) === user._id ? "You" : (lastMsg.username || 'Unknown')}: 
                         </span>{" "}
                         {lastMsg.content || (
-                             lastMsg.attachment ? (
-                               typeof lastMsg.attachment === 'string' && lastMsg.attachment.includes('.webm') ? '🎤 Voice message' : 
-                               typeof lastMsg.attachment === 'string' && (lastMsg.attachment.includes('.jpg') || lastMsg.attachment.includes('.png')) ? '📷 Photo' : 
-                               lastMsg.poll ? '📊 Poll' : '📎 Attachment'
-                             ) : 
-                             lastMsg.poll ? '📊 Poll' : ''
+                             lastMsg.attachmentType === 'image' || (typeof lastMsg.attachment === 'string' && (lastMsg.attachment.includes('.jpg') || lastMsg.attachment.includes('.png'))) ? '📷 Photo' : 
+                             lastMsg.attachmentType === 'voice' || (typeof lastMsg.attachment === 'string' && lastMsg.attachment.includes('.webm')) ? '🎤 Voice note' : 
+                             lastMsg.attachmentType === 'file' ? '📄 Document' : 
+                             lastMsg.attachmentType === 'video' ? '🎥 Video' : 
+                             lastMsg.attachmentType === 'location' ? '📍 Location' : 
+                             lastMsg.poll ? '📊 Poll' : 
+                             '📎 Attachment'
                         )}
                       </>
                     ) : club.description}

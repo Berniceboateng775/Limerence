@@ -52,6 +52,11 @@ const ClubSchema = new mongoose.Schema({
         url: String,
         name: String
       },
+      attachmentType: {
+        type: String,
+        enum: ["image", "video", "audio", "voice", "file", "location", "none"],
+        default: "none"
+      },
       // New Features
       replyTo: {
           id: String,

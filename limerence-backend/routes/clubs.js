@@ -102,6 +102,8 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
     }
     
     let attachment = null;
+    let attachmentType = req.body.attachmentType || "none";
+
     if (req.file) {
         attachment = {
             fileType: req.file.mimetype.startsWith("image/") ? "image" : 
@@ -109,6 +111,14 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
             url: `/uploads/${req.file.filename}`,
             name: req.file.originalname
         };
+        
+        // Auto-detect type from file if not strictly provided (though frontend should send it)
+        if (attachmentType === "none") {
+             if (req.file.mimetype.startsWith("image/")) attachmentType = "image";
+             else if (req.file.mimetype.startsWith("audio/") || req.file.mimetype.startsWith("video/webm")) attachmentType = "voice"; // Assume webm audio is voice
+             else if (req.file.mimetype.startsWith("video/")) attachmentType = "video";
+             else attachmentType = "file";
+        }
     } else if (req.body.attachment) {
         try {
             attachment = JSON.parse(req.body.attachment);
@@ -130,6 +140,7 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
             if (poll.options) {
                 poll.options = poll.options.map(opt => ({ text: opt.text, votes: [] }));
             }
+            attachmentType = "none"; // Polls handle their own display
         } catch (e) {
             console.error("Poll parse error", e);
         }
@@ -140,6 +151,7 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
       username,
       content: content || "",
       attachment,
+      attachmentType,
       replyTo: parsedReplyTo,
       reactions: [],
       poll
