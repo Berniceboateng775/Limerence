@@ -24,6 +24,10 @@ const DirectMessageSchema = new mongoose.Schema({
       enum: ["image", "video", "audio", "voice", "file", "location", "none"], // Extended types
       default: "none"
     },
+    isRead: {
+      type: Boolean,
+      default: false
+    },
     reactions: [{
       emoji: String,
       user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }

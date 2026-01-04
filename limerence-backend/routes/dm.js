@@ -165,10 +165,10 @@ router.get("/unread/count", auth, async (req, res) => {
       // Find user's last read time for this conversation
       const userReadInfo = conv.lastReadBy?.find(r => r.user.toString() === userId);
       const lastReadAt = userReadInfo ? new Date(userReadInfo.lastReadAt).getTime() : 0;
-      
+
       conv.messages.forEach(msg => {
         const msgTime = new Date(msg.createdAt).getTime();
-        // Not my message and after my last read
+        // Not my message AND newer than my last read time
         if (msg.sender.toString() !== userId && msgTime > lastReadAt) {
           unreadCount++;
         }
@@ -207,6 +207,43 @@ router.post("/:friendId/read", auth, async (req, res) => {
 
     await conversation.save();
     res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+// Mark messages as read for a specific friend
+router.post("/:friendId/read", auth, async (req, res) => {
+  try {
+    const friendId = req.params.friendId;
+    const userId = req.user.userId;
+
+    // Atomic update: Set user's lastReadAt to now
+    // If entry exists, update it. If not, add it.
+    await DirectMessage.updateOne(
+      { participants: { $all: [userId, friendId] } },
+      { 
+        $set: { "lastReadBy.$[elem].lastReadAt": new Date() }
+      },
+      { 
+        arrayFilters: [ { "elem.user": userId } ]
+      }
+    );
+    
+    // If the above didn't modify anything (user not in array), push it
+    // (This is a simplified "upsert" for array elements)
+    await DirectMessage.updateOne(
+      { 
+        participants: { $all: [userId, friendId] },
+        "lastReadBy.user": { $ne: userId }
+      },
+      {
+        $push: { lastReadBy: { user: userId, lastReadAt: new Date() } }
+      }
+    );
+
+    res.json({ msg: "Marked as read" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });

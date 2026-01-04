@@ -117,11 +117,13 @@ export default function Friends() {
               time: new Date(lastMsg.createdAt),
               isMe: (lastMsg.sender?._id || lastMsg.sender) === user._id
             };
-            // Count unread - ONLY messages FROM friend (not from me!)
-            const fiveMinAgo = Date.now() - 300000;
+            // Count unread based on timestamps (Club Logic)
+            const myReadInfo = convRes.data.lastReadBy?.find(r => r.user === user._id || r.user?._id === user._id);
+            const lastReadAt = myReadInfo ? new Date(myReadInfo.lastReadAt).getTime() : 0;
+
             unreads[friend._id] = msgs.filter(m => 
               (m.sender?._id || m.sender) !== user._id && 
-              new Date(m.createdAt).getTime() > fiveMinAgo
+              new Date(m.createdAt).getTime() > lastReadAt
             ).length;
           }
         } catch (e) { /* No conversation */ }
