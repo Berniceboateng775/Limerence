@@ -153,6 +153,22 @@ export default function Clubs() {
     // No interval - fetch only on initial load and specific actions to prevent flickering
   }, []);
 
+  // Click outside to close menus
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+        // If clicking inside relevant components, do nothing
+        if (event.target.closest('.emoji-picker-container') || 
+            event.target.closest('.attachment-menu-container') ||
+            event.target.closest('.recording-ui')) return;
+            
+        setShowEmojiPicker(false);
+        setShowAttachmentMenu(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Detect ?join= URL parameter for join popup
   useEffect(() => {
     if (!user?._id) return; // Wait for user to be loaded
@@ -957,21 +973,30 @@ export default function Clubs() {
               )}
 
               <form onSubmit={handleSendMessage} className="flex gap-2 items-end relative">
-                <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-3 text-2xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-gray-400">
-                   <span className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition">😊</span>
-                </button>
+                <div className="emoji-picker-container relative">
+                   <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-3 text-2xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-gray-400">
+                     <span className="grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition">😊</span>
+                   </button>
+                   {showEmojiPicker && (
+                     <div className="absolute bottom-14 left-0 z-40 shadow-2xl rounded-2xl animate-fade-in-up">
+                       <EmojiPicker onEmojiClick={(e) => { setMessage(prev => prev + e.emoji); setShowEmojiPicker(false); }} theme={theme} width={300} height={400} />
+                     </div>
+                   )}
+                </div>
                 
                 {/* Attachment Menu Trigger */}
-                <div className="relative">
+                <div className="attachment-menu-container relative">
                   <button 
                     type="button" 
                     onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} 
-                    className="p-3 text-xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-gray-400 hover:text-purple-600"
+                    className="p-3 text-xl hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition text-gray-400 hover:text-pink-500"
                   >
                     ➕
                   </button>
                   {showAttachmentMenu && (
-                    <AttachmentMenu onSelect={handleAttachmentSelect} showPoll={true} />
+                    <div className="absolute bottom-16 left-0 z-50 animate-fade-in-up">
+                       <AttachmentMenu onSelect={handleAttachmentSelect} />
+                    </div>
                   )}
                 </div>
 
