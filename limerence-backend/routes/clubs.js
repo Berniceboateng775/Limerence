@@ -58,6 +58,18 @@ router.post("/", auth, upload.single("coverImage"), async (req, res) => {
     });
 
     await club.save();
+
+    // Club Leader Badge
+    const User = require("../models/User");
+    const { checkAndAwardBadge } = require("../utils/badgeUtils");
+    const user = await User.findById(req.user.userId);
+    
+    if (!user.badges.some(b => b.name === "Club Leader")) {
+        const badge = { name: "Club Leader", icon: "🗣️", description: "Create a Book Club" };
+        user.badges.push(badge);
+        await user.save();
+    }
+    
     res.json(club);
   } catch (err) {
     console.error(err);
@@ -82,6 +94,21 @@ router.post("/:id/join", auth, async (req, res) => {
 
     club.members.push(req.user.userId);
     await club.save();
+    
+    // Social Butterfly Badge
+    const User = require("../models/User");
+    const { checkAndAwardBadge } = require("../utils/badgeUtils");
+    const user = await User.findById(req.user.userId);
+    
+    // Pass custom context if needed, or rely on manual check of clubs length if we populate it
+    // But user.clubs isn't a standard field (clubs store members). 
+    // So we need to count how many clubs the user is in.
+    const Club = require("../models/Club");
+    const clubCount = await Club.countDocuments({ members: req.user.userId });
+    
+    await checkAndAwardBadge(user, "club_count", { clubCount });
+    await user.save();
+
     res.json(club);
   } catch (err) {
     res.status(500).json({ msg: "Server error" });

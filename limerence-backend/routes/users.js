@@ -155,6 +155,11 @@ router.post("/friend-response", auth, async (req, res) => {
        // Remove request
        user.friendRequests.splice(reqIndex, 1);
        
+       // Badge Checks (Friends)
+       const { checkAndAwardBadge } = require("../utils/badgeUtils");
+       await checkAndAwardBadge(user, "friend_count");
+       await checkAndAwardBadge(requester, "friend_count");
+       
        await requester.save();
 
        // Create Notification

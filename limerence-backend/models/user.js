@@ -59,13 +59,16 @@ const UserSchema = new mongoose.Schema({
     default: Date.now,
   },
   badges: [
-    {
-      name: String,
-      description: String,
-      icon: String,
-      earnedAt: { type: Date, default: Date.now }
-    }
-  ]
-})
+  ],
+  stats: {
+    messagesSent: { type: Number, default: 0 },
+    reviewsPosted: { type: Number, default: 0 },
+    stickersSent: { type: Number, default: 0 },
+    booksRead: { type: Number, default: 0 },
+    currentStreak: { type: Number, default: 0 },
+    lastActiveDate: { type: Date },
+    joinedAt: { type: Date, default: Date.now }
+  }
+});
 
 module.exports = mongoose.models.User || mongoose.model("User", UserSchema);

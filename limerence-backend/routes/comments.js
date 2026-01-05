@@ -37,6 +37,16 @@ router.post("/", auth, async (req, res) => {
     });
 
     const comment = await newComment.save();
+    
+    // Update User Stats for Reviews
+    const User = require("../models/User");
+    const user = await User.findById(req.user.userId);
+    user.stats.reviewsPosted = (user.stats.reviewsPosted || 0) + 1;
+    
+    const { checkAndAwardBadge } = require("../utils/badgeUtils");
+    await checkAndAwardBadge(user, "review_count");
+    await user.save();
+
     // Populate user details for immediate display
     await comment.populate("user", "name avatar");
 
