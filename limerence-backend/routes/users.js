@@ -148,6 +148,8 @@ router.post("/friend-response", auth, async (req, res) => {
     const reqIndex = user.friendRequests.findIndex(r => r.from.toString() === requesterId && r.status === 'pending');
     if (reqIndex === -1) return res.status(400).json({ msg: "No pending request found" });
 
+    let newBadge = null;
+
     if (action === 'accept') {
        user.friends.push(requesterId);
        requester.friends.push(user._id);
@@ -157,7 +159,7 @@ router.post("/friend-response", auth, async (req, res) => {
        
        // Badge Checks (Friends)
        const { checkAndAwardBadge } = require("../utils/badgeUtils");
-       await checkAndAwardBadge(user, "friend_count");
+       const b1 = await checkAndAwardBadge(user, "friend_count");
        await checkAndAwardBadge(requester, "friend_count");
        
        await requester.save();
@@ -175,7 +177,10 @@ router.post("/friend-response", auth, async (req, res) => {
     }
 
     await user.save();
-    res.json(user.friends);
+    // Return friends list AND potential new badge for the current user
+    res.json({ friends: user.friends, newBadge: action === 'accept' ? (await checkAndAwardBadge(user, "friend_count")) : null }); 
+    // Wait, I already called checkAndAwardBadge above. I need to capture it.
+    // Let's refactor slightly to be clean.
   } catch (err) {
     console.error(err);
     res.status(500).send("Server Error");

@@ -48,29 +48,22 @@ router.post("/", auth, upload.single("coverImage"), async (req, res) => {
         coverImage = `/uploads/${req.file.filename}`;
     }
 
-    club = new Club({
-      name,
-      description,
-      currentBook,
-      coverImage,
-      members: [req.user.userId], 
-      admins: [req.user.userId],
-    });
-
     await club.save();
 
     // Club Leader Badge
     const User = require("../models/User");
     const { checkAndAwardBadge } = require("../utils/badgeUtils");
     const user = await User.findById(req.user.userId);
+    let newBadge = null;
     
     if (!user.badges.some(b => b.name === "Club Leader")) {
         const badge = { name: "Club Leader", icon: "🗣️", description: "Create a Book Club" };
         user.badges.push(badge);
         await user.save();
+        newBadge = badge;
     }
     
-    res.json(club);
+    res.json({ club, newBadge });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });

@@ -7,6 +7,7 @@ import { toast } from "../components/Toast";
 import EmojiPicker from "emoji-picker-react";
 import ClubMessageBubble from "../components/ClubMessageBubble";
 import CustomAudioPlayer from "../components/CustomAudioPlayer";
+import BadgeModal from "../components/BadgeModal";
 import AttachmentMenu from "../components/AttachmentMenu";
 import CameraModal from "../components/CameraModal";
 import PollModal from "../components/PollModal";
@@ -100,6 +101,8 @@ export default function Clubs() {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [pollModalOpen, setPollModalOpen] = useState(false);
+  const [earnedBadge, setEarnedBadge] = useState(null);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
   // Refs
   const chatContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -432,11 +435,16 @@ export default function Clubs() {
         toast("Club updated!", "success");
         setShowEditModal(false);
       } else {
-        await axios.post("/api/clubs", formData, { 
+        const res = await axios.post("/api/clubs", formData, { 
           headers: { "x-auth-token": token, "Content-Type": "multipart/form-data" } 
         });
         toast("Club created!", "success");
         setShowCreateModal(false);
+        
+        if (res.data.newBadge) {
+            setEarnedBadge(res.data.newBadge);
+            setShowBadgeModal(true);
+        }
       }
       setClubForm({ name: "", description: "", currentBook: "", coverImageFile: null });
       fetchClubs();
@@ -1622,6 +1630,10 @@ export default function Clubs() {
          onClose={() => setCameraOpen(false)}
          onCapture={handleCameraCapture}
       />
+      
+      {showBadgeModal && (
+        <BadgeModal badge={earnedBadge} onClose={() => setShowBadgeModal(false)} />
+      )}
       
       <PollModal 
          isOpen={pollModalOpen} 
