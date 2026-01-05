@@ -5,6 +5,10 @@ import { useTheme } from "../context/ThemeContext";
 import { NotificationContext } from "../context/NotificationContext";
 import axios from "axios";
 
+import ThemeToggle from "./ThemeToggle";
+
+import Logo from "./Logo";
+
 export default function Navbar() {
   const { logout, token, user } = useContext(AuthContext);
   const { theme, toggleTheme } = useTheme();
@@ -48,8 +52,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/home" className="hidden md:block text-2xl font-bold text-primary tracking-tight">
-            Limerence
+          <Link to="/home" className="hidden md:block hover:scale-105 transition-transform duration-300">
+            <Logo textClassName="text-2xl font-serif font-bold tracking-tighter" />
           </Link>
 
           {/* Links */}
@@ -86,13 +90,7 @@ export default function Navbar() {
             ))}
             
             {/* Theme Toggle Button */}
-            <button 
-              onClick={toggleTheme}
-              className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition rounded-full hover:bg-gray-100 dark:hover:bg-slate-700"
-              title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-            >
-              <span className="text-xl">{theme === 'light' ? '🌙' : '☀️'}</span>
-            </button>
+            <ThemeToggle />
             
             {/* Notification Bell with Badge */}
             <div 

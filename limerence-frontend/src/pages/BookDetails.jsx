@@ -52,12 +52,12 @@ const CommentItem = ({ comment, bookId, token }) => {
                 )}
             </div>
             <div className="flex-1">
-                <div className="bg-white p-5 rounded-2xl rounded-tl-sm shadow-sm border border-gray-100 relative hover:shadow-md transition-shadow duration-200">
+                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl rounded-tl-sm shadow-sm border border-gray-100 dark:border-slate-700 relative hover:shadow-md transition-shadow duration-200">
                     <div className="flex items-center gap-2 mb-2">
-                        <span className="font-bold text-slate-900">{comment.user.name}</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{comment.user.name}</span>
                         <span className="text-xs text-gray-400">• {new Date(comment.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <p className="text-gray-700 leading-relaxed text-sm md:text-base">{comment.content}</p>
+                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm md:text-base">{comment.content}</p>
                 </div>
                 
                 <div className="flex items-center gap-6 mt-2 text-xs font-bold text-gray-400 ml-2">
@@ -67,7 +67,7 @@ const CommentItem = ({ comment, bookId, token }) => {
                     <button onClick={handleDislike} className="hover:text-red-500 flex items-center gap-1 transition-colors">
                         👎 {dislikes.length || "Dislike"}
                     </button>
-                    <button onClick={() => setShowReplyBox(!showReplyBox)} className="hover:text-slate-900 transition-colors">
+                    <button onClick={() => setShowReplyBox(!showReplyBox)} className="hover:text-slate-900 dark:hover:text-white transition-colors">
                         Reply
                     </button>
                 </div>
@@ -78,24 +78,24 @@ const CommentItem = ({ comment, bookId, token }) => {
                             type="text" 
                             value={replyContent} 
                             onChange={(e) => setReplyContent(e.target.value)}
-                            className="flex-1 bg-gray-50 border-none rounded-full px-5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-200 transition"
+                            className="flex-1 bg-gray-50 dark:bg-slate-700 border-none rounded-full px-5 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900 dark:text-white transition"
                             placeholder="Write a reply..."
                         />
-                        <button type="submit" className="text-purple-600 font-bold text-sm px-3 hover:bg-purple-50 rounded-full transition">Post</button>
+                        <button type="submit" className="text-purple-600 font-bold text-sm px-3 hover:bg-purple-50 dark:hover:bg-slate-700 rounded-full transition">Post</button>
                     </form>
                 )}
 
                 {/* Replies */}
                 {replies.length > 0 && (
-                    <div className="mt-4 space-y-4 pl-4 md:pl-6 border-l-2 border-purple-50">
+                    <div className="mt-4 space-y-4 pl-4 md:pl-6 border-l-2 border-purple-50 dark:border-slate-700">
                         {replies.map((reply, idx) => (
                             <div key={idx} className="flex gap-3">
-                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 text-gray-500">
+                                <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 text-gray-500 dark:text-gray-400">
                                      <span className="text-xs font-bold">{reply.user?.name?.[0] || "?"}</span>
                                 </div>
                                 <div className="flex-1">
-                                    <div className="bg-gray-50 p-3 rounded-xl rounded-tl-sm text-sm text-gray-700">
-                                        <span className="font-bold text-slate-900 mr-2">{reply.user?.name || "User"}</span>
+                                    <div className="bg-gray-50 dark:bg-slate-700 p-3 rounded-xl rounded-tl-sm text-sm text-gray-700 dark:text-gray-300">
+                                        <span className="font-bold text-slate-900 dark:text-white mr-2">{reply.user?.name || "User"}</span>
                                         {reply.content}
                                     </div>
                                 </div>
@@ -225,6 +225,7 @@ export default function BookDetails() {
 
       let bookData = null;
       const isMongoId = /^[0-9a-fA-F]{24}$/.test(routeTitle);
+      const isHardcoverId = /^\d+$/.test(routeTitle); // Numeric = Hardcover ID
 
       // 1. Internal MongoDB ID
       if (isMongoId) {
@@ -234,7 +235,38 @@ export default function BookDetails() {
         } catch (e) { console.warn("Internal ID fetch failed"); }
       } 
       
-      // 2. OpenLibrary ID (Direct Fetch)
+      // 2. Hardcover ID (Numeric)
+      else if (isHardcoverId) {
+        console.log("Fetching from Hardcover:", routeTitle);
+        try {
+            const res = await axios.get(`http://localhost:5000/api/books/hardcover/book/${routeTitle}`);
+            if (res.data) {
+                const hc = res.data;
+                bookData = {
+                    _id: null,
+                    hardcoverId: hc.id,
+                    title: hc.title,
+                    subtitle: hc.subtitle,
+                    authors: hc.authors?.map(a => a.name) || ["Unknown Author"],
+                    description: hc.description || "No description available.",
+                    coverImage: hc.cover || "https://via.placeholder.com/300x450",
+                    averageRating: hc.rating || 4.5,
+                    ratingsCount: hc.ratingsCount || 0,
+                    usersCount: hc.usersCount,
+                    pages: hc.pages,
+                    releaseDate: hc.releaseDate,
+                    series: hc.series,
+                    externalId: String(hc.id),
+                    source: 'hardcover'
+                };
+                console.log("Hardcover book loaded:", bookData.title);
+            }
+        } catch (e) { 
+            console.warn("Hardcover fetch failed:", e.message); 
+        }
+      }
+      
+      // 3. OpenLibrary ID (Direct Fetch)
       else if (routeTitle.startsWith("OL")) {
           // ... (keep existing API logic for OL, it is fine)
            try {

@@ -799,7 +799,7 @@ export default function Clubs() {
           <input 
             type="text" 
             placeholder="Search clubs..." 
-            className="w-full bg-gray-100 dark:bg-slate-700 border-none p-2.5 px-4 rounded-xl text-sm focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 outline-none dark:text-white dark:placeholder-gray-400 transition"
+            className="w-full bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 p-2.5 px-4 rounded-xl text-sm focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 outline-none dark:text-white dark:placeholder-gray-400 transition shadow-inner"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -829,10 +829,10 @@ export default function Clubs() {
                     handleJoin(club._id); 
                   }
                 }}
-                className={`p-3 rounded-xl cursor-pointer transition-all flex items-center gap-3 ${
+                className={`p-3 rounded-xl cursor-pointer transition-all duration-300 flex items-center gap-3 border ${
                   selectedClub?._id === club._id 
-                    ? "bg-purple-50 dark:bg-purple-900/30 ring-1 ring-purple-200 dark:ring-purple-700" 
-                    : "hover:bg-gray-50 dark:hover:bg-slate-700/50"
+                    ? "bg-purple-500/10 dark:bg-purple-500/20 backdrop-blur-md border-purple-500/30 shadow-lg scale-[1.02]" 
+                    : "bg-white/30 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 border-transparent hover:shadow-md"
                 }`}
               >
                 {/* Club Avatar */}
@@ -896,7 +896,7 @@ export default function Clubs() {
         {selectedClub ? (
           <>
             {/* Chat Header */}
-            <div className="flex-shrink-0 p-4 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm z-10">
+            <div className="flex-shrink-0 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10 flex justify-between items-center shadow-sm z-10 sticky top-0">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => setViewProfile(selectedClub)}>
                 <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center font-bold text-white overflow-hidden shadow-md">
                   {selectedClub.coverImage ? (
@@ -984,7 +984,7 @@ export default function Clubs() {
             </div>
 
             {/* Input Area - Always Visible at Bottom */}
-            <div className="flex-shrink-0 p-4 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 relative">
+            <div className="flex-shrink-0 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/10 relative">
               {/* Main Emoji Picker */}
               {showEmojiPicker && (
                 <div className="absolute bottom-full left-4 mb-2 z-50">
@@ -1087,7 +1087,7 @@ export default function Clubs() {
                 </button>
                 
                 <textarea 
-                  className={`flex-1 bg-gray-100 dark:bg-slate-700 border-none rounded-2xl p-3 outline-none resize-none ${fontSizes[fontSize]} max-h-32 focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 dark:text-white dark:placeholder-gray-400 transition min-h-[48px]`}
+                  className={`flex-1 bg-gray-100/50 dark:bg-slate-800/50 backdrop-blur-sm border-none rounded-2xl p-3 outline-none resize-none ${fontSizes[fontSize]} max-h-32 focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 dark:text-white dark:placeholder-gray-400 transition min-h-[48px]`}
                   placeholder={`Message #${selectedClub.name}`} 
                   rows="1"
                   value={message}

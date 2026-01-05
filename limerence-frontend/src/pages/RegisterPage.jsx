@@ -46,11 +46,11 @@ export default function RegisterPage() {
 
   if (success) {
       return (
-        <div className="min-h-screen bg-dream-gradient flex items-center justify-center p-4">
-            <div className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/50 text-center">
+        <div className="min-h-screen bg-dream-gradient dark:bg-dream-gradient-dark flex items-center justify-center p-4 transition-colors duration-300">
+            <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/50 dark:border-white/10 text-center">
                 <div className="text-5xl mb-4">✨</div>
-                <h2 className="text-3xl font-serif font-bold text-gray-800 mb-4">Registration Successful!</h2>
-                <p className="text-gray-600 mb-8">Your account has been created. Please log in to continue your journey.</p>
+                <h2 className="text-3xl font-serif font-bold text-gray-800 dark:text-white mb-4">Registration Successful!</h2>
+                <p className="text-gray-600 dark:text-gray-300 mb-8">Your account has been created. Please log in to continue your journey.</p>
                 <Link 
                     to="/login"
                     className="inline-block bg-gradient-to-r from-purple-600 to-pink-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition duration-200"
@@ -63,12 +63,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dream-gradient flex items-center justify-center p-4">
-      <div className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/50">
+    <div className="min-h-screen bg-dream-gradient dark:bg-dream-gradient-dark flex items-center justify-center p-4 transition-colors duration-300">
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/50 dark:border-white/10">
         <h2 className="text-4xl font-serif font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-500">
           Join Limerence
         </h2>
-        <p className="text-center text-gray-500 mb-8">Your next obsession awaits.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400 mb-8">Your next obsession awaits.</p>
 
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 mb-6 rounded">
@@ -78,13 +78,13 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">Name</label>
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">Name</label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900"
+              className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900 dark:text-white"
               placeholder="Your Name"
               required
             />
@@ -97,21 +97,21 @@ export default function RegisterPage() {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900"
+              className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900 dark:text-white"
               placeholder="reader@example.com"
               required
             />
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">Password</label>
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">Password</label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900"
+                className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900 dark:text-white"
                 placeholder="••••••••"
                 required
               />
@@ -126,14 +126,14 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">Confirm Password</label>
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">Confirm Password</label>
             <div className="relative">
                 <input
                 type={showConfirmPassword ? "text" : "password"}
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900"
+                className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900 dark:text-white"
                 placeholder="••••••••"
                 required
                 />
@@ -148,12 +148,12 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-gray-700 text-sm font-bold mb-2">Gender (Optional)</label>
+            <label className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">Gender (Optional)</label>
             <select
               name="gender"
               value={formData.gender}
               onChange={handleChange}
-              className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900"
+              className="w-full px-4 py-3 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition text-gray-900 dark:text-white"
             >
               <option value="">Select Gender</option>
               <option value="Female">Female</option>
@@ -170,7 +170,7 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-gray-600">
+        <p className="mt-8 text-center text-gray-600 dark:text-gray-400">
           Already have an account?{" "}
           <Link to="/login" className="text-purple-600 font-bold hover:underline">
             Log In

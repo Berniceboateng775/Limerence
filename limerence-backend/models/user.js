@@ -26,9 +26,15 @@ const UserSchema = new mongoose.Schema({
     enum: ["Male", "Female", "Other"],
     required: false,
   },
-  nickname: {
+  // Display username (unique, shown in clubs/friends/profiles)
+  username: {
     type: String,
     trim: true,
+    lowercase: true,
+    unique: true,
+    sparse: true, // Allows null values while enforcing uniqueness for non-null
+    minlength: 3,
+    maxlength: 20
   },
   about: {
     type: String,
@@ -68,7 +74,28 @@ const UserSchema = new mongoose.Schema({
     currentStreak: { type: Number, default: 0 },
     lastActiveDate: { type: Date },
     joinedAt: { type: Date, default: Date.now }
-  }
+  },
+  
+  // Onboarding Fields
+  onboardingComplete: {
+    type: Boolean,
+    default: false
+  },
+  readingGoal: {
+    type: Number,
+    default: 12 // Books per year
+  },
+  monthlyGoal: {
+    type: Number,
+    default: 1 // Books per month
+  },
+  preferredGenres: [{
+    type: String
+  }],
+  
+  // Follow System (for Phase 4)
+  followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
 });
 
 module.exports = mongoose.models.User || mongoose.model("User", UserSchema);

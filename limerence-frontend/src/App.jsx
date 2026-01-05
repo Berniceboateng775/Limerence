@@ -19,6 +19,9 @@ import SocialFeed from "./pages/SocialFeed";
 import Clubs from "./pages/Clubs";
 import Notifications from "./pages/Notifications";
 import Friends from "./pages/Friends";
+import About from "./pages/About";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 import Navbar from "./components/Navbar";
 import { ToastContainer } from "./components/Toast";
@@ -77,6 +80,11 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             
+            {/* 📄 Info Pages (Public) */}
+            <Route path="/about" element={<About />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            
             {/* 🏠 Home (Protected) */}
             <Route
               path="/home"
@@ -107,15 +115,8 @@ export default function App() {
               }
             />
 
-            {/* ✨ New Pages */}
-            <Route
-              path="/onboarding"
-              element={
-                <ProtectedRoute>
-                  <Onboarding />
-                </ProtectedRoute>
-              }
-            />
+            {/* ✨ Onboarding (Protected but no Navbar) */}
+            <Route path="/onboarding" element={<Onboarding />} />
             <Route
               path="/moods"
               element={

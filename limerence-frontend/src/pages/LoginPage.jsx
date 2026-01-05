@@ -19,7 +19,14 @@ export default function LoginPage() {
     try {
       const res = await login(formData);
       setToken(res.data.token);
-      navigate("/home");
+      
+      // Check if user has completed onboarding
+      const onboardingComplete = res.data.onboardingComplete;
+      if (onboardingComplete) {
+        navigate("/home");
+      } else {
+        navigate("/onboarding");
+      }
     } catch (err) {
       console.error("Login Error:", err);
       setError(err.response?.data?.msg || "Login failed");
@@ -27,12 +34,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-dream-gradient flex items-center justify-center p-4">
-      <div className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/50">
+    <div className="min-h-screen bg-dream-gradient dark:bg-dream-gradient-dark flex items-center justify-center p-4 transition-colors duration-300">
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl w-full max-w-md border border-white/50 dark:border-white/10">
         <h2 className="text-4xl font-serif font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-500">
           Welcome Back
         </h2>
-        <p className="text-center text-gray-500 mb-8">Continue your story...</p>
+        <p className="text-center text-gray-500 dark:text-gray-400 mb-8">Continue your story...</p>
 
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 mb-6 rounded">

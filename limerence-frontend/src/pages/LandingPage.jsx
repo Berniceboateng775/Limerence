@@ -1,18 +1,50 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Typewriter from "../components/Typewriter";
+import ThemeToggle from "../components/ThemeToggle";
+import Logo from "../components/Logo";
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const FALLBACK_COVER = "https://images.unsplash.com/photo-1524578271613-d550eacf6090?auto=format&fit=crop&w=600&q=80";
-  const trendingRef = useRef(null);
+  const FALLBACK_COVER = "https://placehold.co/400x600/e2e8f0/475569?text=Cover+Missing";
+  const trendingRef = useRef(null); // Keep for horizontal scroll
+  const trendingSectionRef = useRef(null); // NEW: For vertical navigation
   const featuredRef = useRef({});
+  const featuresRef = useRef(null);
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [featureOne, setFeatureOne] = useState([]);
   const [featureTwo, setFeatureTwo] = useState([]);
-  const [darkHero, setDarkHero] = useState([]); // Books for Hero Section
+  const [darkHero, setDarkHero] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [readerCount, setReaderCount] = useState(14203);
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
+
+  const testimonials = [
+      { text: "I've never felt so validated for staying up until 4am reading. The group chats are chaos in the best way.", user: "@sarah_reads", avatar: "👩🏻‍🦰" },
+      { text: "Finally, a place where people understand why I'm crying over fictional men. My TBR is out of control.", user: "@bookish_babe", avatar: "👱‍♀️" },
+      { text: "Limerence makes Goodreads look like a spreadsheet. This is where the actual community is.", user: "@chapter_verse", avatar: "🧔" },
+      { text: "The reading goals feature actually made me read 50 books this year. I'm obsessed!", user: "@page_turner", avatar: "👩🏾" }
+  ];
+
+  // Dynamic Reader Count
+  useEffect(() => {
+      // Set initial random count between 2500 and 4500
+      setReaderCount(Math.floor(Math.random() * (4500 - 2500) + 2500));
+      
+      const interval = setInterval(() => {
+          setReaderCount(prev => prev + Math.floor(Math.random() * 7) - 3);
+      }, 4000);
+      return () => clearInterval(interval);
+  }, []);
+
+  // Rotate Testimonials
+  useEffect(() => {
+      const interval = setInterval(() => {
+          setCurrentTestimonial(prev => (prev + 1) % testimonials.length);
+      }, 5000);
+      return () => clearInterval(interval);
+  }, [testimonials.length]);
 
   const AUTHOR_FOCUS = [
     "Sarah J. Maas",
@@ -65,15 +97,16 @@ export default function LandingPage() {
   const featuredRows = useMemo(() => ([
     {
       title: "Binge. Feel. Repeat.",
-      accent: "bg-gradient-to-r from-amber-100 via-pink-50 to-rose-100",
+      accent: "bg-purple-500", 
       books: featureOne.length ? featureOne : featureTwo,
     },
     {
       title: "Late-Night Fanfiction",
-      accent: "bg-gradient-to-r from-indigo-50 via-blue-50 to-slate-100",
+      accent: "bg-blue-500",
       books: featureTwo.length ? featureTwo : featureOne,
     }
   ]), [featureOne, featureTwo]);
+
 
   const safeCover = (src, alt) => src || alt || FALLBACK_COVER;
 
@@ -222,34 +255,35 @@ export default function LandingPage() {
   }, [trendingBooks, featureOne, featureTwo]);
 
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-purple-100 selection:text-purple-900 overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-slate-950 font-sans text-gray-900 dark:text-gray-100 selection:bg-purple-100 selection:text-purple-900 overflow-x-hidden transition-colors duration-300">
       {/* Navbar */}
       <nav className="absolute top-0 w-full p-6 flex justify-between items-center z-50 animate-fade-in-down">
-          <div className="text-2xl font-serif font-bold tracking-tighter text-slate-900">Limerence</div>
-          <div className="flex gap-4">
-              <Link to="/login" className="px-6 py-2 rounded-full font-bold hover:bg-gray-100 transition text-sm text-slate-700">Log In</Link>
-              <Link to="/register" className="px-6 py-2 bg-slate-900 text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition text-sm">Sign Up</Link>
+          <Logo />
+          <div className="flex gap-4 items-center">
+              <ThemeToggle />
+              <Link to="/login" className="px-6 py-2 rounded-full font-bold hover:bg-gray-100 dark:hover:bg-white/10 transition text-sm text-slate-700 dark:text-slate-200">Log In</Link>
+              <Link to="/register" className="px-6 py-2 bg-slate-900 dark:bg-white dark:text-slate-900 text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition text-sm">Sign Up</Link>
           </div>
       </nav>
 
       {/* Hero Section - Static Books + Bubbles */}
-      <div className="relative min-h-[95vh] flex items-center pt-20 bg-gradient-to-br from-purple-50 via-white to-rose-50 overflow-hidden">
+      <div className="relative min-h-[95vh] flex items-center pt-20 bg-gradient-to-br from-purple-50 via-white to-rose-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 overflow-hidden transition-colors duration-300">
          {/* Background Blobs */}
-         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-b from-purple-200/30 to-rose-200/30 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 animate-pulse-slow"></div>
+         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-b from-purple-200/30 to-rose-200/30 dark:from-purple-900/10 dark:to-rose-900/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 animate-pulse-slow"></div>
          
          <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center relative z-10 w-full">
              {/* Left: Content */}
              <div className="space-y-8 text-center lg:text-left z-20">
-                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-purple-100 animate-bounce-slow cursor-default hover:shadow-md transition">
+                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-purple-100 dark:border-slate-700 animate-bounce-slow cursor-default hover:shadow-md transition">
                      <span className="relative flex h-3 w-3">
                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                      </span>
-                     <span className="text-xs font-bold text-gray-600 tracking-wide">14,203 READERS ONLINE</span>
+                     <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{readerCount.toLocaleString()} READERS ONLINE</span>
                  </div>
 
                  <div className="h-[240px] md:h-[280px] flex flex-col justify-center">
-                    <h1 className="text-6xl lg:text-8xl font-serif font-bold text-slate-900 leading-[0.9] tracking-tight">
+                    <h1 className="text-6xl lg:text-8xl font-serif font-bold text-slate-900 dark:text-white leading-[0.9] tracking-tight">
                         Read.<br/>
                         Obsess.<br/>
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-rose-500 block h-[1.1em]">
@@ -258,20 +292,20 @@ export default function LandingPage() {
                     </h1>
                  </div>
                  
-                 <p className="text-xl text-gray-600 leading-relaxed max-w-lg mx-auto lg:mx-0">
+                 <p className="text-xl text-gray-600 dark:text-gray-400 leading-relaxed max-w-lg mx-auto lg:mx-0">
                      The social book club for the BookTok generation. Join for the stories, stay for the chaotic group chats.
                  </p>
 
                  <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                      <button 
                         onClick={() => navigate('/register')}
-                        className="px-10 py-4 bg-slate-900 text-white text-lg font-bold rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition flex items-center justify-center gap-2"
+                        className="px-10 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-lg font-bold rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition flex items-center justify-center gap-2"
                      >
                          Start Reading <span>→</span>
                      </button>
                      <button 
                         onClick={() => navigate('/home')} 
-                        className="px-10 py-4 bg-white text-slate-900 text-lg font-bold rounded-full border border-gray-200 hover:bg-gray-50 transition"
+                        className="px-10 py-4 bg-white dark:bg-transparent dark:text-white dark:border-white/20 text-slate-900 text-lg font-bold rounded-full border border-gray-200 hover:bg-gray-50 dark:hover:bg-white/10 transition"
                      >
                          Explore Library
                      </button>
@@ -281,25 +315,25 @@ export default function LandingPage() {
              {/* Right: Static Books (No Rotation) */}
              <div className="relative h-[600px] hidden lg:block">
                  {/* Floating Chat Bubbles */}
-                 <div className="absolute top-20 left-0 bg-white p-4 rounded-2xl rounded-bl-sm shadow-xl z-30 animate-float-slow max-w-[200px] border border-gray-100">
+                 <div className="absolute top-20 left-0 bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-bl-sm shadow-xl z-30 animate-float-slow max-w-[200px] border border-gray-100 dark:border-slate-700">
                      <div className="flex items-center gap-2 mb-2">
-                         <div className="w-6 h-6 rounded-full bg-pink-100 text-pink-500 flex items-center justify-center text-[10px] font-bold">EM</div>
+                         <div className="w-6 h-6 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-500 flex items-center justify-center text-[10px] font-bold">EM</div>
                          <span className="text-xs font-bold text-gray-400">@em_reads</span>
                      </div>
-                     <p className="text-sm font-medium text-gray-800">"We're all collectively losing our minds over Chapter 55 right? 😭"</p>
+                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">"We're all collectively losing our minds over Chapter 55 right? 😭"</p>
                      <span className="text-red-500 text-xs mt-2 block">❤ 1.2k</span>
                  </div>
 
-                 <div className="absolute bottom-40 right-0 bg-white p-4 rounded-2xl rounded-br-sm shadow-xl z-30 animate-float-delayed max-w-[220px] border border-gray-100">
+                 <div className="absolute bottom-40 right-0 bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-br-sm shadow-xl z-30 animate-float-delayed max-w-[220px] border border-gray-100 dark:border-slate-700">
                       <div className="flex items-center gap-2 mb-2">
-                         <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-[10px] font-bold">AL</div>
+                         <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-500 flex items-center justify-center text-[10px] font-bold">AL</div>
                          <span className="text-xs font-bold text-gray-400">@alex_page</span>
                      </div>
-                     <p className="text-sm font-medium text-gray-800">"SOMEONE PASS THE POPCORN 🍿 This plot twist!"</p>
+                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">"SOMEONE PASS THE POPCORN 🍿 This plot twist!"</p>
                  </div>
 
                  {/* Dual Book Display */}
-                 <div className="absolute top-10 right-10 w-64 aspect-[2/3] rounded-xl shadow-2xl z-10 border-4 border-white hover:scale-105 transition duration-500">
+                 <div className="absolute top-10 right-10 w-64 aspect-[2/3] rounded-xl shadow-2xl z-10 border-4 border-white dark:border-slate-700 hover:scale-105 transition duration-500">
                      <img 
                        src={safeCover(darkHero[0]?.cover, darkHero[0]?.altCover)} 
                        referrerPolicy="no-referrer"
@@ -308,7 +342,7 @@ export default function LandingPage() {
                      />
                  </div>
 
-                 <div className="absolute top-40 left-10 w-60 aspect-[2/3] rounded-xl shadow-2xl z-20 border-4 border-white hover:scale-105 transition duration-500">
+                 <div className="absolute top-40 left-10 w-60 aspect-[2/3] rounded-xl shadow-2xl z-20 border-4 border-white dark:border-slate-700 hover:scale-105 transition duration-500">
                      <img 
                        src={safeCover(darkHero[1]?.cover, darkHero[1]?.altCover)} 
                        referrerPolicy="no-referrer"
@@ -320,21 +354,20 @@ export default function LandingPage() {
          </div>
       </div>
 
-      {/* Genre Banner Section (Reference 2) */}
-      <div className="bg-white py-24 border-y border-gray-100 relative overflow-hidden">
-          <div className="absolute -left-20 top-20 w-96 h-96 bg-purple-50 rounded-full blur-[100px] opacity-60"></div>
+      {/* Genre Banner Section Section */}
+      <div className="bg-white dark:bg-slate-900 py-24 border-y border-gray-100 dark:border-slate-800 relative overflow-hidden transition-colors duration-300">
+          <div className="absolute -left-20 top-20 w-96 h-96 bg-purple-50 dark:bg-purple-900/10 rounded-full blur-[100px] opacity-60"></div>
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center relative z-10">
               <div>
-                  <h2 className="text-5xl font-bold text-slate-900 mb-6 leading-tight">
+                  <h2 className="text-5xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
                       All the genres.<br/> All the tropes.<br/> All you.
                   </h2>
-                  <p className="text-lg text-gray-600 mb-8">
+                  <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
                       Find your next favorite read, no matter your mood or vibe (we're not judging).
                   </p>
-                   {/* Search Pill */}
-                  <div className="bg-white shadow-xl rounded-full p-2 flex items-center max-w-md border border-gray-100 h-16 cursor-text" onClick={() => navigate('/home')}>
+                  <div className="bg-white dark:bg-slate-800 shadow-xl rounded-full p-2 flex items-center max-w-md border border-gray-100 dark:border-slate-700 h-16 cursor-text transition-colors duration-300" onClick={() => navigate('/home')}>
                       <span className="pl-4 text-xl mr-3">🔍</span>
-                      <span className="text-gray-500 font-medium text-lg">
+                      <span className="text-gray-500 dark:text-gray-400 font-medium text-lg">
                           <Typewriter 
                             words={["Search 'fake dating'...", "Search 'enemies to lovers'...", "Search 'who hurt you?'...", "Search 'spicy books'...", "Search 'mafia bosses'..."]} 
                             speed={100} 
@@ -348,16 +381,16 @@ export default function LandingPage() {
                    {genreTiles.map(({ name, image }) => (
                        <div 
                          key={name} 
-                         className="relative overflow-hidden rounded-2xl shadow-md group cursor-pointer h-32"
+                         className="relative overflow-hidden rounded-3xl shadow-lg group cursor-pointer h-40 transform transition-all duration-500 ease-out hover:scale-105 hover:-translate-y-2 hover:rotate-1 hover:shadow-2xl hover:brightness-105"
                        >
                           <img 
                             src={safeCover(image)} 
                             onError={(e) => (e.currentTarget.src = FALLBACK_COVER)} 
                             alt={name} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent"></div>
-                          <div className="absolute bottom-3 left-3 text-white font-bold text-lg drop-shadow">
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-80 group-hover:opacity-60 transition duration-500"></div>
+                          <div className="absolute bottom-4 left-4 text-white font-serif font-bold text-xl tracking-wide drop-shadow-md group-hover:translate-x-1 transition duration-300">
                               {name}
                           </div>
                        </div>
@@ -366,15 +399,58 @@ export default function LandingPage() {
           </div>
       </div>
 
+      {/* Feature Highlights Section */}
+      <div className="py-16 md:py-20 bg-white dark:bg-slate-900 text-slate-900 dark:text-white relative overflow-hidden transition-colors duration-300" ref={featuresRef}>
+          <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-5 dark:opacity-10 pointer-events-none"></div>
+          <div className="max-w-7xl mx-auto px-6 relative z-10">
+              <div className="text-center max-w-3xl mx-auto mb-16">
+                  <h2 className="text-4xl md:text-5xl font-serif font-bold mb-6 tracking-tight">More Than Just a Bookshelf</h2>
+                  <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">Limerence isn't just about tracking what you read—it's about <span className="italic text-purple-600 dark:text-purple-400">how</span> you read.</p>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-8">
+                  {/* Card 1: Clubs */}
+                  <div className="bg-slate-50 dark:bg-white/5 backdrop-blur-lg border border-slate-200 dark:border-white/10 p-8 rounded-3xl hover:-translate-y-2 transition duration-500 ease-out group hover:shadow-2xl dark:hover:bg-white/10">
+                      <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center text-3xl mb-8 group-hover:scale-110 transition duration-300 shadow-sm">💬</div>
+                      <h3 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">Book Clubs</h3>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                          Find your tribe. Join specialized clubs for Dark Romance, Fantasy, or Thrillers and dissect every chapter in real-time.
+                      </p>
+                      <span className="text-purple-600 dark:text-purple-400 font-bold text-xs tracking-widest uppercase border-b-2 border-transparent group-hover:border-purple-500 transition">Community</span>
+                  </div>
+
+                  {/* Card 2: Goals */}
+                  <div className="bg-slate-50 dark:bg-white/5 backdrop-blur-lg border border-slate-200 dark:border-white/10 p-8 rounded-3xl hover:-translate-y-2 transition duration-500 ease-out group hover:shadow-2xl dark:hover:bg-white/10">
+                      <div className="w-16 h-16 bg-pink-100 dark:bg-pink-900/30 rounded-2xl flex items-center justify-center text-3xl mb-8 group-hover:scale-110 transition duration-300 shadow-sm">🏆</div>
+                      <h3 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">Reading Goals</h3>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                          Set your yearly target, track your pages, and earn exclusive badges for your obsession. 100 books a year? Easy work.
+                      </p>
+                      <span className="text-pink-600 dark:text-pink-400 font-bold text-xs tracking-widest uppercase border-b-2 border-transparent group-hover:border-pink-500 transition">Gamified</span>
+                  </div>
+
+                  {/* Card 3: Stories */}
+                  <div className="bg-slate-50 dark:bg-white/5 backdrop-blur-lg border border-slate-200 dark:border-white/10 p-8 rounded-3xl hover:-translate-y-2 transition duration-500 ease-out group hover:shadow-2xl dark:hover:bg-white/10">
+                      <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-3xl mb-8 group-hover:scale-110 transition duration-300 shadow-sm">✨</div>
+                      <h3 className="text-2xl font-bold mb-4 text-slate-900 dark:text-white">Stories</h3>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                          Scream into the void. Share 24-hour reaction stories, quotes, and mood boards with your followers.
+                      </p>
+                      <span className="text-blue-600 dark:text-blue-400 font-bold text-xs tracking-widest uppercase border-b-2 border-transparent group-hover:border-blue-500 transition">Social</span>
+                  </div>
+              </div>
+          </div>
+      </div>
+
       {/* NEW: Trending Banner Section */}
-      <div className="py-20 bg-slate-50">
-           <div className="max-w-7xl mx-auto px-6">
+      <div className="py-20 bg-slate-50 dark:bg-slate-900 transition-colors duration-300" ref={trendingSectionRef}>
+           <div className="px-6">
                 <div className="flex items-center gap-4 mb-8">
-                    <h2 className="text-3xl font-bold text-slate-900">Trending Books</h2>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Trending Books</h2>
                     <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">HOT</span>
                 </div>
                 
-                <div className="relative">
+                <div className="relative bg-white/50 dark:bg-white/5 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-white/10 p-6 shadow-xl">
                   {loading && (
                     <div className="text-sm text-slate-500 mb-3">Loading books…</div>
                   )}
@@ -398,14 +474,14 @@ export default function LandingPage() {
                                    loading="lazy"
                                    referrerPolicy="no-referrer"
                                  />
-                                 <div className="absolute top-2 left-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center font-bold text-sm shadow-sm">
+                                 <div className="absolute top-2 left-2 w-8 h-8 bg-white rounded-full flex items-center justify-center font-bold text-sm shadow-md text-slate-900">
                                      {i + 1}
                                  </div>
                                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition"></div>
                              </div>
-                             <h3 className="mt-3 font-bold text-slate-900 group-hover:text-purple-600 transition truncate">{book.title}</h3>
-                             <p className="text-xs text-gray-500 truncate">{book.author}</p>
-                             <div className="flex items-center gap-1 mt-1 text-xs font-bold text-orange-500">
+                             <h3 className="mt-3 font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition truncate">{book.title}</h3>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{book.author}</p>
+                              <div className="flex items-center gap-1 mt-1 text-xs font-bold text-orange-500">
                                  <span>★</span> {book.rating}
                              </div>
                         </div>
@@ -417,12 +493,12 @@ export default function LandingPage() {
                     )}
                   </div>
                   <div className="hidden md:flex absolute inset-y-0 left-0 items-center pointer-events-none">
-                    <button onClick={() => scrollRow(trendingRef, "prev")} className="pointer-events-auto w-10 h-10 rounded-full bg-white shadow hover:shadow-lg flex items-center justify-center -translate-x-5">
+                    <button onClick={() => scrollRow(trendingRef, "prev")} className="pointer-events-auto w-10 h-10 rounded-full bg-white dark:bg-slate-700 shadow hover:shadow-lg flex items-center justify-center -translate-x-5 text-slate-900 dark:text-white">
                       ←
                     </button>
                   </div>
                   <div className="hidden md:flex absolute inset-y-0 right-0 items-center pointer-events-none">
-                    <button onClick={() => scrollRow(trendingRef, "next")} className="pointer-events-auto w-10 h-10 rounded-full bg-white shadow hover:shadow-lg flex items-center justify-center translate-x-5">
+                    <button onClick={() => scrollRow(trendingRef, "next")} className="pointer-events-auto w-10 h-10 rounded-full bg-white dark:bg-slate-700 shadow hover:shadow-lg flex items-center justify-center translate-x-5 text-slate-900 dark:text-white">
                       →
                     </button>
                   </div>
@@ -431,16 +507,20 @@ export default function LandingPage() {
       </div>
 
       {/* Read / Fanfiction banners */}
-      <div className="space-y-14 py-20 bg-white">
-        {/* Conversation topper */}
-            <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-[1.2fr,1fr] gap-8 items-center mb-4">
+      <div className="py-10 bg-white dark:bg-slate-900 transition-colors duration-300 relative overflow-hidden">
+        {/* Decorative Floating Bubbles */}
+        <div className="absolute top-10 left-10 w-32 h-32 bg-purple-300/40 dark:bg-purple-600/20 rounded-full blur-2xl animate-float-slow pointer-events-none mix-blend-multiply dark:mix-blend-screen"></div>
+        <div className="absolute top-20 right-20 w-24 h-24 bg-pink-300/40 dark:bg-pink-600/20 rounded-full blur-2xl animate-float-delayed pointer-events-none mix-blend-multiply dark:mix-blend-screen"></div>
+        <div className="absolute bottom-10 left-1/3 w-20 h-20 bg-blue-300/40 dark:bg-blue-600/20 rounded-full blur-xl animate-pulse-slow pointer-events-none mix-blend-multiply dark:mix-blend-screen"></div>
+        
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-[1.2fr,1fr] gap-8 items-center mb-10 relative z-10">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-bold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-bold">
               <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
               Live book chat
             </div>
-            <h3 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">Connect with book lovers everywhere</h3>
-            <p className="text-slate-600">Drop into convos about the latest BookTok favorites, share theories, and find your next obsession together.</p>
+            <h3 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 dark:text-white">Connect with book lovers everywhere</h3>
+            <p className="text-slate-600 dark:text-slate-400">Drop into convos about the latest BookTok favorites, share theories, and find your next obsession together.</p>
           </div>
           <div className="relative rounded-3xl shadow-xl overflow-hidden border border-purple-100">
             <img 
@@ -450,56 +530,66 @@ export default function LandingPage() {
               loading="lazy"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent"></div>
-            <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur p-3 rounded-2xl text-sm text-slate-800 shadow-lg space-y-2">
-              <div>“Chapter 55 just ruined me—in the best way.💔😔” <span className="font-bold text-purple-700">@lana_reads</span></div>
-              <div>“If you liked ACOTAR, wait till you read this ending.😍” <span className="font-bold text-purple-700">@jayden_books</span></div>
-              <div>“Team grumpy x sunshine forever.😁” <span className="font-bold text-purple-700">@mara_tbr</span></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+            <div className="absolute bottom-6 left-6 right-6">
+                <div key={currentTestimonial} className="bg-white/95 backdrop-blur-xl p-6 rounded-2xl text-slate-800 shadow-2xl animate-fade-in-up">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-xl">
+                            {testimonials[currentTestimonial].avatar}
+                        </div>
+                        <div>
+                            <p className="font-bold text-slate-900 text-sm">{testimonials[currentTestimonial].user}</p>
+                            <div className="flex text-amber-500 text-xs">★★★★★</div>
+                        </div>
+                    </div>
+                    <p className="text-sm font-medium leading-relaxed">
+                        "{testimonials[currentTestimonial].text}"
+                    </p>
+                </div>
             </div>
           </div>
         </div>
 
+        <div className="px-6 space-y-16">
         {featuredRows.map((row) => (
-          <div key={row.title} className={`${row.accent} rounded-3xl shadow-inner px-4 md:px-10 py-12 relative`}>
-            <div className="absolute -top-14 left-1/2 -translate-x-1/2 w-36 h-36 rounded-full shadow-2xl overflow-hidden border-4 border-white">
-              <img 
-                src="https://imgs.search.brave.com/d8xiQOr_Qq-qKlEsdJlQbXQG4OuJvcOH79QWKnKE9xM/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9jZG4u/dmVjdG9yc3RvY2su/Y29tL2kvNTAwcC81/Mi83OC9yZWFkaW5n/LW5vb2stYm9vay1s/b3ZlcnMtcXVvdGUt/dmVjdG9yLTIxMTg1/Mjc4LmpwZw" 
-                alt="Featured stack" 
-                className="w-full h-full object-cover"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div className="flex items-center justify-between mb-10 pt-10">
+          <div key={row.title} className="relative py-12 px-4 md:px-10 rounded-[2.5rem] overflow-hidden group/row transition-all duration-500 hover:shadow-2xl border border-slate-100 dark:border-white/10 bg-white/50 dark:bg-white/5 backdrop-blur-lg" ref={(el) => (featuredRef.current[row.title] = el)}>
+            {/* Ambient Background Glow */}
+            <div className={`absolute -top-20 -right-20 w-96 h-96 ${row.accent} rounded-full blur-[120px] opacity-10 dark:opacity-20 pointer-events-none`}></div>
+            
+            <div className="flex items-center justify-between mb-10 relative z-10">
               <div>
-                <h3 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">{row.title}</h3>
-                <p className="text-sm text-slate-600 mt-2">Swipe through the community’s current obsessions.</p>
+                <h3 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 dark:text-white flex items-center gap-3">
+                    {row.title}
+                    <span className={`w-2 h-2 rounded-full ${row.accent} animate-pulse`}></span>
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 font-medium">Swipe through the community’s current obsessions.</p>
               </div>
-              <div className="hidden md:flex items-center gap-2 text-sm text-slate-600">
-                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span> Live now
+              <div className="hidden md:flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 bg-white/50 dark:bg-white/5 px-3 py-1 rounded-full">
+                 Trending Now
               </div>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide snap-x" ref={(el) => (featuredRef.current[row.title] = el)}>
+
+            <div className="flex gap-4 md:gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x relative z-10">
               {row.books.map((book) => (
                 <div 
                   key={book.id || book.title} 
-                  className="min-w-[150px] sm:min-w-[170px] md:min-w-[190px] snap-start"
+                  className="min-w-[160px] sm:min-w-[180px] md:min-w-[200px] snap-start group"
                   onClick={() => navigate('/register')}
                 >
-                  <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition transform hover:-translate-y-2">
+                  <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-md group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] dark:group-hover:shadow-[0_20px_40px_-15px_rgba(255,255,255,0.1)] transition-all duration-500 transform group-hover:-translate-y-2 group-hover:rotate-1">
                     <img 
                       src={safeCover(book.cover, book.altCover)} 
                       onError={(e) => (e.currentTarget.src = FALLBACK_COVER)} 
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                       alt={book.title} 
                       loading="lazy"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition"></div>
-                    <div className="absolute bottom-3 left-3 right-3 text-white drop-shadow">
-                      <p className="font-bold truncate">{book.title}</p>
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-4 left-4 right-4 text-white translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300 delay-75">
+                      <p className="font-bold truncate text-sm">{book.title}</p>
                       {book.rating && (
-                        <p className="text-xs text-orange-200 mt-1 flex items-center gap-1">
+                        <p className="text-xs text-orange-300 mt-1 flex items-center gap-1 font-bold">
                           <span>★</span>{book.rating}
                         </p>
                       )}
@@ -508,84 +598,97 @@ export default function LandingPage() {
                 </div>
               ))}
               {row.books.length === 0 && !loading && (
-                <div className="text-sm text-slate-600 py-4">
+                <div className="text-sm text-slate-600 py-4 w-full text-center">
                   No books loaded. <button onClick={fetchAll} className="text-purple-600 font-bold hover:underline">Retry</button>
                 </div>
               )}
-              {loading && row.books.length === 0 && (
-                <div className="text-sm text-slate-500 py-4">Loading books…</div>
-              )}
             </div>
-            <div className="hidden md:flex absolute inset-y-0 left-2 items-center pointer-events-none">
-              <button onClick={() => scrollRow({ current: featuredRef.current[row.title] }, "prev")} className="pointer-events-auto w-10 h-10 rounded-full bg-white shadow hover:shadow-lg flex items-center justify-center">
-                ←
+            
+             <button 
+                onClick={() => scrollRow({ current: featuredRef.current[row.title]?.querySelector('.overflow-x-auto') }, "prev")}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 dark:bg-slate-800/90 shadow-xl rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition hover:bg-white dark:hover:bg-slate-700 z-20 hover:scale-110"
+              >
+                  ←
               </button>
-            </div>
-            <div className="hidden md:flex absolute inset-y-0 right-2 items-center pointer-events-none">
-              <button onClick={() => scrollRow({ current: featuredRef.current[row.title] }, "next")} className="pointer-events-auto w-10 h-10 rounded-full bg-white shadow hover:shadow-lg flex items-center justify-center">
-                →
+              <button 
+                onClick={() => scrollRow({ current: featuredRef.current[row.title]?.querySelector('.overflow-x-auto') }, "next")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 dark:bg-slate-800/90 shadow-xl rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition hover:bg-white dark:hover:bg-slate-700 z-20 hover:scale-110"
+              >
+                  →
               </button>
-            </div>
           </div>
         ))}
+        </div>
       </div>
 
       {/* Enhanced Footer */}
-      <footer className="bg-slate-950 text-slate-200 py-16 border-t border-slate-800">
+      <footer className="bg-white dark:bg-black text-slate-800 dark:text-slate-200 py-12 border-t border-gray-100 dark:border-slate-800 transition-colors duration-300">
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
               <div className="col-span-1 md:col-span-1">
-                  <h2 className="font-serif text-white text-3xl font-bold mb-6">Limerence</h2>
-                  <p className="text-sm leading-relaxed opacity-70">
+                  <Logo className="w-10 h-10" textClassName="text-3xl font-serif font-bold tracking-tighter" />
+                  <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400 mt-4">
                       The world's most chaotic book club. Made for readers, by readers.
                   </p>
                   <div className="flex gap-4 mt-6">
-                      {['📸', '🐦', '🎵'].map(icon => (
-                          <button key={icon} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition">
-                              {icon}
-                          </button>
-                      ))}
+                      {/* Social Icons (SVGs) */}
+                      <button className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 hover:text-purple-600 dark:hover:text-white flex items-center justify-center transition shadow-sm">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                      </button>
+                      <button className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 hover:text-purple-600 dark:hover:text-white flex items-center justify-center transition shadow-sm">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg>
+                      </button>
+                      <button className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-slate-700 hover:text-purple-600 dark:hover:text-white flex items-center justify-center transition shadow-sm">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>
+                      </button>
                   </div>
               </div>
               
               <div>
-                  <h4 className="text-white font-bold mb-6">Discover</h4>
-                  <ul className="space-y-3 text-sm">
-                      <li className="hover:text-purple-400 cursor-pointer transition">Trending Books</li>
-                      <li className="hover:text-purple-400 cursor-pointer transition">New Releases</li>
-                      <li className="hover:text-purple-400 cursor-pointer transition">Authors</li>
-                      <li className="hover:text-purple-400 cursor-pointer transition">Collections</li>
+                  <h4 className="text-slate-900 dark:text-white font-bold mb-6">Discover</h4>
+                  <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                      <li onClick={() => trendingSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition">Trending Books</li>
+                      <li onClick={() => featuredRef.current[featuredRows[0].title]?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition">New Releases</li>
+                      <li onClick={() => navigate('/home')} className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition">Authors</li>
+                      <li onClick={() => navigate('/home')} className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition">Collections</li>
                   </ul>
               </div>
 
               <div>
-                  <h4 className="text-white font-bold mb-6">Community</h4>
-                  <ul className="space-y-3 text-sm">
-                      <li className="hover:text-purple-400 cursor-pointer transition">Book Clubs</li>
-                      <li className="hover:text-purple-400 cursor-pointer transition">Badges</li>
-                      <li className="hover:text-purple-400 cursor-pointer transition">Leaderboard</li>
-                      <li className="hover:text-purple-400 cursor-pointer transition">Events</li>
+                  <h4 className="text-slate-900 dark:text-white font-bold mb-6">Community</h4>
+                  <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                      <li onClick={() => featuresRef.current?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition">Book Clubs</li>
+                      <li onClick={() => featuresRef.current?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition">Badges</li>
+                      <li onClick={() => navigate('/home')} className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition">Leaderboard</li>
+                      <li onClick={() => navigate('/home')} className="hover:text-purple-600 dark:hover:text-white cursor-pointer transition">Events</li>
                   </ul>
               </div>
 
               <div>
-                  <h4 className="text-white font-bold mb-6">Stay Updated</h4>
-                  <div className="bg-white/5 p-1 rounded-full flex">
-                      <input type="email" placeholder="Your email..." className="bg-transparent px-4 py-2 outline-none text-white text-sm w-full" />
-                      <button className="bg-purple-600 text-white px-6 py-2 rounded-full font-bold hover:bg-purple-700 transition text-xs">
+                  <h4 className="text-slate-900 dark:text-white font-bold mb-6">Stay Updated</h4>
+                  <div className="bg-slate-100 dark:bg-white/10 p-1 rounded-full flex border border-slate-200 dark:border-transparent">
+                      <input type="email" placeholder="Your email..." className="bg-transparent px-4 py-2 outline-none text-slate-800 dark:text-white text-sm w-full placeholder-slate-400 dark:placeholder-gray-400" />
+                      <button className="bg-slate-900 dark:bg-purple-600 text-white px-6 py-2 rounded-full font-bold hover:bg-slate-800 dark:hover:bg-purple-700 transition text-xs shadow-md">
                           JOIN
                       </button>
                   </div>
-                  <p className="text-xs mt-4 opacity-50">No spam. Just books.</p>
+                  <p className="text-xs mt-4 opacity-70">No spam. Just books.</p>
               </div>
           </div>
           
-          <div className="max-w-7xl mx-auto px-6 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center text-xs opacity-50">
-              <p>© 2024 Limerence Inc.</p>
+          <div className="max-w-7xl mx-auto px-6 pt-8 border-t border-slate-100 dark:border-white/10 flex flex-col md:flex-row justify-between items-center text-xs text-slate-500 dark:text-slate-500">
+              <p>© {new Date().getFullYear()} Limerence Inc.</p>
               <div className="flex gap-6 mt-4 md:mt-0">
-                  <span>Privacy Policy</span>
-                  <span>Terms of Service</span>
-                  <span>Cookie Settings</span>
+                  <Link to="/privacy" className="hover:text-slate-900 dark:hover:text-white transition">Privacy Policy</Link>
+                  <Link to="/terms" className="hover:text-slate-900 dark:hover:text-white transition">Terms of Service</Link>
+                  <span className="cursor-not-allowed opacity-50">Cookie Settings</span>
               </div>
+              
+               <button 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400 hover:scale-105 transition mt-4 md:mt-0 animate-bounce cursor-pointer items-center"
+              >
+                  Move into Top ↑
+              </button>
           </div>
       </footer>
     </div>

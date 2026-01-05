@@ -18,6 +18,7 @@ module.exports = {
       },
       backgroundImage: {
         'dream-gradient': "linear-gradient(120deg, #a18cd1 0%, #fbc2eb 100%)",
+        'dream-gradient-dark': "linear-gradient(120deg, #0f172a 0%, #1e293b 100%)",
       },
     },
   },

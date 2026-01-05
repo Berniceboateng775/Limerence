@@ -60,7 +60,7 @@ router.post("/register", upload.single("avatar"), async (req, res) => {
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" })
 
-    res.status(201).json({ token })
+    res.status(201).json({ token, onboardingComplete: false })
   } catch (err) {
     console.error(err)
     res.status(500).send("Server error")
@@ -86,7 +86,7 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" })
 
-    res.json({ token })
+    res.json({ token, onboardingComplete: user.onboardingComplete || false })
   } catch (err) {
     console.error(err)
     res.status(500).send("Server error")
