@@ -5,11 +5,108 @@ const { getBookDetails } = require("../services/scraper"); // Keep scraper for d
 const Book = require("../models/Book");
 const commentRoutes = require("./comments");
 
+// Hardcover API Integration
+const hardcover = require("../utils/hardcover");
+
 // Mount comments routes
 router.use("/:bookId/comments", commentRoutes);
 
+// ============================================
+// HARDCOVER API ENDPOINTS
+// Uses Title Case matching for case-sensitive searches
+// ============================================
+
+// @route   GET /api/books/hardcover/search
+// @desc    Search books using Hardcover (converts to Title Case)
+router.get("/hardcover/search", async (req, res) => {
+    const { q, limit = 20 } = req.query;
+    if (!q) return res.status(400).json({ msg: "Query required" });
+
+    try {
+        const books = await hardcover.searchBooks(q, parseInt(limit));
+        res.json({ books, source: "hardcover" });
+    } catch (err) {
+        console.error("Hardcover search error:", err);
+        res.status(500).json({ msg: "Search failed", error: err.message });
+    }
+});
+
+// @route   GET /api/books/hardcover/enrich
+// @desc    Try to find a book on Hardcover by exact title for enriched data
+router.get("/hardcover/enrich", async (req, res) => {
+    const { title } = req.query;
+    if (!title) return res.status(400).json({ msg: "Title required" });
+
+    try {
+        const book = await hardcover.findBookByTitle(title);
+        if (!book) {
+            return res.status(404).json({ msg: "Book not found on Hardcover", title });
+        }
+        res.json(book);
+    } catch (err) {
+        console.error("Hardcover enrich error:", err);
+        res.status(500).json({ msg: "Failed to enrich book" });
+    }
+});
+
+// @route   GET /api/books/hardcover/book/:id
+// @desc    Get detailed book info from Hardcover by ID
+router.get("/hardcover/book/:id", async (req, res) => {
+    try {
+        const book = await hardcover.getBookById(req.params.id);
+        if (!book) return res.status(404).json({ msg: "Book not found" });
+        res.json(book);
+    } catch (err) {
+        console.error("Hardcover book error:", err);
+        res.status(500).json({ msg: "Failed to fetch book" });
+    }
+});
+
+// @route   GET /api/books/hardcover/author/:id
+// @desc    Get author info and all their books
+router.get("/hardcover/author/:id", async (req, res) => {
+    try {
+        const author = await hardcover.getAuthorById(req.params.id);
+        if (!author) return res.status(404).json({ msg: "Author not found" });
+        res.json(author);
+    } catch (err) {
+        console.error("Hardcover author error:", err);
+        res.status(500).json({ msg: "Failed to fetch author" });
+    }
+});
+
+// @route   GET /api/books/hardcover/series/:id
+// @desc    Get series with all books
+router.get("/hardcover/series/:id", async (req, res) => {
+    try {
+        const series = await hardcover.getSeriesById(req.params.id);
+        if (!series) return res.status(404).json({ msg: "Series not found" });
+        res.json(series);
+    } catch (err) {
+        console.error("Hardcover series error:", err);
+        res.status(500).json({ msg: "Failed to fetch series" });
+    }
+});
+
+// @route   GET /api/books/hardcover/popular
+// @desc    Get popular books (for homepage)
+router.get("/hardcover/popular", async (req, res) => {
+    const { limit = 30 } = req.query;
+    try {
+        const books = await hardcover.getPopularBooks(parseInt(limit));
+        res.json({ books, source: "hardcover" });
+    } catch (err) {
+        console.error("Hardcover popular error:", err);
+        res.status(500).json({ msg: "Failed to fetch popular books" });
+    }
+});
+
+// ============================================
+// LEGACY ENDPOINTS (Google Books Fallback)
+// ============================================
+
 // @route   GET /api/books/search
-// @desc    Search for books (Google Books API)
+// @desc    Search for books (Google Books API - Legacy)
 router.get("/search", async (req, res) => {
   let { query, startIndex = 0, orderBy = "relevance" } = req.query;
   if (!query) return res.status(400).json({ msg: "Query required" });

@@ -149,7 +149,7 @@ export default function HomePage() {
       }
   };
 
-  // Google Books Map
+  // Map Google Book to App Format
   const mapGoogleBook = (item) => {
       const info = item.volumeInfo;
       return {
@@ -157,28 +157,72 @@ export default function HomePage() {
           title: info.title,
           author: info.authors ? info.authors[0] : "Unknown",
           cover: info.imageLinks?.thumbnail?.replace("http:", "https:") || FALLBACK_COVER,
-          rating: info.averageRating || (4 + Math.random()).toFixed(1)
+          rating: info.averageRating || 0,
+          ratingsCount: info.ratingsCount || 0 // For sorting by popularity
       };
   };
 
   const fetchSearch = async (query) => {
       if (!query) return;
       try {
-          // 1. Try Google Books First (Higher Quality)
-          const googleUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=20&printType=books`;
+          // PRIMARY: Use Hardcover (converts to Title Case on backend)
+          const hardcoverRes = await fetch(`http://localhost:5000/api/books/hardcover/search?q=${encodeURIComponent(query)}&limit=20`);
           
+          if (hardcoverRes.ok) {
+              const data = await hardcoverRes.json();
+              if (data.books && data.books.length > 0) {
+                  const books = data.books.filter(b => b.cover).map(b => ({
+                      id: b.id,
+                      slug: b.slug,
+                      title: b.title,
+                      author: b.author,
+                      cover: b.cover,
+                      rating: b.rating,
+                      ratingsCount: b.ratingsCount,
+                      genres: b.genres,
+                      moods: b.moods,
+                      series: b.series,
+                      source: 'hardcover'
+                  }));
+                  setSearchResults(books);
+                  return;
+              }
+          }
+          
+          // FALLBACK: Google Books if Hardcover returns empty
+          const googleUrl = `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(query)}&maxResults=20&printType=books&orderBy=relevance`;
           const res = await fetch(googleUrl);
-          let books = [];
           
           if (res.ok) {
               const data = await res.json();
               if (data.items) {
-                  books = data.items.map(mapGoogleBook).filter(b => b.cover && b.cover !== FALLBACK_COVER);
+                  const BLOCKLIST = ["dictionary", "encyclopedia", "parliamentary", "journal", "handbook"];
+                  let books = data.items.map(item => {
+                      const info = item.volumeInfo;
+                      return {
+                          id: item.id,
+                          title: info.title,
+                          author: info.authors?.[0] || "Unknown",
+                          cover: info.imageLinks?.thumbnail?.replace("http:", "https:") || null,
+                          rating: info.averageRating || 0,
+                          ratingsCount: info.ratingsCount || 0,
+                          source: 'google'
+                      };
+                  }).filter(b => {
+                      if (!b.cover) return false;
+                      const t = b.title.toLowerCase();
+                      return !BLOCKLIST.some(word => t.includes(word));
+                  });
+                  books.sort((a, b) => b.ratingsCount - a.ratingsCount);
+                  setSearchResults(books);
+              } else {
+                  setSearchResults([]);
               }
           }
-
-          setSearchResults(books);
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+          console.error("Search error:", e); 
+          setSearchResults([]);
+      }
   };
   
   useEffect(() => {
@@ -214,12 +258,21 @@ export default function HomePage() {
       }
   }, [darkRomance]);
 
-  // Search Debounce
+  // Search Debounce - 1 second wait + minimum 5 chars for better UX
   useEffect(() => {
+    // Clear results only when query is empty
+    if (!searchQuery) {
+        setSearchResults([]);
+        return;
+    }
+    
+    // Need at least 5 chars for meaningful search
+    if (searchQuery.length < 5) return;
+    
     const timer = setTimeout(() => {
-        if (searchQuery) fetchSearch(searchQuery);
-        else setSearchResults([]);
-    }, 500);
+        fetchSearch(searchQuery);
+    }, 1000); // 1 second delay
+    
     return () => clearTimeout(timer);
   }, [searchQuery]);
 

@@ -141,34 +141,60 @@ export default function BookDetails() {
           title: info.title,
           author: info.authors ? info.authors[0] : "Unknown",
           cover: info.imageLinks?.thumbnail?.replace("http:", "https:") || "https://via.placeholder.com/128x196?text=No+Cover",
-          rating: info.averageRating || 0
+          rating: info.averageRating || 0,
+          ratingsCount: info.ratingsCount || 0
       };
   };
 
   const fetchSearch = async (query) => {
       if (!query) return;
       try {
-          // Use Google Books for the Dropdown Search too (Matches HomePage quality)
-          const googleUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=10&printType=books`;
+          // PRIMARY: Use Hardcover (converts to Title Case on backend)
+          const hardcoverRes = await fetch(`http://localhost:5000/api/books/hardcover/search?q=${encodeURIComponent(query)}&limit=12`);
+          
+          if (hardcoverRes.ok) {
+              const data = await hardcoverRes.json();
+              if (data.books && data.books.length > 0) {
+                  const books = data.books.filter(b => b.cover).map(b => ({
+                      id: b.id,
+                      slug: b.slug,
+                      title: b.title,
+                      author: b.author,
+                      cover: b.cover,
+                      rating: b.rating,
+                      source: 'hardcover'
+                  }));
+                  setSearchResults(books);
+                  return;
+              }
+          }
+          
+          // FALLBACK: Google Books
+          const googleUrl = `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(query)}&maxResults=12&printType=books`;
           const res = await fetch(googleUrl);
           
           if (res.ok) {
               const data = await res.json();
               if (data.items) {
-                   const books = data.items.map(mapGoogleBook).filter(b => b.cover && !b.cover.includes("placeholder"));
-                   setSearchResults(books);
+                  const books = data.items.map(mapGoogleBook).filter(b => b.cover && !b.cover.includes("placeholder"));
+                  books.sort((a, b) => b.ratingsCount - a.ratingsCount);
+                  setSearchResults(books);
               } else {
-                   setSearchResults([]);
+                  setSearchResults([]);
               }
           }
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+          console.error("Search error:", e); 
+          setSearchResults([]);
+      }
   };
 
+  // Faster debounce (300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
         if (searchQuery) fetchSearch(searchQuery);
         else setSearchResults([]);
-    }, 500);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -427,7 +453,7 @@ export default function BookDetails() {
       <BadgeModal badge={showBadge} onClose={() => setShowBadge(null)} />
       
       {/* Top Search Bar */}
-      <div className="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl py-4 px-6 flex items-center justify-center transition-all duration-300">
+      <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl py-4 px-6 flex items-center justify-center transition-all duration-300 shadow-none border-b-0">
          <div className="relative w-full max-w-xl">
              <div className="flex items-center gap-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-full px-5 py-3 ring-1 ring-black/5 dark:ring-white/10 focus-within:ring-slate-900/10 dark:focus-within:ring-purple-500/30 focus-within:bg-white dark:focus-within:bg-slate-800 focus-within:shadow-lg transition-all shadow-sm">
                 <span className="text-xl">🔍</span>
