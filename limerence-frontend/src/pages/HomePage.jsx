@@ -177,22 +177,6 @@ export default function HomePage() {
               }
           }
 
-          // 2. Only use OpenLibrary if Google fails or returns very few results
-          if (books.length < 3) {
-             try {
-                // Add "language:eng" to reduce older/irrelevant noise if possible, though OL search is limited
-                const olRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=15&fields=title,cover_i,author_name,key,ratings_average`);
-                const olData = await olRes.json();
-                const olBooks = (olData.docs || []).map(mapWork).filter(b => b.cover);
-                
-                // Deduplicate by title to avoid showing same book twice
-                const titles = new Set(books.map(b => b.title.toLowerCase()));
-                const uniqueOlBooks = olBooks.filter(b => !titles.has(b.title.toLowerCase()));
-                
-                books = [...books, ...uniqueOlBooks];
-             } catch(e) { console.warn("OL fetch failed inside search"); }
-          }
-          
           setSearchResults(books);
       } catch (e) { console.error(e); }
   };
@@ -240,7 +224,7 @@ export default function HomePage() {
   }, [searchQuery]);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 pb-0 flex flex-col transition-colors duration-300 pt-20">
+    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 pb-0 flex flex-col transition-colors duration-300 pt-6">
       
       {/* Search Results Overlay */}
       {searchQuery && (
