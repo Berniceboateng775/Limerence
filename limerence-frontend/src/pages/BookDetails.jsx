@@ -318,6 +318,28 @@ export default function BookDetails() {
         } catch (e) { console.warn("OL Fallback search failed", e); }
       }
 
+      // 4. Augment Description from Google Books
+      // If we have a book but no good description (or just generic "No description"), try Google
+      if (bookData && (!bookData.description || bookData.description.length < 50 || bookData.description.includes("No description"))) {
+           try {
+               const gRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(bookData.title)}&maxResults=1`);
+               if (gRes.ok) {
+                   const gData = await gRes.json();
+                   if (gData.items && gData.items.length > 0) {
+                       const gInfo = gData.items[0].volumeInfo;
+                       // Only overwrite if titles match somewhat closely to avoid random data
+                       if (gInfo.description && gInfo.title.toLowerCase().includes(bookData.title.toLowerCase().split(':')[0])) {
+                           bookData.description = gInfo.description;
+                       }
+                       // Also fill in cover if missing
+                       if (!bookData.coverImage || bookData.coverImage.includes("placeholder")) {
+                           bookData.coverImage = gInfo.imageLinks?.thumbnail?.replace("http:", "https:") || bookData.coverImage;
+                       }
+                   }
+               }
+           } catch(e) { console.warn("Google Desc Fallback failed", e); }
+      }
+
       setBook(bookData); 
       
       if (bookData && bookData._id) {
@@ -424,7 +446,11 @@ export default function BookDetails() {
             { content: newComment },
             { headers: { "x-auth-token": token } }
         );
-        setComments([res.data, ...comments]);
+        
+        const { comment, newBadge } = res.data;
+        if (newBadge) setShowBadge(newBadge);
+        
+        setComments([comment || res.data, ...comments]); // Fallback just in case
         setNewComment("");
     } catch (err) {
         console.error(err);
@@ -439,7 +465,7 @@ export default function BookDetails() {
       <BadgeModal badge={showBadge} onClose={() => setShowBadge(null)} />
       
       {/* Top Search Bar */}
-      <div className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl py-4 px-6 flex items-center justify-center transition-all duration-300">
+      <div className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl py-4 px-6 flex items-center justify-center transition-all duration-300 border-b border-transparent dark:border-slate-800">
          <div className="relative w-full max-w-xl">
              <div className="flex items-center gap-3 bg-gray-50/80 dark:bg-slate-800/80 rounded-full px-5 py-3 ring-1 ring-black/5 dark:ring-white/10 focus-within:ring-slate-900/10 dark:focus-within:ring-purple-500/30 focus-within:bg-white dark:focus-within:bg-slate-800 focus-within:shadow-lg transition-all shadow-sm">
                 <span className="text-xl">🔍</span>
@@ -482,17 +508,17 @@ export default function BookDetails() {
          </div>
       </div>
 
-      {/* Hero Section - Gradient Theme */}
-      <div className="relative pt-32 pb-20 px-6 overflow-hidden">
+      {/* Hero Section - Improved Layout & Dark Mode */}
+      <div className="relative pt-12 pb-20 px-6 overflow-hidden min-h-[60vh] flex items-center">
         {/* Background Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 -z-20"></div>
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-200/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 -z-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-pink-50 to-rose-50 dark:from-slate-900 dark:via-purple-900/20 dark:to-slate-900 -z-20"></div>
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-200/40 dark:bg-purple-600/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 -z-10"></div>
 
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-12 items-start relative z-10">
-            {/* Book Cover */}
-            <div className="w-56 md:w-80 flex-shrink-0 mx-auto md:mx-0 relative perspective-1000 group">
-                <div className="absolute inset-0 bg-purple-200 blur-2xl opacity-40 group-hover:opacity-60 transition duration-500"></div>
-                <div className="relative rounded-xl overflow-hidden shadow-2xl border-4 border-white transform hover:rotate-0 rotate-2 transition duration-500 bg-gray-100">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[350px_1fr] gap-12 items-start w-full relative z-10">
+            {/* Book Cover - Sticky & Elevated */}
+            <div className="w-full flex justify-center md:justify-start md:sticky md:top-32 relative group perspective-1000">
+                <div className="absolute inset-0 bg-purple-200 dark:bg-purple-900/30 blur-3xl opacity-40 group-hover:opacity-60 transition duration-500 rounded-full"></div>
+                <div className="relative w-64 md:w-80 rounded-xl overflow-hidden shadow-2xl border-4 border-white dark:border-slate-700 transform hover:rotate-0 rotate-1 transition duration-500 bg-gray-100 dark:bg-slate-800">
                     <img 
                         src={book.coverImage || "https://via.placeholder.com/300x450"} 
                         alt={book.title} 
@@ -503,62 +529,40 @@ export default function BookDetails() {
             </div>
 
             {/* Book Info */}
-            <div className="flex-1 text-center md:text-left space-y-6">
-                <div>
-                     <h1 className="text-4xl md:text-6xl font-serif font-bold text-slate-900 leading-tight mb-2 tracking-tight">
+            <div className="space-y-8">
+                <div className="text-center md:text-left">
+                     <h1 className="text-4xl md:text-6xl font-serif font-bold text-slate-900 dark:text-white leading-tight mb-2 tracking-tight">
                         {book.title}
                      </h1>
-                     <p className="text-xl md:text-2xl text-gray-500 font-medium">
-                        by <span className="text-purple-600">{book.authors && book.authors.join(", ")}</span>
+                     <p className="text-xl md:text-2xl text-gray-500 dark:text-gray-400 font-medium">
+                        by <span className="text-purple-600 dark:text-purple-400">{book.authors && book.authors.join(", ")}</span>
                      </p>
                 </div>
                 
-                {/* Rating */}
-                <div className="flex items-center justify-center md:justify-start gap-2">
-                    <div className="flex text-yellow-500 text-2xl">
-                        {[1, 2, 3, 4, 5].map(star => (
-                            <button 
-                                key={star} 
-                                onClick={() => handleRate(star)}
-                                className="focus:outline-none hover:scale-125 transition transform"
-                            >
-                                {book.averageRating >= star ? "★" : "☆"}
-                            </button>
-                        ))}
+                {/* Actions Bar */}
+                <div className="flex flex-wrap gap-4 justify-center md:justify-start items-center bg-white/50 dark:bg-slate-800/50 backdrop-blur-md p-4 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm">
+                    {/* Rating */}
+                    <div className="flex items-center gap-2 pr-6 border-r border-gray-200 dark:border-gray-700">
+                        <div className="flex text-yellow-500 text-2xl">
+                            {[1, 2, 3, 4, 5].map(star => (
+                                <button 
+                                    key={star} 
+                                    onClick={() => handleRate(star)}
+                                    className="focus:outline-none hover:scale-110 transition transform"
+                                >
+                                    {book.averageRating >= star ? "★" : "☆"}
+                                </button>
+                            ))}
+                        </div>
+                        <span className="text-sm font-bold text-gray-500 dark:text-gray-400">
+                            {book.averageRating || 0}/5
+                        </span>
                     </div>
-                    <span className="text-sm font-bold text-gray-400 bg-white px-2 py-1 rounded-md shadow-sm border border-gray-100">
-                        {book.averageRating || 0} / 5
-                    </span>
-                </div>
 
-                {/* Actions */}
-                <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
-                    {book.previewLink && (
-                        <a 
-                            href={book.previewLink} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="bg-slate-900 text-white px-8 py-3.5 rounded-full font-bold shadow-lg hover:bg-slate-800 hover:-translate-y-1 transition flex items-center gap-2"
-                        >
-                            <span>📖</span> Read Preview
-                        </a>
-                    )}
-
-                    {book.downloadUrl && (
-                        <a 
-                            href={book.downloadUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="bg-white text-slate-900 border border-gray-200 px-8 py-3.5 rounded-full font-bold shadow-sm hover:bg-gray-50 hover:-translate-y-1 transition flex items-center gap-2"
-                        >
-                            <span>⬇️</span> Download PDF
-                        </a>
-                    )}
-                    
                     <div className="relative">
                         <button 
                             onClick={() => setShowShelfMenu(!showShelfMenu)}
-                            className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-6 py-3.5 rounded-full font-bold transition flex items-center gap-2"
+                            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-full font-bold transition flex items-center gap-2 shadow-lg shadow-purple-200 dark:shadow-none"
                         >
                             {shelfStatus ? (
                                 <><span>✅</span> {shelfStatus.replace(/_/g, " ")}</>
@@ -567,13 +571,13 @@ export default function BookDetails() {
                             )}
                         </button>
                         {showShelfMenu && (
-                            <div className="absolute top-full left-0 mt-3 w-56 bg-white text-gray-800 rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20 animate-fade-in origin-top-left">
+                            <div className="absolute top-full left-0 mt-3 w-48 bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-200 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 overflow-hidden z-20 animate-fade-in origin-top-left">
                                 <div className="p-2 space-y-1">
                                     {["want_to_read", "reading", "completed"].map(s => (
                                         <button
                                             key={s}
                                             onClick={() => handleAddToShelf(s)}
-                                            className="block w-full text-left px-4 py-2.5 hover:bg-purple-50 rounded-xl capitalize font-medium transition"
+                                            className="block w-full text-left px-4 py-2 hover:bg-purple-50 dark:hover:bg-slate-700 rounded-lg capitalize font-medium transition"
                                         >
                                             {s.replace(/_/g, " ")}
                                         </button>
@@ -582,12 +586,23 @@ export default function BookDetails() {
                             </div>
                         )}
                     </div>
+
+                    {book.previewLink && (
+                        <a 
+                            href={book.previewLink} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-gray-600 dark:text-gray-300 font-bold hover:text-purple-600 dark:hover:text-purple-400 transition"
+                        >
+                            Read Preview ↗
+                        </a>
+                    )}
                 </div>
 
-                {/* Synopsis */}
-                <div className="bg-white/60 backdrop-blur-md p-8 rounded-3xl border border-purple-100 shadow-sm mt-8">
-                    <h3 className="text-lg font-bold mb-4 text-purple-900 font-serif">Synopsis</h3>
-                    <p className="text-gray-600 leading-relaxed font-light text-lg">
+                {/* Synopsis - Enhanced Visibility */}
+                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md p-8 rounded-3xl border border-purple-50 dark:border-slate-700 shadow-sm">
+                    <h3 className="text-xl font-bold mb-4 text-purple-900 dark:text-purple-300 font-serif">About the Book</h3>
+                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg text-justify font-normal tracking-wide">
                         {book.description ? book.description.replace(/<[^>]*>?/gm, '') : "No description available. Dive in to find out!"}
                     </p>
                 </div>
@@ -598,25 +613,25 @@ export default function BookDetails() {
       {/* Community Section */}
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="flex items-center gap-4 mb-8">
-            <h2 className="text-3xl font-serif font-bold text-slate-900">Reader Discussion</h2>
-            <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">{comments.length} Comments</span>
+            <h2 className="text-3xl font-serif font-bold text-slate-900 dark:text-white">Reader Discussion</h2>
+            <span className="bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full text-xs font-bold">{comments.length} Comments</span>
         </div>
         
-        {/* Comment Form */}
-        <div className="bg-white p-2 rounded-3xl shadow-lg border border-gray-100 mb-12">
+        {/* Comment Form - Premium & Dark Mode Friendly */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl shadow-lg border border-gray-100 dark:border-slate-700 mb-12">
             <form onSubmit={handlePostComment} className="relative">
                 <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Share your thoughts... what did you think?"
-                    className="w-full p-6 bg-transparent border-none outline-none resize-none h-32 focus:ring-0 text-gray-700 placeholder-gray-400 text-lg"
+                    className="w-full p-6 bg-gray-50 dark:bg-slate-900 border-none outline-none resize-none h-32 focus:ring-2 focus:ring-purple-100 dark:focus:ring-purple-900/30 rounded-2xl text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-lg transition-all"
                 />
-                <div className="flex justify-between items-center px-6 pb-4 border-t border-gray-50 pt-3">
-                    <div className="text-gray-300 text-sm font-medium">Formatting supported</div>
+                <div className="flex justify-between items-center px-2 pt-4">
+                    <div className="text-gray-300 dark:text-gray-600 text-sm font-medium">✨ Markdown supported</div>
                     <button 
                         type="submit" 
                         disabled={!newComment.trim()}
-                        className="bg-slate-900 text-white px-8 py-3 rounded-full font-bold hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition transform hover:-translate-y-1"
+                        className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-full font-bold hover:bg-slate-800 dark:hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition transform hover:-translate-y-1 shadow-lg"
                     >
                         Post Review
                     </button>
@@ -630,10 +645,10 @@ export default function BookDetails() {
                 <CommentItem key={comment._id} comment={comment} bookId={book._id} token={token} />
             ))}
             {comments.length === 0 && (
-                <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                <div className="text-center py-20 bg-gray-50 dark:bg-slate-800/50 rounded-3xl border border-dashed border-gray-200 dark:border-slate-700">
                     <span className="text-4xl block mb-4">💭</span>
-                    <p className="text-gray-500 font-medium text-lg">No comments yet.</p>
-                    <p className="text-gray-400">Be the first to start the conversation!</p>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium text-lg">No comments yet.</p>
+                    <p className="text-gray-400 dark:text-gray-500">Be the first to start the conversation!</p>
                 </div>
             )}
         </div>

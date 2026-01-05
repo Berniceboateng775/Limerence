@@ -61,17 +61,17 @@ export default function Moods() {
               shadow-lg hover:shadow-2xl hover:shadow-purple-500/20 
               transform hover:-translate-y-2 hover:scale-[1.02] 
               transition-all duration-300 ease-out
-              text-left p-6 flex flex-col justify-between
+              text-center p-6 flex flex-col items-center justify-center gap-4
             `}
           >
             {/* Glass effect overlay */}
             <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
             
-            <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl shadow-inner border border-white/10 group-hover:scale-110 transition-transform duration-300">
+            <div className="relative z-10 w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl shadow-inner border border-white/10 group-hover:scale-110 transition-transform duration-300">
                 {mood.emoji}
             </div>
             
-            <span className="relative z-10 font-bold text-lg md:text-xl text-white tracking-wide group-hover:translate-x-1 transition-transform duration-300">
+            <span className="relative z-10 font-bold text-lg md:text-xl text-white tracking-wide group-hover:scale-105 transition-transform duration-300">
                 {mood.label}
             </span>
             

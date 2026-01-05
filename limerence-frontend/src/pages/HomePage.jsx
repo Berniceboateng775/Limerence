@@ -149,19 +149,54 @@ export default function HomePage() {
       }
   };
 
+  // Google Books Map
+  const mapGoogleBook = (item) => {
+      const info = item.volumeInfo;
+      return {
+          id: item.id,
+          title: info.title,
+          author: info.authors ? info.authors[0] : "Unknown",
+          cover: info.imageLinks?.thumbnail?.replace("http:", "https:") || FALLBACK_COVER,
+          rating: info.averageRating || (4 + Math.random()).toFixed(1)
+      };
+  };
+
   const fetchSearch = async (query) => {
       if (!query) return;
       try {
-          // Add romance to search to filter for romance books only
-          const searchQuery = `${query} romance`;
-          const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(searchQuery)}&limit=20&fields=title,cover_i,author_name,key,ratings_average`);
-          const data = await res.json();
-          // Only filter for books with covers
-          const books = (data.docs || []).map(mapWork).filter(b => b.cover);
+          // 1. Try Google Books First (Higher Quality)
+          const googleUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=20&printType=books`;
+          
+          const res = await fetch(googleUrl);
+          let books = [];
+          
+          if (res.ok) {
+              const data = await res.json();
+              if (data.items) {
+                  books = data.items.map(mapGoogleBook).filter(b => b.cover && b.cover !== FALLBACK_COVER);
+              }
+          }
+
+          // 2. Only use OpenLibrary if Google fails or returns very few results
+          if (books.length < 3) {
+             try {
+                // Add "language:eng" to reduce older/irrelevant noise if possible, though OL search is limited
+                const olRes = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=15&fields=title,cover_i,author_name,key,ratings_average`);
+                const olData = await olRes.json();
+                const olBooks = (olData.docs || []).map(mapWork).filter(b => b.cover);
+                
+                // Deduplicate by title to avoid showing same book twice
+                const titles = new Set(books.map(b => b.title.toLowerCase()));
+                const uniqueOlBooks = olBooks.filter(b => !titles.has(b.title.toLowerCase()));
+                
+                books = [...books, ...uniqueOlBooks];
+             } catch(e) { console.warn("OL fetch failed inside search"); }
+          }
+          
           setSearchResults(books);
       } catch (e) { console.error(e); }
   };
-
+  
   useEffect(() => {
       const loadAll = async () => {
           setLoading(true);
@@ -176,12 +211,11 @@ export default function HomePage() {
               fetchGenre('q', 'high school romance', setHighSchool),
               fetchGenre('subject', 'new_adult', setNewAdult),
               fetchGenre('subject', 'office_romance', setCeo),
-              fetchGenre('subject', 'erotic', setErotic), // Changed to subject 'erotic'
+              fetchGenre('subject', 'erotic', setErotic), 
           ]);
           setLoading(false);
       };
       loadAll();
-      // Removed duplicate loadAll() call that was causing books to reload multiple times
   }, []);
 
   // Pick Random Hero from Dark Romance when loaded
@@ -233,9 +267,9 @@ export default function HomePage() {
       )}
 
       <div className="max-w-[1400px] mx-auto px-6 pt-6">
-          
+
           {/* Floating Search Bar */}
-          <div className="relative mx-auto max-w-lg mb-8">
+          <div className="relative mx-auto max-w-lg mb-8 z-50">
             <input 
               type="text" 
               placeholder="Search books, authors, tropes..." 

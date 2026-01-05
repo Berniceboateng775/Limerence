@@ -55,11 +55,13 @@ router.post("/add", auth, async (req, res) => {
         let newBadge = null;
 
         if (justCompleted && book) {
-            // 1. Increment Stats
+            // 1. Increment Stats (Safely)
+            if (!user.stats) user.stats = {};
             user.stats.booksRead = (user.stats.booksRead || 0) + 1;
+            user.markModified('stats'); // Critical for Mixed/Subdoc modifications
 
             // 2. Check Read Count Badges
-            const b1 = await checkAndAwardBadge(user, "read_count");
+             const b1 = await checkAndAwardBadge(user, "read_count");
             if (b1) newBadge = b1;
 
             // 3. Check Genre Badges

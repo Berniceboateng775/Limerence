@@ -48,6 +48,15 @@ router.post("/", auth, upload.single("coverImage"), async (req, res) => {
         coverImage = `/uploads/${req.file.filename}`;
     }
 
+    club = new Club({
+      name,
+      description,
+      currentBook,
+      coverImage,
+      members: [req.user.userId], 
+      admins: [req.user.userId],
+    });
+
     await club.save();
 
     // Club Leader Badge
