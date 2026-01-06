@@ -162,7 +162,9 @@ router.delete("/me", auth, async (req, res) => {
 // ============================
 router.get("/me", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select("-password")
+    const user = await User.findById(req.user.userId)
+      .select("-password")
+      .populate("shelf.book", "title coverImage authors");
     res.json(user)
   } catch (err) {
     console.error(err)

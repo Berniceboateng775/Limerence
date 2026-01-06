@@ -42,7 +42,8 @@ router.get("/me", auth, async (req, res) => {
     const user = await User.findById(req.user.userId)
       .select("-password")
       .populate("friends", "name avatar nickname about badges shelf")
-      .populate("friendRequests.from", "name avatar");
+      .populate("friendRequests.from", "name avatar")
+      .populate("shelf.book", "title coverImage authors");
     res.json(user);
   } catch (err) {
     console.error(err);
