@@ -187,4 +187,166 @@ router.post("/friend-response", auth, async (req, res) => {
   }
 });
 
+// ===== FOLLOW SYSTEM =====
+
+// Follow a user
+router.post("/follow/:id", auth, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const userId = req.user.userId;
+
+    if (targetId === userId) {
+      return res.status(400).json({ msg: "Cannot follow yourself" });
+    }
+
+    const targetUser = await User.findById(targetId);
+    const currentUser = await User.findById(userId);
+
+    if (!targetUser) return res.status(404).json({ msg: "User not found" });
+
+    // Check if already following
+    if (currentUser.following?.includes(targetId)) {
+      return res.status(400).json({ msg: "Already following this user" });
+    }
+
+    // Add to following/followers
+    currentUser.following = currentUser.following || [];
+    targetUser.followers = targetUser.followers || [];
+    
+    currentUser.following.push(targetId);
+    targetUser.followers.push(userId);
+
+    await currentUser.save();
+    await targetUser.save();
+
+    // Create notification
+    await Notification.create({
+      recipient: targetId,
+      sender: userId,
+      type: "follow",
+      content: `${currentUser.username || currentUser.name} started following you.`
+    });
+
+    res.json({ msg: "Now following", following: currentUser.following });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Unfollow a user
+router.delete("/follow/:id", auth, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const userId = req.user.userId;
+
+    const targetUser = await User.findById(targetId);
+    const currentUser = await User.findById(userId);
+
+    if (!targetUser) return res.status(404).json({ msg: "User not found" });
+
+    // Remove from following/followers
+    currentUser.following = (currentUser.following || []).filter(id => id.toString() !== targetId);
+    targetUser.followers = (targetUser.followers || []).filter(id => id.toString() !== userId);
+
+    await currentUser.save();
+    await targetUser.save();
+
+    res.json({ msg: "Unfollowed", following: currentUser.following });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get user's followers
+router.get("/:id/followers", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate("followers", "name username avatar about stats.booksRead");
+    
+    if (!user) return res.status(404).json({ msg: "User not found" });
+    
+    res.json({ followers: user.followers || [] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get who user is following
+router.get("/:id/following", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate("following", "name username avatar about stats.booksRead");
+    
+    if (!user) return res.status(404).json({ msg: "User not found" });
+    
+    res.json({ following: user.following || [] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get user's clubs with role info
+router.get("/:id/clubs", auth, async (req, res) => {
+  try {
+    const Club = require("../models/Club");
+    const userId = req.params.id;
+    
+    // Find all clubs where user is a member
+    const clubs = await Club.find({ members: userId })
+      .select("name description coverImage members admins createdAt")
+      .lean();
+    
+    // Add role info to each club
+    const clubsWithRole = clubs.map(club => ({
+      ...club,
+      memberCount: club.members?.length || 0,
+      isAdmin: club.admins?.some(a => a.toString() === userId) || false,
+      role: club.admins?.some(a => a.toString() === userId) ? "admin" : "member"
+    }));
+    
+    res.json({ 
+      clubs: clubsWithRole,
+      total: clubsWithRole.length,
+      adminCount: clubsWithRole.filter(c => c.isAdmin).length
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get user's full profile stats
+router.get("/:id/stats", auth, async (req, res) => {
+  try {
+    const Club = require("../models/Club");
+    const user = await User.findById(req.params.id).select("stats badges shelf followers following readingGoal");
+    
+    if (!user) return res.status(404).json({ msg: "User not found" });
+    
+    const clubsAdmin = await Club.countDocuments({ admins: req.params.id });
+    const clubsMember = await Club.countDocuments({ members: req.params.id });
+    
+    res.json({
+      booksRead: user.stats?.booksRead || 0,
+      reviewsPosted: user.stats?.reviewsPosted || 0,
+      currentStreak: user.stats?.currentStreak || 0,
+      messagesSent: user.stats?.messagesSent || 0,
+      badgesEarned: user.badges?.length || 0,
+      booksOnShelf: user.shelf?.length || 0,
+      followersCount: user.followers?.length || 0,
+      followingCount: user.following?.length || 0,
+      clubsAdmin,
+      clubsMember,
+      readingGoal: user.readingGoal || 12
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
 module.exports = router;
