@@ -301,8 +301,8 @@ export default function Profile() {
                     📖 Currently Reading <span className="text-purple-500">({booksReading.length})</span>
                   </h3>
                   {booksReading.length > 0 && (
-                    <button onClick={() => navigate("/profile/books?status=reading")} className="text-purple-600 text-sm hover:underline">
-                      See all →
+                    <button onClick={() => navigate("/profile/books?status=reading")} className="text-purple-600 text-sm hover:underline font-bold">
+                      See all
                     </button>
                   )}
                 </div>
@@ -320,7 +320,10 @@ export default function Profile() {
                               src={item.book?.coverImage || item.coverImage}
                               alt={item.book?.title || item.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              onError={(e) => { e.target.style.display = 'none'; }}
+                              onError={(e) => { 
+                                e.target.onerror = null; 
+                                e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-white text-2xl">📖</div>
@@ -342,8 +345,8 @@ export default function Profile() {
                     📋 Want to Read <span className="text-purple-500">({booksWantToRead.length})</span>
                   </h3>
                   {booksWantToRead.length > 0 && (
-                    <button onClick={() => navigate("/profile/books?status=want_to_read")} className="text-purple-600 text-sm hover:underline">
-                      See all →
+                    <button onClick={() => navigate("/profile/books?status=want_to_read")} className="text-purple-600 text-sm hover:underline font-bold">
+                      See all
                     </button>
                   )}
                 </div>
@@ -361,7 +364,10 @@ export default function Profile() {
                               src={item.book?.coverImage || item.coverImage}
                               alt={item.book?.title || item.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              onError={(e) => { e.target.style.display = 'none'; }}
+                              onError={(e) => { 
+                                e.target.onerror = null; 
+                                e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-white text-2xl">📋</div>
@@ -383,8 +389,8 @@ export default function Profile() {
                     ✅ Completed <span className="text-purple-500">({booksCompleted.length})</span>
                   </h3>
                   {booksCompleted.length > 0 && (
-                    <button onClick={() => navigate("/profile/books?status=completed")} className="text-purple-600 text-sm hover:underline">
-                      See all →
+                    <button onClick={() => navigate("/profile/books?status=completed")} className="text-purple-600 text-sm hover:underline font-bold">
+                      See all
                     </button>
                   )}
                 </div>
@@ -402,7 +408,10 @@ export default function Profile() {
                               src={item.book?.coverImage || item.coverImage}
                               alt={item.book?.title || item.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              onError={(e) => { e.target.style.display = 'none'; }}
+                              onError={(e) => { 
+                                e.target.onerror = null; 
+                                e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-white text-2xl">✅</div>

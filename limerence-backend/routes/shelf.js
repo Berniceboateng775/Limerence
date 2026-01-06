@@ -34,11 +34,17 @@ const BADGE_DEFINITIONS = [
 ];
 
 router.post("/add", auth, async (req, res) => {
-      const { bookId, status } = req.body;
+      const { bookId, status, coverImage } = req.body;
       
       try {
         const user = await User.findById(req.user.userId);
-        const book = await Book.findById(bookId); // Need book details for genre
+        let book = await Book.findById(bookId);
+
+        // Self-heal: Update cover if missing and provided
+        if (book && !book.coverImage && coverImage) {
+            book.coverImage = coverImage;
+            await book.save();
+        }
 
         // Check if already in shelf
         const exists = user.shelf.find(item => item.book.toString() === bookId);

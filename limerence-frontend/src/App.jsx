@@ -27,8 +27,8 @@ import About from "./pages/About";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 
-import Navbar from "./components/Navbar";
 import { ToastContainer } from "./components/Toast";
+import Navbar from "./components/Navbar";
 
 function ProtectedRoute({ children }) {
   const { token } = useContext(AuthContext);
@@ -240,6 +240,7 @@ export default function App() {
         )}
           </AuthProvider>
         </BrowserRouter>
+        <ToastContainer />
       </div>
     </ThemeProvider>
   );

@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom"
 import { AuthContext } from "../context/AuthContext";
 import axios from "axios";
 
+import { toast } from "../components/Toast";
+
 export default function NetworkPage() {
   const { id } = useParams(); // Optional: view another user's network
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,7 +17,9 @@ export default function NetworkPage() {
   const [mutual, setMutual] = useState([]);
   const [loading, setLoading] = useState(true);
   const [profileName, setProfileName] = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
   const [myFollowing, setMyFollowing] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const userId = id || currentUser?._id || currentUser?.id;
   const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.id;
@@ -37,7 +41,8 @@ export default function NetworkPage() {
       const profileRes = await axios.get(`http://localhost:5000/api/users/${userId}`, {
         headers: { "x-auth-token": token },
       });
-      setProfileName(profileRes.data.name || profileRes.data.username);
+      setProfileName(profileRes.data.name || "User");
+      setProfileUsername(profileRes.data.username || "");
 
       // Get followers
       const followersRes = await axios.get(`http://localhost:5000/api/users/${userId}/followers`, {
@@ -91,7 +96,7 @@ export default function NetworkPage() {
         setMyFollowing(prev => [...prev, targetId]);
       }
     } catch (err) {
-      alert(err.response?.data?.msg || "Action failed");
+      toast(err.response?.data?.msg || "Action failed", "error");
     }
   };
 
@@ -100,16 +105,21 @@ export default function NetworkPage() {
     setSearchParams({ tab: filter });
   };
 
-  const getCurrentList = () => {
+  const currentList = (() => {
+    let list = [];
     switch (activeFilter) {
-      case "followers": return followers;
-      case "following": return following;
-      case "mutual": return mutual;
-      default: return followers;
+      case "followers": list = followers; break;
+      case "following": list = following; break;
+      case "mutual": list = mutual; break;
+      default: list = followers;
     }
-  };
-
-  const currentList = getCurrentList();
+    
+    if (!searchQuery) return list;
+    return list.filter(u => 
+      u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.username?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  })();
 
   if (loading) {
     return (
@@ -124,13 +134,29 @@ export default function NetworkPage() {
       <div className="max-w-2xl mx-auto">
         
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => navigate(isOwnProfile ? "/profile" : `/user/${id}`)} className="text-gray-500 hover:text-purple-600">
-            ← Back to Profile
+        {/* Header */}
+        <div className="flex flex-col gap-4 mb-6">
+          <button onClick={() => navigate(isOwnProfile ? "/profile" : `/user/${id}`)} className="text-gray-500 hover:text-purple-600 flex items-center gap-2 self-start">
+            ← {isOwnProfile ? (currentUser?.name || "Me") : profileName}
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {isOwnProfile ? "Your Network" : `${profileName}'s Network`}
-          </h1>
+          
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {isOwnProfile ? "Your Network" : `${profileName}'s Network`}
+            </h1>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <input 
+              type="text" 
+              placeholder="Search user..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl px-5 py-3 shadow-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 outline-none"
+            />
+            <span className="absolute right-4 top-3 text-gray-400">🔍</span>
+          </div>
         </div>
 
         {/* Filter Tabs */}

@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom"
 import { AuthContext } from "../context/AuthContext";
 import axios from "axios";
 
+import { toast } from "../components/Toast";
+
 export default function UserBooksPage() {
   const { id } = useParams(); // Optional: view another user's books
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,6 +16,7 @@ export default function UserBooksPage() {
   const [loading, setLoading] = useState(true);
   const [profileName, setProfileName] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const userId = id || currentUser?._id || currentUser?.id;
   const isOwnProfile = !id || id === currentUser?._id || id === currentUser?.id;
@@ -67,9 +70,9 @@ export default function UserBooksPage() {
       }, {
         headers: { "x-auth-token": token },
       });
-      alert(`Added "${book.title}" to your shelf as "${status.replace('_', ' ')}"`);
+      toast(`Added "${book.title}" to your shelf as "${status.replace('_', ' ')}"`);
     } catch (err) {
-      alert(err.response?.data?.msg || "Failed to add book");
+      toast(err.response?.data?.msg || "Failed to add book", "error");
     }
     setActionLoading(null);
   };
@@ -78,7 +81,14 @@ export default function UserBooksPage() {
     navigate(`/home?search=${encodeURIComponent(authorName)}`);
   };
 
-  const filteredBooks = getFilteredBooks();
+  const filteredBooks = (() => {
+    let list = getFilteredBooks();
+    if (!searchQuery) return list;
+    return list.filter(item => 
+      (item.book?.title || item.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.book?.author || item.author || "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  })();
 
   const STATUS_LABELS = {
     want_to_read: "Want to Read",
@@ -106,16 +116,32 @@ export default function UserBooksPage() {
       <div className="max-w-5xl mx-auto">
         
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => navigate(isOwnProfile ? "/profile" : `/user/${id}`)} className="text-gray-500 hover:text-purple-600">
-            ← Back to Profile
+        {/* Header */}
+        <div className="flex flex-col gap-4 mb-6">
+          <button onClick={() => navigate(isOwnProfile ? "/profile" : `/user/${id}`)} className="text-gray-500 hover:text-purple-600 flex items-center gap-2 self-start">
+            ← {isOwnProfile ? (currentUser?.name || "Me") : profileName}
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {isOwnProfile ? "Your Books" : `${profileName}'s Books`}
-          </h1>
-          <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-3 py-1 rounded-full text-sm font-bold">
-            {books.length} books
-          </span>
+          
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {isOwnProfile ? "Your Books" : `${profileName}'s Books`}
+            </h1>
+            <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-3 py-1 rounded-full text-sm font-bold">
+              {books.length} books
+            </span>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <input 
+              type="text" 
+              placeholder="Search books..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl px-5 py-3 shadow-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 outline-none"
+            />
+            <span className="absolute right-4 top-3 text-gray-400">🔍</span>
+          </div>
         </div>
 
         {/* Filter Tabs */}
