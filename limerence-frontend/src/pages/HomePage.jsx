@@ -437,14 +437,20 @@ export default function HomePage() {
                                    <p className="text-xs font-medium text-gray-800">"{randomComment.text}"</p>
                                </div>
 
-                               <div className="relative shadow-2xl rounded-xl border-4 border-white transform rotate-3 hover:rotate-0 transition duration-500 bg-gray-200">
-                                   <img 
-                                      src={heroBook?.cover} 
-                                      className="h-[280px] w-auto object-contain rounded-lg" 
-                                      alt={heroBook?.title}
-                                      onClick={() => navigate(`/book/${heroBook?.id}`)}
-                                      referrerPolicy="no-referrer"
-                                   />
+                               <div className="relative shadow-2xl rounded-xl border-4 border-white transform rotate-3 hover:rotate-0 transition duration-500 bg-gray-200 h-[280px] w-[187px]">
+                                   {heroBook?.cover ? (
+                                     <img 
+                                        src={heroBook?.cover} 
+                                        className="h-full w-full object-cover rounded-lg" 
+                                        alt={heroBook?.title}
+                                        onClick={() => navigate(`/book/${heroBook?.id}`)}
+                                        referrerPolicy="no-referrer"
+                                     />
+                                   ) : (
+                                     <div className="h-full w-full rounded-lg bg-gradient-to-br from-purple-200 to-pink-200 dark:from-purple-800 dark:to-pink-800 animate-pulse flex items-center justify-center">
+                                       <span className="text-4xl">📚</span>
+                                     </div>
+                                   )}
                                </div>
                            </div>
                        </div>

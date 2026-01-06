@@ -576,6 +576,32 @@ export default function Clubs() {
     });
   };
 
+  // Make member an admin (admin only) - shows custom modal
+  const handleMakeAdmin = (memberId, memberName) => {
+    if (!selectedClub) return;
+    setConfirmModal({
+      show: true,
+      title: '👑 Promote to Admin',
+      message: `Make ${memberName} an admin of this club? They will have full admin rights.`,
+      onConfirm: async () => {
+        try {
+          const res = await axios.post(`/api/clubs/${selectedClub._id}/make-admin`, { userIdToPromote: memberId }, { headers: { "x-auth-token": token } });
+          // Update with fresh data
+          setSelectedClub(res.data);
+          if (viewProfile?.members) {
+            setViewProfile(res.data);
+          }
+          toast(`${memberName} is now an admin!`, "success");
+          fetchClubs();
+        } catch (err) { 
+          console.error(err);
+          toast(err.response?.data?.msg || "Failed to promote member", "error"); 
+        }
+        setConfirmModal({ show: false, title: '', message: '', onConfirm: null });
+      }
+    });
+  };
+
   // Delete message (admin only) - shows custom modal
   // Delete message (Admin or Sender)
   const handleDeleteMessage = (msgId) => {
@@ -1203,6 +1229,15 @@ export default function Clubs() {
                             <span className="text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded font-bold">ADMIN</span>
                           )}
                         </div>
+                        {canKick && !isAdmin && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleMakeAdmin(m._id, m.name); }}
+                            className="text-xs text-amber-500 hover:text-amber-700 dark:hover:text-amber-400 p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-full transition"
+                            title="Make admin"
+                          >
+                            👑
+                          </button>
+                        )}
                         {canKick && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleKickMember(m._id, m.name); }}
