@@ -1,9 +1,10 @@
 import React, { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 export default function Profile() {
+  const navigate = useNavigate();
   const { token, logout, user } = useContext(AuthContext);
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -146,7 +147,7 @@ export default function Profile() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 pt-24 px-4 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-20 pt-16 px-4 transition-colors duration-300">
       <div className="max-w-4xl mx-auto">
         
         {/* Profile Header Card */}
@@ -172,23 +173,35 @@ export default function Profile() {
                 "{profile.about || "Hey there! I'm using Limerence 📚"}"
               </p>
               
-              {/* Quick Stats Row */}
+              {/* Quick Stats Row - CLICKABLE */}
               <div className="flex gap-6 mt-4 justify-center md:justify-start">
-                <div className="text-center">
+                <div 
+                  className="text-center cursor-pointer hover:opacity-80 transition"
+                  onClick={() => navigate("/profile/network?tab=followers")}
+                >
                   <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{stats?.followersCount || 0}</div>
-                  <div className="text-xs text-gray-500">Followers</div>
+                  <div className="text-xs text-gray-500 hover:text-purple-500">Followers</div>
                 </div>
-                <div className="text-center">
+                <div 
+                  className="text-center cursor-pointer hover:opacity-80 transition"
+                  onClick={() => navigate("/profile/network?tab=following")}
+                >
                   <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{stats?.followingCount || 0}</div>
-                  <div className="text-xs text-gray-500">Following</div>
+                  <div className="text-xs text-gray-500 hover:text-purple-500">Following</div>
                 </div>
-                <div className="text-center">
+                <div 
+                  className="text-center cursor-pointer hover:opacity-80 transition"
+                  onClick={() => navigate("/profile/books?status=completed")}
+                >
                   <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{stats?.booksRead || 0}</div>
-                  <div className="text-xs text-gray-500">Books Read</div>
+                  <div className="text-xs text-gray-500 hover:text-purple-500">Books Read</div>
                 </div>
-                <div className="text-center">
+                <div 
+                  className="text-center cursor-pointer hover:opacity-80 transition"
+                  onClick={() => setActiveTab("stats")}
+                >
                   <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{stats?.badgesEarned || badges.length}</div>
-                  <div className="text-xs text-gray-500">Badges</div>
+                  <div className="text-xs text-gray-500 hover:text-purple-500">Badges</div>
                 </div>
               </div>
             </div>
@@ -283,16 +296,37 @@ export default function Profile() {
             <div className="space-y-6">
               {/* Reading */}
               <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  📖 Currently Reading <span className="text-purple-500">({booksReading.length})</span>
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    📖 Currently Reading <span className="text-purple-500">({booksReading.length})</span>
+                  </h3>
+                  {booksReading.length > 0 && (
+                    <button onClick={() => navigate("/profile/books?status=reading")} className="text-purple-600 text-sm hover:underline">
+                      See all →
+                    </button>
+                  )}
+                </div>
                 {booksReading.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
                     {booksReading.slice(0, 8).map((item, i) => (
-                      <div key={i} className="bg-gray-50 dark:bg-slate-700 rounded-xl p-3 text-center">
-                        <div className="text-3xl mb-2">📚</div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.book?.title || "Book"}</p>
-                        <p className="text-xs text-gray-500">{item.progress || 0}% done</p>
+                      <div 
+                        key={i} 
+                        onClick={() => navigate(`/book/${encodeURIComponent(item.book?.title || item.title || 'Book')}`)}
+                        className="cursor-pointer group"
+                      >
+                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-purple-500 to-pink-500">
+                          {(item.book?.coverImage || item.coverImage) ? (
+                            <img 
+                              src={item.book?.coverImage || item.coverImage}
+                              alt={item.book?.title || item.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white text-2xl">📖</div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1 font-medium">{item.book?.title || item.title || "Book"}</p>
                       </div>
                     ))}
                   </div>
@@ -303,15 +337,37 @@ export default function Profile() {
 
               {/* Want to Read */}
               <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  📋 Want to Read <span className="text-purple-500">({booksWantToRead.length})</span>
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    📋 Want to Read <span className="text-purple-500">({booksWantToRead.length})</span>
+                  </h3>
+                  {booksWantToRead.length > 0 && (
+                    <button onClick={() => navigate("/profile/books?status=want_to_read")} className="text-purple-600 text-sm hover:underline">
+                      See all →
+                    </button>
+                  )}
+                </div>
                 {booksWantToRead.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
                     {booksWantToRead.slice(0, 8).map((item, i) => (
-                      <div key={i} className="bg-gray-50 dark:bg-slate-700 rounded-xl p-3 text-center">
-                        <div className="text-3xl mb-2">📖</div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.book?.title || "Book"}</p>
+                      <div 
+                        key={i} 
+                        onClick={() => navigate(`/book/${encodeURIComponent(item.book?.title || item.title || 'Book')}`)}
+                        className="cursor-pointer group"
+                      >
+                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-yellow-500 to-orange-500">
+                          {(item.book?.coverImage || item.coverImage) ? (
+                            <img 
+                              src={item.book?.coverImage || item.coverImage}
+                              alt={item.book?.title || item.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white text-2xl">📋</div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1 font-medium">{item.book?.title || item.title || "Book"}</p>
                       </div>
                     ))}
                   </div>
@@ -322,15 +378,37 @@ export default function Profile() {
 
               {/* Completed */}
               <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  ✅ Completed <span className="text-purple-500">({booksCompleted.length})</span>
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    ✅ Completed <span className="text-purple-500">({booksCompleted.length})</span>
+                  </h3>
+                  {booksCompleted.length > 0 && (
+                    <button onClick={() => navigate("/profile/books?status=completed")} className="text-purple-600 text-sm hover:underline">
+                      See all →
+                    </button>
+                  )}
+                </div>
                 {booksCompleted.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
                     {booksCompleted.slice(0, 8).map((item, i) => (
-                      <div key={i} className="bg-gray-50 dark:bg-slate-700 rounded-xl p-3 text-center">
-                        <div className="text-3xl mb-2">🏆</div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.book?.title || "Book"}</p>
+                      <div 
+                        key={i} 
+                        onClick={() => navigate(`/book/${encodeURIComponent(item.book?.title || item.title || 'Book')}`)}
+                        className="cursor-pointer group"
+                      >
+                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-green-500 to-emerald-500">
+                          {(item.book?.coverImage || item.coverImage) ? (
+                            <img 
+                              src={item.book?.coverImage || item.coverImage}
+                              alt={item.book?.title || item.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white text-2xl">✅</div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1 font-medium">{item.book?.title || item.title || "Book"}</p>
                       </div>
                     ))}
                   </div>
@@ -429,7 +507,11 @@ export default function Profile() {
                 {followers.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {followers.map((user, i) => (
-                      <div key={i} className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700 rounded-xl p-3">
+                      <Link 
+                        key={i} 
+                        to={`/user/${user._id}`}
+                        className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                      >
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold overflow-hidden">
                           {user.avatar ? (
                             <img src={`http://localhost:5000${user.avatar}`} alt="" className="w-full h-full object-cover" />
@@ -441,8 +523,8 @@ export default function Profile() {
                           <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
                           {user.username && <p className="text-sm text-purple-500">@{user.username}</p>}
                         </div>
-                        <span className="text-xs text-gray-500">{user.stats?.booksRead || 0} books</span>
-                      </div>
+                        <span className="text-purple-600 text-sm">View →</span>
+                      </Link>
                     ))}
                   </div>
                 ) : (
@@ -458,7 +540,11 @@ export default function Profile() {
                 {following.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {following.map((user, i) => (
-                      <div key={i} className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700 rounded-xl p-3">
+                      <Link 
+                        key={i} 
+                        to={`/user/${user._id}`}
+                        className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                      >
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold overflow-hidden">
                           {user.avatar ? (
                             <img src={`http://localhost:5000${user.avatar}`} alt="" className="w-full h-full object-cover" />
@@ -470,8 +556,8 @@ export default function Profile() {
                           <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
                           {user.username && <p className="text-sm text-purple-500">@{user.username}</p>}
                         </div>
-                        <span className="text-xs text-gray-500">{user.stats?.booksRead || 0} books</span>
-                      </div>
+                        <span className="text-purple-600 text-sm">View →</span>
+                      </Link>
                     ))}
                   </div>
                 ) : (
@@ -506,7 +592,7 @@ export default function Profile() {
                   {filteredClubs.map((club, i) => (
                     <Link 
                       key={i} 
-                      to="/clubs"
+                      to={`/club/${club._id}`}
                       className="flex items-center gap-4 bg-gray-50 dark:bg-slate-700 rounded-xl p-4 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
                     >
                       <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl overflow-hidden">

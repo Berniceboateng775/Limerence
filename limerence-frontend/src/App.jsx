@@ -14,9 +14,13 @@ import Onboarding from "./pages/Onboarding";
 import Moods from "./pages/Moods";
 import MoodBooks from "./pages/MoodBooks";
 import Profile from "./pages/Profile";
+import UserProfile from "./pages/UserProfile";
 import Badges from "./pages/Badges";
 import SocialFeed from "./pages/SocialFeed";
 import Clubs from "./pages/Clubs";
+import ClubDetails from "./pages/ClubDetails";
+import NetworkPage from "./pages/NetworkPage";
+import UserBooksPage from "./pages/UserBooksPage";
 import Notifications from "./pages/Notifications";
 import Friends from "./pages/Friends";
 import About from "./pages/About";
@@ -142,6 +146,14 @@ export default function App() {
               }
             />
             <Route
+              path="/user/:id"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/badges"
               element={
                 <ProtectedRoute>
@@ -162,6 +174,46 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Clubs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/club/:id"
+              element={
+                <ProtectedRoute>
+                  <ClubDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/network"
+              element={
+                <ProtectedRoute>
+                  <NetworkPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/user/:id/network"
+              element={
+                <ProtectedRoute>
+                  <NetworkPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/books"
+              element={
+                <ProtectedRoute>
+                  <UserBooksPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/user/:id/books"
+              element={
+                <ProtectedRoute>
+                  <UserBooksPage />
                 </ProtectedRoute>
               }
             />
