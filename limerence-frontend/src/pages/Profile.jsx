@@ -1,7 +1,9 @@
 import React, { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import ConfirmModal from "../components/ConfirmModal";
+import { toast } from "../components/Toast";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -10,13 +12,15 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", email: "", avatar: "", about: "" });
   const [activeTab, setActiveTab] = useState("books");
+  const [activeNetworkTab, setActiveNetworkTab] = useState("followers");
   
   // Tab data states
   const [stats, setStats] = useState(null);
   const [clubs, setClubs] = useState([]);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
-  const [clubFilter, setClubFilter] = useState("all"); // all, admin, member
+  const [clubFilter, setClubFilter] = useState("all");
+  const [unfollowTargetId, setUnfollowTargetId] = useState(null);
 
   useEffect(() => {
     fetchProfile();
@@ -90,6 +94,26 @@ export default function Profile() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleUnfollowClick = (targetId) => {
+    setUnfollowTargetId(targetId);
+  };
+
+  const confirmUnfollow = async () => {
+    if (!unfollowTargetId) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/users/follow/${unfollowTargetId}`, {
+        headers: { "x-auth-token": token },
+      });
+      setFollowing(prev => prev.filter(u => u._id !== unfollowTargetId));
+      fetchStats();
+      toast("Unfollowed successfully!");
+    } catch (err) {
+      console.error(err);
+      toast(err.response?.data?.msg || "Action failed", "error");
+    }
+    setUnfollowTargetId(null);
   };
 
   const handleUpdate = async (e) => {
@@ -311,23 +335,21 @@ export default function Profile() {
                     {booksReading.slice(0, 8).map((item, i) => (
                       <div 
                         key={i} 
-                        onClick={() => navigate(`/book/${encodeURIComponent(item.book?.title || item.title || 'Book')}`)}
+                        onClick={() => navigate(`/book/${item.book?._id || item.book || item.title}`)}
                         className="cursor-pointer group"
                       >
-                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-purple-500 to-pink-500">
-                          {(item.book?.coverImage || item.coverImage) ? (
+                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gray-200 dark:bg-slate-700">
                             <img 
-                              src={item.book?.coverImage || item.coverImage}
+                              src={item.book?.coverImage || item.coverImage || `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`}
                               alt={item.book?.title || item.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                               onError={(e) => { 
                                 e.target.onerror = null; 
-                                e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                                if (!e.target.src.includes('openlibrary')) {
+                                   e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                                }
                               }}
                             />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white text-2xl">📖</div>
-                          )}
                         </div>
                         <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1 font-medium">{item.book?.title || item.title || "Book"}</p>
                       </div>
@@ -355,25 +377,23 @@ export default function Profile() {
                     {booksWantToRead.slice(0, 8).map((item, i) => (
                       <div 
                         key={i} 
-                        onClick={() => navigate(`/book/${encodeURIComponent(item.book?.title || item.title || 'Book')}`)}
+                        onClick={() => navigate(`/book/${item.book?._id || item.book || item.title}`)}
                         className="cursor-pointer group"
                       >
-                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-yellow-500 to-orange-500">
-                          {(item.book?.coverImage || item.coverImage) ? (
+                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gray-200 dark:bg-slate-700">
                             <img 
-                              src={item.book?.coverImage || item.coverImage}
+                              src={item.book?.coverImage || item.coverImage || `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`}
                               alt={item.book?.title || item.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                               onError={(e) => { 
                                 e.target.onerror = null; 
-                                e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                                if (!e.target.src.includes('openlibrary')) {
+                                   e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                                }
                               }}
                             />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white text-2xl">📋</div>
-                          )}
                         </div>
-                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1 font-medium">{item.book?.title || item.title || "Book"}</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1 font-medium">{item.book?.title || item.title || <span className="text-gray-400 italic">Unknown</span>}</p>
                       </div>
                     ))}
                   </div>
@@ -399,25 +419,23 @@ export default function Profile() {
                     {booksCompleted.slice(0, 8).map((item, i) => (
                       <div 
                         key={i} 
-                        onClick={() => navigate(`/book/${encodeURIComponent(item.book?.title || item.title || 'Book')}`)}
+                        onClick={() => navigate(`/book/${item.book?._id || item.book || item.title}`)}
                         className="cursor-pointer group"
                       >
-                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-green-500 to-emerald-500">
-                          {(item.book?.coverImage || item.coverImage) ? (
+                        <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gray-200 dark:bg-slate-700">
                             <img 
-                              src={item.book?.coverImage || item.coverImage}
+                              src={item.book?.coverImage || item.coverImage || `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`}
                               alt={item.book?.title || item.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                               onError={(e) => { 
                                 e.target.onerror = null; 
-                                e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                                if (!e.target.src.includes('openlibrary')) {
+                                   e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
+                                }
                               }}
                             />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-white text-2xl">✅</div>
-                          )}
                         </div>
-                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1 font-medium">{item.book?.title || item.title || "Book"}</p>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1 font-medium">{item.book?.title || item.title || <span className="text-gray-400 italic">Unknown</span>}</p>
                       </div>
                     ))}
                   </div>
@@ -507,72 +525,97 @@ export default function Profile() {
 
           {/* NETWORK TAB */}
           {activeTab === "network" && (
-            <div className="space-y-6">
-              {/* Followers */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-                  👥 Followers ({followers.length})
-                </h3>
-                {followers.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {followers.map((user, i) => (
-                      <Link 
-                        key={i} 
-                        to={`/user/${user._id}`}
-                        className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
-                      >
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold overflow-hidden">
-                          {user.avatar ? (
-                            <img src={`http://localhost:5000${user.avatar}`} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            user.name?.[0] || "?"
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
-                          {user.username && <p className="text-sm text-purple-500">@{user.username}</p>}
-                        </div>
-                        <span className="text-purple-600 text-sm">View →</span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm">No followers yet. Share your profile!</p>
-                )}
+            <div>
+              <div className="flex gap-2 mb-4 bg-gray-100 dark:bg-slate-700 p-1.5 rounded-xl">
+                <button
+                  onClick={() => setActiveNetworkTab("followers")}
+                  className={`px-4 py-2 rounded-lg font-bold text-sm transition ${
+                    activeNetworkTab === "followers" 
+                      ? "bg-white dark:bg-slate-800 text-purple-600 shadow-sm" 
+                      : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  }`}
+                >
+                  Followers ({followers.length})
+                </button>
+                <button
+                  onClick={() => setActiveNetworkTab("following")}
+                  className={`px-4 py-2 rounded-lg font-bold text-sm transition ${
+                    activeNetworkTab === "following" 
+                      ? "bg-white dark:bg-slate-800 text-purple-600 shadow-sm" 
+                      : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  }`}
+                >
+                  Following ({following.length})
+                </button>
               </div>
 
-              {/* Following */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-                  ➡️ Following ({following.length})
-                </h3>
-                {following.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {following.map((user, i) => (
-                      <Link 
-                        key={i} 
-                        to={`/user/${user._id}`}
-                        className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
-                      >
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold overflow-hidden">
-                          {user.avatar ? (
-                            <img src={`http://localhost:5000${user.avatar}`} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            user.name?.[0] || "?"
-                          )}
+              {activeNetworkTab === "followers" && (
+                <div className="space-y-4">
+                  {followers.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {followers.map((user, i) => (
+                        <Link 
+                          key={i} 
+                          to={`/user/${user._id}`}
+                          className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold overflow-hidden">
+                            {user.avatar ? (
+                              <img src={`http://localhost:5000${user.avatar}`} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              user.name?.[0] || "?"
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
+                            {user.username && <p className="text-sm text-purple-500">@{user.username}</p>}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">No followers yet. Share your profile!</p>
+                  )}
+                </div>
+              )}
+
+              {activeNetworkTab === "following" && (
+                <div className="space-y-4">
+                  {following.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {following.map((user, i) => (
+                        <div key={i} className="flex items-center gap-3 bg-gray-50 dark:bg-slate-700 rounded-xl p-3 hover:bg-gray-100 dark:hover:bg-slate-600 transition">
+                          <Link to={`/user/${user._id}`} className="flex items-center gap-3 flex-1">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold overflow-hidden">
+                              {user.avatar ? (
+                                <img src={`http://localhost:5000${user.avatar}`} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                user.name?.[0] || "?"
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
+                              {user.username && <p className="text-sm text-purple-500">@{user.username}</p>}
+                            </div>
+                          </Link>
+                          <button 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleUnfollowClick(user._id);
+                            }}
+                            className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 transition shadow-sm border border-red-100"
+                            title="Unfollow"
+                          >
+                             Unfollow
+                          </button>
                         </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
-                          {user.username && <p className="text-sm text-purple-500">@{user.username}</p>}
-                        </div>
-                        <span className="text-purple-600 text-sm">View →</span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm">Not following anyone yet. Discover readers!</p>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">Not following anyone yet. Discover readers!</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -636,6 +679,15 @@ export default function Profile() {
           )}
         </div>
       </div>
+      <ConfirmModal 
+        isOpen={!!unfollowTargetId}
+        title="Unfollow User"
+        message="Are you sure you want to stop following this user?"
+        onConfirm={confirmUnfollow}
+        onCancel={() => setUnfollowTargetId(null)}
+        confirmText="Unfollow"
+        isDestructive={true}
+      />
     </div>
   );
 }

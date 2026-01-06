@@ -134,33 +134,15 @@ export default function NetworkPage() {
       <div className="max-w-2xl mx-auto">
         
         {/* Header */}
-        {/* Header */}
-        <div className="flex flex-col gap-4 mb-6">
-          <button onClick={() => navigate(isOwnProfile ? "/profile" : `/user/${id}`)} className="text-gray-500 hover:text-purple-600 flex items-center gap-2 self-start">
+        {/* Header (Back Button Only) */}
+        <div className="mb-4">
+          <button onClick={() => navigate(isOwnProfile ? "/profile" : `/user/${id}`)} className="text-gray-500 hover:text-purple-600 flex items-center gap-2">
             ← {isOwnProfile ? (currentUser?.name || "Me") : profileName}
           </button>
-          
-          <div className="flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {isOwnProfile ? "Your Network" : `${profileName}'s Network`}
-            </h1>
-          </div>
-
-          {/* Search Bar */}
-          <div className="relative">
-            <input 
-              type="text" 
-              placeholder="Search user..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl px-5 py-3 shadow-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 outline-none"
-            />
-            <span className="absolute right-4 top-3 text-gray-400">🔍</span>
-          </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-6 bg-white dark:bg-slate-800 p-2 rounded-2xl shadow">
+        <div className="flex gap-2 mb-4 bg-white dark:bg-slate-800 p-2 rounded-2xl shadow">
           {[
             { id: "followers", label: "Followers", count: followers.length },
             { id: "following", label: "Following", count: following.length },
@@ -185,6 +167,18 @@ export default function NetworkPage() {
               </span>
             </button>
           ))}
+        </div>
+
+        {/* Search Bar (Moved Below Tabs) */}
+        <div className="relative mb-6">
+          <input 
+            type="text" 
+            placeholder="Search user..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl px-5 py-3 shadow-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 outline-none"
+          />
+          <span className="absolute right-4 top-3 text-gray-400">🔍</span>
         </div>
 
         {/* User List */}

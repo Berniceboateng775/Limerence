@@ -112,7 +112,7 @@ export default function ClubDetails() {
         <div className="text-center">
           <div className="text-6xl mb-4">😕</div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Club Not Found</h2>
-          <button onClick={() => navigate("/clubs")} className="text-purple-600 hover:underline">← Back to Clubs</button>
+          <button onClick={() => navigate(-1)} className="text-purple-600 hover:underline">← Back</button>
         </div>
       </div>
     );
@@ -123,8 +123,8 @@ export default function ClubDetails() {
       <div className="max-w-4xl mx-auto">
         
         {/* Back Button */}
-        <button onClick={() => navigate("/clubs")} className="text-gray-500 hover:text-purple-600 mb-4 flex items-center gap-2">
-          ← Back to Clubs
+        <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-purple-600 mb-4 flex items-center gap-2">
+          ← Back
         </button>
 
         {/* Club Header */}

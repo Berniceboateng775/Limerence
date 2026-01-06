@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { NotificationContext } from "../context/NotificationContext";
@@ -12,6 +12,7 @@ import Logo from "./Logo";
 export default function Navbar() {
   const { logout, token, user } = useContext(AuthContext);
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const { 
     unreadNotifications, 
     unreadMessages, 
@@ -43,10 +44,8 @@ export default function Navbar() {
   ];
 
   const handleLogout = () => {
-    // Clear auth state first
     logout();
-    // Use replace to prevent back-navigation and avoid login flash
-    window.location.replace("/");
+    navigate("/");
   };
 
   return (
