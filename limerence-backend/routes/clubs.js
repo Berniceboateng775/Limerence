@@ -36,6 +36,24 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Get single club by ID
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const club = await Club.findById(req.params.id)
+      .populate("members", "name avatar badges shelf about")
+      .populate("admins", "name avatar");
+    
+    if (!club) {
+      return res.status(404).json({ msg: "Club not found" });
+    }
+    
+    res.json(club);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
 // Create a club
 router.post("/", auth, upload.single("coverImage"), async (req, res) => {
   try {
@@ -105,7 +123,6 @@ router.post("/:id/join", auth, async (req, res) => {
     // Pass custom context if needed, or rely on manual check of clubs length if we populate it
     // But user.clubs isn't a standard field (clubs store members). 
     // So we need to count how many clubs the user is in.
-    const Club = require("../models/Club");
     const clubCount = await Club.countDocuments({ members: req.user.userId });
     
     await checkAndAwardBadge(user, "club_count", { clubCount });
@@ -505,6 +522,59 @@ router.get("/:id/share", auth, async (req, res) => {
       memberCount: club.members.length,
       coverImage: club.coverImage
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+// Make a member an admin (Admin only)
+router.post("/:id/make-admin", auth, async (req, res) => {
+  try {
+    const { userIdToPromote } = req.body;
+    const club = await Club.findById(req.params.id);
+
+    if (!club) return res.status(404).json({ msg: "Club not found" });
+
+    // Check if requester is admin
+    const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
+    if (!isAdmin) {
+      return res.status(401).json({ msg: "Not authorized - admin only" });
+    }
+
+    // Check if user is a member
+    if (!club.members.some(m => m.toString() === userIdToPromote)) {
+      return res.status(400).json({ msg: "User is not a member of this club" });
+    }
+
+    // Check if already admin
+    if (club.admins.some(a => a.toString() === userIdToPromote)) {
+      return res.status(400).json({ msg: "User is already an admin" });
+    }
+
+    // Add to admins
+    club.admins.push(userIdToPromote);
+    await club.save();
+
+    // Create notification for promoted user
+    try {
+      await Notification.create({
+        recipient: userIdToPromote,
+        sender: req.user.userId,
+        type: "system",
+        content: `You have been promoted to admin of the club "${club.name}"!`,
+        relatedId: club._id
+      });
+    } catch (notifErr) {
+      console.error("Failed to create promotion notification:", notifErr);
+    }
+
+    // Return updated club
+    const updatedClub = await Club.findById(club._id)
+      .populate("members", "name avatar badges shelf about")
+      .populate("admins", "name avatar");
+
+    res.json(updatedClub);
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });

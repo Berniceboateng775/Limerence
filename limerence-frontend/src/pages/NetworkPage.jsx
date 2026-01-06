@@ -96,7 +96,12 @@ export default function NetworkPage() {
         setMyFollowing(prev => [...prev, targetId]);
       }
     } catch (err) {
-      toast(err.response?.data?.msg || "Action failed", "error");
+      // Handle "already following" silently - just sync state
+      if (err.response?.status === 400 || err.response?.data?.msg?.toLowerCase().includes("already")) {
+        setMyFollowing(prev => [...prev, targetId]);
+      } else {
+        toast(err.response?.data?.msg || "Action failed", "error");
+      }
     }
   };
 

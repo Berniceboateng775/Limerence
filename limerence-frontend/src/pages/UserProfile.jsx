@@ -373,20 +373,19 @@ export default function UserProfile() {
                             onClick={() => navigate(`/book/${item.book?._id || item.book || item.title}`)}
                             className="cursor-pointer group"
                           >
-                            <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gray-200 dark:bg-slate-700">
+                            <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+                              {(item.book?.coverImage || item.coverImage) ? (
                                 <img 
-                                  src={item.book?.coverImage || item.coverImage || `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`}
+                                  src={item.book?.coverImage || item.coverImage}
                                   alt={item.book?.title || item.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  onError={(e) => { 
-                                    e.target.onerror = null; 
-                                    if (!e.target.src.includes('openlibrary')) {
-                                       e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
-                                    }
-                                  }}
+                                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                                 />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center p-2 text-center text-white text-xs font-bold ${(item.book?.coverImage || item.coverImage) ? 'hidden' : 'flex'}`}>
+                                {(item.book?.title || item.title || 'Book').substring(0, 20)}
+                              </div>
                             </div>
-                            <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1">{item.book?.title || item.title || <span className="text-gray-400 italic">Unknown</span>}</p>
                           </div>
                         ))}
                       </div>
@@ -405,20 +404,19 @@ export default function UserProfile() {
                             onClick={() => navigate(`/book/${item.book?._id || item.book || item.title}`)}
                             className="cursor-pointer group"
                           >
-                            <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gray-200 dark:bg-slate-700">
+                            <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
+                              {(item.book?.coverImage || item.coverImage) ? (
                                 <img 
-                                  src={item.book?.coverImage || item.coverImage || `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`}
+                                  src={item.book?.coverImage || item.coverImage}
                                   alt={item.book?.title || item.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  onError={(e) => { 
-                                    e.target.onerror = null; 
-                                    if (!e.target.src.includes('openlibrary')) {
-                                       e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
-                                    }
-                                  }}
+                                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                                 />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center p-2 text-center text-white text-xs font-bold ${(item.book?.coverImage || item.coverImage) ? 'hidden' : 'flex'}`}>
+                                {(item.book?.title || item.title || 'Book').substring(0, 20)}
+                              </div>
                             </div>
-                            <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1">{item.book?.title || item.title || <span className="text-gray-400 italic">Unknown</span>}</p>
                           </div>
                         ))}
                       </div>
@@ -437,20 +435,19 @@ export default function UserProfile() {
                             onClick={() => navigate(`/book/${item.book?._id || item.book || item.title}`)}
                             className="cursor-pointer group"
                           >
-                            <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gray-200 dark:bg-slate-700">
+                            <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                              {(item.book?.coverImage || item.coverImage) ? (
                                 <img 
-                                  src={item.book?.coverImage || item.coverImage || `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`}
+                                  src={item.book?.coverImage || item.coverImage}
                                   alt={item.book?.title || item.title}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  onError={(e) => { 
-                                    e.target.onerror = null; 
-                                    if (!e.target.src.includes('openlibrary')) {
-                                       e.target.src = `https://covers.openlibrary.org/b/title/${encodeURIComponent(item.book?.title || item.title || 'book')}-M.jpg`;
-                                    }
-                                  }}
+                                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
                                 />
+                              ) : null}
+                              <div className={`w-full h-full flex items-center justify-center p-2 text-center text-white text-xs font-bold ${(item.book?.coverImage || item.coverImage) ? 'hidden' : 'flex'}`}>
+                                {(item.book?.title || item.title || 'Book').substring(0, 20)}
+                              </div>
                             </div>
-                            <p className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1">{item.book?.title || item.title || <span className="text-gray-400 italic">Unknown</span>}</p>
                           </div>
                         ))}
                       </div>
