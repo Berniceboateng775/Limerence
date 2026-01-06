@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Typewriter from "../components/Typewriter";
+import axios from "axios";
+import { AuthContext } from "../context/AuthContext";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -55,18 +57,9 @@ export default function HomePage() {
   ];
   const randomComment = RANDOM_COMMENTS[Math.floor(Math.random() * RANDOM_COMMENTS.length)];
   
-  // State for different genre rows
-  const [darkRomance, setDarkRomance] = useState([]);
-  const [sportsRomance, setSportsRomance] = useState([]);
-  const [mafiaRomance, setMafiaRomance] = useState([]);
-  const [fantasy, setFantasy] = useState([]);
-  
-  // New Genres
-  const [werewolf, setWerewolf] = useState([]);
-  const [highSchool, setHighSchool] = useState([]);
-  const [newAdult, setNewAdult] = useState([]);
-  const [ceo, setCeo] = useState([]);
-  const [erotic, setErotic] = useState([]);
+  // State for different genre rows - now dynamic based on user preferences
+  const [genreBooks, setGenreBooks] = useState({});
+  const [userGenres, setUserGenres] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -225,38 +218,119 @@ export default function HomePage() {
       }
   };
   
+  // Map genre names to OpenLibrary query parameters
+  const genreToQuery = (genre) => {
+    const mapping = {
+      "Dark Romance": { type: 'subject', value: 'dark_romance' },
+      "Sports Romance": { type: 'subject', value: 'sports_romance' },
+      "Mafia Romance": { type: 'subject', value: 'mafia' },
+      "Fantasy Romance": { type: 'subject', value: 'fantasy_romance' },
+      "Werewolf": { type: 'q', value: 'werewolf romance' },
+      "High School": { type: 'q', value: 'high school romance' },
+      "College": { type: 'q', value: 'college romance' },
+      "New Adult": { type: 'subject', value: 'new_adult' },
+      "CEO/Billionaire": { type: 'subject', value: 'office_romance' },
+      "Enemies to Lovers": { type: 'q', value: 'enemies to lovers romance' },
+      "Friends to Lovers": { type: 'q', value: 'friends to lovers romance' },
+      "Second Chance": { type: 'q', value: 'second chance romance' },
+      "Forbidden Love": { type: 'q', value: 'forbidden love romance' },
+      "Slow Burn": { type: 'q', value: 'slow burn romance' },
+      "Paranormal": { type: 'subject', value: 'paranormal_romance' },
+      "Historical Romance": { type: 'subject', value: 'historical_romance' },
+      "Contemporary": { type: 'subject', value: 'contemporary_romance' },
+      "Romantic Comedy": { type: 'q', value: 'romantic comedy' },
+      "Suspense/Thriller": { type: 'subject', value: 'romantic_suspense' },
+      "Age Gap": { type: 'q', value: 'age gap romance' },
+      "Forced Proximity": { type: 'q', value: 'forced proximity romance' },
+      "Fake Dating": { type: 'q', value: 'fake dating romance' },
+      "Arranged Marriage": { type: 'q', value: 'arranged marriage romance' }
+    };
+    return mapping[genre] || { type: 'q', value: genre.toLowerCase() + ' romance' };
+  };
+
+  // Fetch user's preferred genres and load books
   useEffect(() => {
-      const loadAll = async () => {
+      const loadUserGenres = async () => {
           setLoading(true);
-          await Promise.all([
-              fetchGenre('subject', 'dark_romance', setDarkRomance),
-              fetchGenre('subject', 'sports_romance', setSportsRomance),
-              fetchGenre('subject', 'mafia', setMafiaRomance),
-              fetchGenre('subject', 'fantasy_romance', setFantasy),
+          try {
+              const token = localStorage.getItem("authToken") || localStorage.getItem("token");
+              if (!token) {
+                  // Fallback to default genres if not logged in
+                  setUserGenres(["Dark Romance", "Sports Romance", "Mafia Romance", "Fantasy Romance", "New Adult"]);
+                  return;
+              }
               
-              // New Genres using queries for better results
-              fetchGenre('q', 'werewolf romance', setWerewolf),
-              fetchGenre('q', 'high school romance', setHighSchool),
-              fetchGenre('subject', 'new_adult', setNewAdult),
-              fetchGenre('subject', 'office_romance', setCeo),
-              fetchGenre('subject', 'erotic', setErotic), 
-          ]);
-          setLoading(false);
+              // Fetch user's preferred genres from onboarding status
+              const res = await axios.get("http://localhost:5000/api/onboarding/status", {
+                  headers: { "x-auth-token": token }
+              });
+              
+              const preferredGenres = res.data.preferredGenres || [];
+              if (preferredGenres.length > 0) {
+                  setUserGenres(preferredGenres);
+              } else {
+                  // Fallback to default genres
+                  setUserGenres(["Dark Romance", "Sports Romance", "Mafia Romance", "Fantasy Romance", "New Adult"]);
+              }
+          } catch (err) {
+              console.error("Failed to fetch user genres:", err);
+              setUserGenres(["Dark Romance", "Sports Romance", "Mafia Romance", "Fantasy Romance", "New Adult"]);
+          }
       };
-      loadAll();
+      loadUserGenres();
   }, []);
 
-  // Pick Random Hero from Dark Romance when loaded
+  // Load books for each user genre
   useEffect(() => {
-      if (darkRomance.length > 0) {
-          const highRated = darkRomance.filter(b => b.rating >= 4.5);
-          const pool = highRated.length > 0 ? highRated : darkRomance;
+      if (userGenres.length === 0) return;
+      
+      const loadGenreBooks = async () => {
+          setLoading(true);
+          const booksData = {};
+          
+          await Promise.all(userGenres.map(async (genre) => {
+              try {
+                  const query = genreToQuery(genre);
+                  const url = query.type === 'subject'
+                      ? `https://openlibrary.org/search.json?subject=${query.value}&limit=60&fields=title,cover_i,author_name,key,ratings_average`
+                      : `https://openlibrary.org/search.json?q=${encodeURIComponent(query.value)}&limit=60&fields=title,cover_i,author_name,key,ratings_average`;
+                  
+                  const res = await fetch(url);
+                  const data = await res.json();
+                  let books = (data.docs || []).map(mapWork).filter(b => b.cover);
+                  
+                  if (books.length > 0) {
+                      books = shuffle(books);
+                      books = ensureCount(books, 50);
+                      booksData[genre] = books;
+                  } else {
+                      booksData[genre] = [];
+                  }
+              } catch (err) {
+                  console.warn(`Failed to fetch ${genre}`, err);
+                  booksData[genre] = [];
+              }
+          }));
+          
+          setGenreBooks(booksData);
+          setLoading(false);
+      };
+      
+      loadGenreBooks();
+  }, [userGenres]);
+
+  // Pick Random Hero from first genre when loaded
+  useEffect(() => {
+      const firstGenreBooks = genreBooks[userGenres[0]] || [];
+      if (firstGenreBooks.length > 0) {
+          const highRated = firstGenreBooks.filter(b => b.rating >= 4.5);
+          const pool = highRated.length > 0 ? highRated : firstGenreBooks;
           const randomPick = pool[Math.floor(Math.random() * pool.length)];
           setHeroBook(randomPick);
       } else {
           setHeroBook(HERO_FALLBACK);
       }
-  }, [darkRomance]);
+  }, [genreBooks, userGenres]);
 
   // Search Debounce - 1 second wait + minimum 5 chars for better UX
   useEffect(() => {
@@ -377,39 +451,28 @@ export default function HomePage() {
                    </div>
           </div>
 
-              {/* GENRE ROWS - Expanded List */}
-              {[
-                { title: "Dark Romance", data: darkRomance, key: "dark_romance" },
-                { title: "Sports Romance", data: sportsRomance, key: "sports_romance" },
-                { title: "Mafia & Crime", data: mafiaRomance, key: "mafia" },
-                { title: "Fantasy Worlds", data: fantasy, key: "fantasy" },
-                { title: "Werewolf & Shifter", data: werewolf, key: "werewolf" },
-                { title: "High School Drama", data: highSchool, key: "high_school" },
-                { title: "New Adult", data: newAdult, key: "new_adult" },
-                { title: "Office / CEO", data: ceo, key: "ceo" },
-                { title: "Spicy / Erotic", data: erotic, key: "erotic" }
-              ].map((section) => (
-                  <div key={section.key} className="mb-12 relative group/row">
+              {/* GENRE ROWS - Dynamic based on user's preferred genres */}
+              {userGenres.map((genre, index) => (
+                  <div key={genre} className="mb-12 relative group/row">
                       <div className="flex items-center justify-between mb-6 px-2">
                           <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
                               <span className="w-1.5 h-8 bg-gradient-to-b from-purple-500 to-rose-500 rounded-full block"></span>
-                              {section.title}
+                              {genre}
                           </h3>
                       </div>
 
                       <div 
                         className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide snap-x px-2"
-                        ref={el => rowRefs.current[section.key] = el}
+                        ref={el => rowRefs.current[genre] = el}
                       >
-                          {section.data.length > 0 ? section.data.map((book, i) => (
+                          {(genreBooks[genre]?.length > 0) ? genreBooks[genre].map((book, i) => (
                               <div 
-                                key={i} /* Index key intentional for repeats */
+                                key={i}
                                 onClick={() => navigate(`/book/${book.id}`)}
                                 className="snap-start shrink-0 w-[160px] md:w-[180px] group cursor-pointer"
                               >
                                   <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden shadow-lg group-hover:shadow-2xl group-hover:-translate-y-2 transition duration-300 relative mb-4 bg-gray-100">
                                       <img src={book.cover} className="w-full h-full object-cover" loading="lazy" onError={(e) => e.currentTarget.src = FALLBACK_COVER} referrerPolicy="no-referrer" />
-                                      {/* Gradient Overlay */}
                                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
                                       <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition duration-300">
                                           <p className="font-bold text-sm">★ {book.rating}</p>
@@ -432,13 +495,13 @@ export default function HomePage() {
 
                       {/* Navigation Buttons */}
                       <button 
-                        onClick={() => scrollRow(section.key, "prev")}
+                        onClick={() => scrollRow(genre, "prev")}
                         className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 dark:bg-slate-800/90 shadow-xl rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition hover:bg-white dark:hover:bg-slate-700 z-10 -ml-6 border border-gray-100 dark:border-slate-700 dark:text-white"
                       >
                           ←
                       </button>
                       <button 
-                        onClick={() => scrollRow(section.key, "next")}
+                        onClick={() => scrollRow(genre, "next")}
                         className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 dark:bg-slate-800/90 shadow-xl rounded-full flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition hover:bg-white dark:hover:bg-slate-700 z-10 -mr-6 border border-gray-100 dark:border-slate-700 dark:text-white"
                       >
                           →

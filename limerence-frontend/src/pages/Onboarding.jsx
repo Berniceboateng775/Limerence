@@ -10,7 +10,7 @@ const GENRE_ICONS = {
     "Forbidden Love": "🚫", "Slow Burn": "🔥", "Paranormal": "👻",
     "Historical Romance": "🏰", "Contemporary": "🌆", "Romantic Comedy": "😂",
     "Suspense/Thriller": "😱", "Age Gap": "⏳", "Forced Proximity": "🏠",
-    "Fake Dating": "💋", "Arranged Marriage": "💍"
+    "Fake Dating": "💋", "Arranged Marriage": "💍", "Spicy/Erotic": "🌶️"
 };
 
 export default function Onboarding() {

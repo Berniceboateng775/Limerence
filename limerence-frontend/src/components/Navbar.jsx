@@ -43,8 +43,10 @@ export default function Navbar() {
   ];
 
   const handleLogout = () => {
+    // Clear auth state first
     logout();
-    window.location.href = "/"; 
+    // Use replace to prevent back-navigation and avoid login flash
+    window.location.replace("/");
   };
 
   return (
