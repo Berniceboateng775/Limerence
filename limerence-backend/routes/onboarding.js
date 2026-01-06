@@ -62,29 +62,38 @@ router.get("/check-username/:username", async (req, res) => {
 });
 
 // @route   GET /api/onboarding/suggested-follows
-// @desc    Get top 5 users to follow
+// @desc    Get top 5 users to follow with full stats
 router.get("/suggested-follows", auth, async (req, res) => {
     try {
+        const Club = require("../models/Club");
+        
         const users = await User.find({ 
             _id: { $ne: req.user.userId },
             onboardingComplete: true
         })
         .sort({ 'stats.booksRead': -1 })
         .limit(5)
-        .select("name username avatar about stats.booksRead followers");
+        .select("name username avatar about stats.booksRead followers badges");
         
-        res.json({ 
-            users: users.map(u => ({
+        // Get clubs owned count for each user
+        const usersWithStats = await Promise.all(users.map(async (u) => {
+            const clubsOwned = await Club.countDocuments({ admins: u._id });
+            return {
                 id: u._id,
                 name: u.name,
                 username: u.username,
                 avatar: u.avatar,
                 about: u.about,
                 booksRead: u.stats?.booksRead || 0,
-                followersCount: u.followers?.length || 0
-            }))
-        });
+                followersCount: u.followers?.length || 0,
+                badgesCount: u.badges?.length || 0,
+                clubsOwned: clubsOwned
+            };
+        }));
+        
+        res.json({ users: usersWithStats });
     } catch (err) {
+        console.error(err);
         res.status(500).send("Server Error");
     }
 });

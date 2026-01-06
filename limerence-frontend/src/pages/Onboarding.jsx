@@ -293,7 +293,12 @@ export default function Onboarding() {
                                         <div className="flex-1 text-left">
                                             <p className="text-white font-bold">{user.name}</p>
                                             <p className="text-purple-400 text-sm">@{user.username || "user"}</p>
-                                            <p className="text-gray-500 text-xs">{user.booksRead} books read</p>
+                                            <div className="flex gap-3 mt-1 text-xs text-gray-400">
+                                                <span title="Books read">📚 Books read {user.booksRead}</span>
+                                                <span title="Followers">👥 Followers {user.followersCount || 0}</span>
+                                                <span title="Badges earned">🎖️ Badges earned {user.badgesCount || 0}</span>
+                                                <span title="Clubs owned">👑 Clubs owned {user.clubsOwned || 0}</span>
+                                            </div>
                                         </div>
                                         <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
                                             selectedFollows.includes(user.id) ? 'bg-purple-500 border-purple-500' : 'border-gray-600'
