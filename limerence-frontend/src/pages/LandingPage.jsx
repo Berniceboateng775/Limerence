@@ -6,7 +6,17 @@ import Logo from "../components/Logo";
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const FALLBACK_COVER = "https://placehold.co/400x600/e2e8f0/475569?text=Cover+Missing";
+  
+  // Rotating fallback covers - ensures adjacent books never show the same placeholder
+  const FALLBACK_COVERS = [
+    "https://imgs.search.brave.com/S8tfJ513iONq9-B99s8em0COgWFyiOxNWaEtXyNpI8c/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9kaXli/b29rY292ZXJzLmNv/bS93cC1jb250ZW50/L3VwbG9hZHMvMjAy/My8wNy9ub25maWN0/aW9uMi5qcGc",
+    "https://imgs.search.brave.com/kObvqYJhY_HJIlUg0nIfqeOFlWuwVsZp9eG581y4wx0/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9kaXli/b29rY292ZXJzLmNv/bS93cC1jb250ZW50/L3VwbG9hZHMvMjAy/My8wNy9ob3Jyb3I2/dGh1bWIuanBn",
+    "https://imgs.search.brave.com/9ik7J6-_yNuJ--7ZsP_eVHpuMEjdsAinEvqSgzay2Xc/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9kaXli/b29rY292ZXJzLmNv/bS93cC1jb250ZW50/L3VwbG9hZHMvMjAy/My8wOC9yb21hbmNl/NWEuanBn",
+    "https://imgs.search.brave.com/akL8f45CSVghY7uta-M3fouT_ZbynzqftJdnExJfo48/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9kaXli/b29rY292ZXJzLmNv/bS93cC1jb250ZW50/L3VwbG9hZHMvMjAy/My8wOC9yb21hbmNl/OGEuanBn",
+    "https://imgs.search.brave.com/6ZXsXoA_yusnoZaWojV7H6YYp6X6xCO-DDrXog1D_Xg/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9kaXli/b29rY292ZXJzLmNv/bS93cC1jb250ZW50/L3VwbG9hZHMvMjAy/My8wNy9ub25maWN0/aW9uMTMuanBn",
+    "https://imgs.search.brave.com/ZYOOeCN1_hjzm2Hb8u1nAH66j1ep7WXfkuAfahct3J4/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9kaXli/b29rY292ZXJzLmNv/bS93cC1jb250ZW50/L3VwbG9hZHMvMjAy/My8wNy9ub25maWN0/aW9uOS5qcGc"
+  ];
+  const getFallbackCover = (index) => FALLBACK_COVERS[index % FALLBACK_COVERS.length];
   const trendingRef = useRef(null); // Keep for horizontal scroll
   const trendingSectionRef = useRef(null); // NEW: For vertical navigation
   const featuredRef = useRef({});
@@ -27,6 +37,22 @@ export default function LandingPage() {
       { text: "The reading goals feature actually made me read 50 books this year. I'm obsessed!", user: "@page_turner", avatar: "👩🏾" }
   ];
 
+  // Rotating Hero Chat Comments (10 unique messages)
+  const heroComments = [
+    { text: "We're all collectively losing our minds over Chapter 55 right? 😭", user: "@em_reads", initials: "EM", color: "pink", likes: "1.2k" },
+    { text: "SOMEONE PASS THE POPCORN 🍿 This plot twist!", user: "@alex_page", initials: "AL", color: "blue", likes: "892" },
+    { text: "I can't believe she did that... my heart is BROKEN 💔", user: "@book_queen", initials: "BQ", color: "purple", likes: "2.1k" },
+    { text: "Just started this at 2am... it's now 6am and I regret nothing ☕", user: "@midnight_reader", initials: "MR", color: "indigo", likes: "567" },
+    { text: "The way he looked at her in chapter 12... I'm not okay 🥺", user: "@romance_addict", initials: "RA", color: "rose", likes: "1.8k" },
+    { text: "This author knows exactly how to destroy us emotionally 🔥", user: "@feels_too_much", initials: "FT", color: "orange", likes: "943" },
+    { text: "Adding this to my TBR immediately! Thanks bestie 📚", user: "@tbr_mountain", initials: "TM", color: "teal", likes: "421" },
+    { text: "The enemies-to-lovers tension is KILLING ME slowly 😩", user: "@trope_lover", initials: "TL", color: "red", likes: "1.5k" },
+    { text: "Why do I always fall for the morally grey characters? 🤦‍♀️", user: "@dark_side", initials: "DS", color: "slate", likes: "2.3k" },
+    { text: "Screaming crying throwing up over this ending!!! 😭😭😭", user: "@emotional_wreck", initials: "EW", color: "violet", likes: "3.1k" }
+  ];
+  const [heroComment1, setHeroComment1] = useState(0);
+  const [heroComment2, setHeroComment2] = useState(1);
+
   // Dynamic Reader Count
   useEffect(() => {
       // Set initial random count between 2500 and 4500
@@ -45,6 +71,21 @@ export default function LandingPage() {
       }, 5000);
       return () => clearInterval(interval);
   }, [testimonials.length]);
+
+  // Rotate Hero Comments - separate intervals to avoid dependency issues
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeroComment1(prev => (prev + 2) % 10); // Always cycles through 10 comments
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeroComment2(prev => (prev + 2) % 10); // Always cycles through 10 comments, offset by 1
+    }, 5500);
+    return () => clearInterval(interval);
+  }, []);
 
   const AUTHOR_FOCUS = [
     "Sarah J. Maas",
@@ -108,7 +149,7 @@ export default function LandingPage() {
   ]), [featureOne, featureTwo]);
 
 
-  const safeCover = (src, alt) => src || alt || FALLBACK_COVER;
+  const safeCover = (src, alt, index = 0) => src || alt || getFallbackCover(index);
 
   const scrollRow = (ref, dir) => {
     if (!ref?.current) return;
@@ -128,7 +169,7 @@ export default function LandingPage() {
     title: w.title || "Untitled",
     author: w.authors?.[0]?.name || w.author_name?.[0] || "Unknown",
     cover: toCover(w),
-    altCover: FALLBACK_COVER,
+    altCover: null, // Will use rotating fallback based on index
     rating: w.ratings_average ? Number(w.ratings_average.toFixed(1)) : (4 + Math.random() * 1).toFixed(1),
   });
 
@@ -201,10 +242,11 @@ export default function LandingPage() {
         .map(mapWork)
         .filter((b) => b.title);
 
-      // Dark Romance Specifics
+      // Dark Romance Specifics - use books with covers first, then fallback
       const darkDocs = darkResult?.works || [];
-      const darkBooks = darkDocs.map(mapWork).filter(b => b.cover);
-      setDarkHero(shuffle(darkBooks).slice(0, 2));
+      const darkBooks = darkDocs.map(mapWork);
+      const darkWithCovers = darkBooks.filter(b => b.cover);
+      // Will set darkHero after combined pool is ready as fallback
 
       const combined = dedupeBooks([...fromAuthors, ...fromSubjects]);
 
@@ -231,6 +273,12 @@ export default function LandingPage() {
       setTrendingBooks(trending);
       setFeatureOne(rowOne.length ? rowOne : master.slice(0, 12));
       setFeatureTwo(rowTwo.length ? rowTwo : master.slice(12, 24));
+      
+      // Set hero books - prefer dark romance with covers, fallback to trending books with covers
+      const heroPool = darkWithCovers.length >= 2 
+        ? darkWithCovers 
+        : master.filter(b => b.cover);
+      setDarkHero(shuffle(heroPool).slice(0, 2));
     } catch (err) {
       if (aborted) return;
       setErrorMsg("Book covers are slow to load. Retrying will help.");
@@ -314,28 +362,30 @@ export default function LandingPage() {
 
              {/* Right: Static Books (No Rotation) */}
              <div className="relative h-[600px] hidden lg:block">
-                 {/* Floating Chat Bubbles */}
-                 <div className="absolute top-20 left-0 bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-bl-sm shadow-xl z-30 animate-float-slow max-w-[200px] border border-gray-100 dark:border-slate-700">
+                 {/* Floating Chat Bubbles - Rotating */}
+                 <div key={heroComment1} className="absolute top-20 left-0 bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-bl-sm shadow-xl z-30 animate-float-slow max-w-[200px] border border-gray-100 dark:border-slate-700 transition-all duration-500">
                      <div className="flex items-center gap-2 mb-2">
-                         <div className="w-6 h-6 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-500 flex items-center justify-center text-[10px] font-bold">EM</div>
-                         <span className="text-xs font-bold text-gray-400">@em_reads</span>
+                         <div className={`w-6 h-6 rounded-full bg-${heroComments[heroComment1].color}-100 dark:bg-${heroComments[heroComment1].color}-900/30 text-${heroComments[heroComment1].color}-500 flex items-center justify-center text-[10px] font-bold`}>{heroComments[heroComment1].initials}</div>
+                         <span className="text-xs font-bold text-gray-400">{heroComments[heroComment1].user}</span>
                      </div>
-                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">"We're all collectively losing our minds over Chapter 55 right? 😭"</p>
-                     <span className="text-red-500 text-xs mt-2 block">❤ 1.2k</span>
+                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">"{heroComments[heroComment1].text}"</p>
+                     <span className="text-red-500 text-xs mt-2 block">❤ {heroComments[heroComment1].likes}</span>
                  </div>
 
-                 <div className="absolute bottom-40 right-0 bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-br-sm shadow-xl z-30 animate-float-delayed max-w-[220px] border border-gray-100 dark:border-slate-700">
+                 <div key={heroComment2} className="absolute bottom-40 right-0 bg-white dark:bg-slate-800 p-4 rounded-2xl rounded-br-sm shadow-xl z-30 animate-float-delayed max-w-[220px] border border-gray-100 dark:border-slate-700 transition-all duration-500">
                       <div className="flex items-center gap-2 mb-2">
-                         <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-500 flex items-center justify-center text-[10px] font-bold">AL</div>
-                         <span className="text-xs font-bold text-gray-400">@alex_page</span>
+                         <div className={`w-6 h-6 rounded-full bg-${heroComments[heroComment2].color}-100 dark:bg-${heroComments[heroComment2].color}-900/30 text-${heroComments[heroComment2].color}-500 flex items-center justify-center text-[10px] font-bold`}>{heroComments[heroComment2].initials}</div>
+                         <span className="text-xs font-bold text-gray-400">{heroComments[heroComment2].user}</span>
                      </div>
-                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">"SOMEONE PASS THE POPCORN 🍿 This plot twist!"</p>
+                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">"{heroComments[heroComment2].text}"</p>
+                     <span className="text-red-500 text-xs mt-2 block">❤ {heroComments[heroComment2].likes}</span>
                  </div>
 
                  {/* Dual Book Display */}
                  <div className="absolute top-10 right-10 w-64 aspect-[2/3] rounded-xl shadow-2xl z-10 border-4 border-white dark:border-slate-700 hover:scale-105 transition duration-500">
                      <img 
-                       src={safeCover(darkHero[0]?.cover, darkHero[0]?.altCover)} 
+                       src={safeCover(darkHero[0]?.cover, darkHero[0]?.altCover, 0)} 
+                       onError={(e) => (e.currentTarget.src = getFallbackCover(0))}
                        referrerPolicy="no-referrer"
                        className="w-full h-full object-cover rounded-lg" 
                        alt="Cover" 
@@ -344,7 +394,8 @@ export default function LandingPage() {
 
                  <div className="absolute top-40 left-10 w-60 aspect-[2/3] rounded-xl shadow-2xl z-20 border-4 border-white dark:border-slate-700 hover:scale-105 transition duration-500">
                      <img 
-                       src={safeCover(darkHero[1]?.cover, darkHero[1]?.altCover)} 
+                       src={safeCover(darkHero[1]?.cover, darkHero[1]?.altCover, 1)} 
+                       onError={(e) => (e.currentTarget.src = getFallbackCover(1))}
                        referrerPolicy="no-referrer"
                        className="w-full h-full object-cover rounded-lg" 
                        alt="Cover" 
@@ -360,10 +411,10 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center relative z-10">
               <div>
                   <h2 className="text-5xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
-                      All the genres.<br/> All the tropes.<br/> All you.
+                      Every genre.<br/> Every trope you crave.<br/> A library that feels like home.
                   </h2>
                   <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-                      Find your next favorite read, no matter your mood or vibe (we're not judging).
+                      Whatever your mood is, there’s a story waiting for you.
                   </p>
                   <div className="bg-white dark:bg-slate-800 shadow-xl rounded-full p-2 flex items-center max-w-md border border-gray-100 dark:border-slate-700 h-16 cursor-text transition-colors duration-300" onClick={() => navigate('/home')}>
                       <span className="pl-4 text-xl mr-3">🔍</span>
@@ -385,7 +436,7 @@ export default function LandingPage() {
                        >
                           <img 
                             src={safeCover(image)} 
-                            onError={(e) => (e.currentTarget.src = FALLBACK_COVER)} 
+                            onError={(e) => (e.currentTarget.src = getFallbackCover(0))} 
                             alt={name} 
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                           />
@@ -467,8 +518,8 @@ export default function LandingPage() {
                          >
                              <div className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-md group-hover:shadow-2xl transition duration-300">
                                  <img 
-                                   src={safeCover(book.cover, book.altCover)} 
-                                   onError={(e) => (e.currentTarget.src = FALLBACK_COVER)} 
+                                   src={safeCover(book.cover, book.altCover, i)} 
+                                   onError={(e) => (e.currentTarget.src = getFallbackCover(i))} 
                                    className="w-full h-full object-cover" 
                                    alt={book.title} 
                                    loading="lazy"
@@ -578,8 +629,8 @@ export default function LandingPage() {
                 >
                   <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-md group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] dark:group-hover:shadow-[0_20px_40px_-15px_rgba(255,255,255,0.1)] transition-all duration-500 transform group-hover:-translate-y-2 group-hover:rotate-1">
                     <img 
-                      src={safeCover(book.cover, book.altCover)} 
-                      onError={(e) => (e.currentTarget.src = FALLBACK_COVER)} 
+                      src={safeCover(book.cover, book.altCover, row.books.indexOf(book))} 
+                      onError={(e) => (e.currentTarget.src = getFallbackCover(row.books.indexOf(book)))} 
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                       alt={book.title} 
                       loading="lazy"
