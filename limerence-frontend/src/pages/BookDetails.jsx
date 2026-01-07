@@ -481,7 +481,7 @@ export default function BookDetails() {
   if (!book) return <div className="h-screen flex items-center justify-center text-gray-500 dark:text-gray-400 dark:bg-slate-900">Book not found.</div>;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-slate-900 dark:text-gray-100 transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-slate-900 dark:text-gray-100 transition-colors duration-300 overflow-x-hidden">
       <BadgeModal badge={showBadge} onClose={() => setShowBadge(null)} />
       
       {/* Top Search Bar */}

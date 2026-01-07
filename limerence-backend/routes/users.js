@@ -529,4 +529,37 @@ router.post("/favorite-friend/:friendId", auth, async (req, res) => {
   }
 });
 
+// Block a user
+router.post("/block/:id", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const userToBlock = await User.findById(req.params.id);
+    
+    if (!userToBlock) return res.status(404).json({ msg: "User not found" });
+    
+    // Initialize blockedUsers if undefined
+    if (!user.blockedUsers) user.blockedUsers = [];
+
+    if (!user.blockedUsers.includes(req.params.id)) {
+      user.blockedUsers.push(req.params.id);
+      
+      // Remove from friends if exists
+      user.friends = user.friends.filter(id => id.toString() !== req.params.id);
+      userToBlock.friends = userToBlock.friends.filter(id => id.toString() !== req.user.userId);
+      
+      // Remove from pins/favorites
+      user.pinnedFriends = user.pinnedFriends.filter(id => id.toString() !== req.params.id);
+      user.favoriteFriends = user.favoriteFriends.filter(id => id.toString() !== req.params.id);
+      
+      await user.save();
+      await userToBlock.save();
+    }
+    
+    res.json(user.blockedUsers);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
 module.exports = router;

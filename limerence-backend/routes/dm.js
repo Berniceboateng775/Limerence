@@ -60,6 +60,16 @@ router.post("/:friendId/message", auth, upload.single("attachment"), async (req,
     const userId = req.user.userId;
     const friendId = req.params.friendId;
     const { content, attachmentType, replyToId, replyToContent, replyToUsername } = req.body;
+    
+    // Check block status
+    const receiver = await User.findById(friendId);
+    if (receiver.blockedUsers && receiver.blockedUsers.includes(userId)) {
+        return res.status(403).json({ msg: "You have been blocked by this user" });
+    }
+    const sender = await User.findById(userId);
+    if (sender.blockedUsers && sender.blockedUsers.includes(friendId)) {
+        return res.status(403).json({ msg: "Unblock this user to send messages" });
+    }
 
     // Find or create conversation
     let conversation = await DirectMessage.findOne({
@@ -320,6 +330,30 @@ router.delete("/:friendId/message/:msgId", auth, async (req, res) => {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
+});
+
+
+
+// Delete entire conversation
+router.delete("/:friendId", auth, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const friendId = req.params.friendId;
+
+        // For MVP: Delete complete document if both agree? No, traditionally just clear messages.
+        // We'll use the deletedBy approach for all messages?
+        // Or simpler: Delete the document if it's 1-on-1 and we want to wipe it.
+        // User asked to "Delete Chat".
+        
+        await DirectMessage.deleteMany({
+            participants: { $all: [userId, friendId] }
+        });
+        
+        res.json({ msg: "Chat deleted" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
 });
 
 module.exports = router;

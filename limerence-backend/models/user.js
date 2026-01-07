@@ -108,7 +108,10 @@ const UserSchema = new mongoose.Schema({
     friend: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     count: { type: Number, default: 0 },
     lastMessage: { type: Date }
-  }]
+
+  }],
+
+  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
 });
 
 module.exports = mongoose.models.User || mongoose.model("User", UserSchema);

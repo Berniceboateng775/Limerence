@@ -8,6 +8,8 @@ import { toast } from "../components/Toast";
 import CustomAudioPlayer from "../components/CustomAudioPlayer";
 import AttachmentMenu from "../components/AttachmentMenu";
 import CameraModal from "../components/CameraModal";
+import socket from "../socket";
+import ConfirmModal from "../components/ConfirmModal";
 
 // Premium Wallpaper Gradients (same as Clubs)
 const WALLPAPERS = {
@@ -59,6 +61,51 @@ export default function Friends() {
   // Resizable Sidebar State
   const [sidebarWidth, setSidebarWidth] = useState(384); // Default w-96 (384px)
   const [isResizing, setIsResizing] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState(null); // Menu state
+
+  // Real-time states
+  const [onlineUsers, setOnlineUsers] = useState([]); 
+  const [typingUsers, setTypingUsers] = useState(new Set());
+  
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, action: null, targetId: null, title: "", message: "" });
+  
+  // Message Action Menu State
+  const [messageMenuId, setMessageMenuId] = useState(null);
+
+  // Open confirmation modal for actions
+  const openConfirmModal = (action, targetId, title, message) => {
+    setConfirmModal({ isOpen: true, action, targetId, title, message });
+    setActiveMenuId(null);
+  };
+  
+  const handleConfirmAction = async () => {
+    const { action, targetId } = confirmModal;
+    setConfirmModal({ isOpen: false, action: null, targetId: null, title: "", message: "" });
+    
+    if (action === "block") {
+      try {
+        await axios.post(`/api/users/block/${targetId}`, {}, { headers: { "x-auth-token": token } });
+        toast("User blocked", "success");
+        setFriends(prev => prev.filter(f => f._id !== targetId));
+        if (selectedFriend?._id === targetId) setSelectedFriend(null);
+      } catch (err) {
+        toast("Failed to block user", "error");
+      }
+    } else if (action === "deleteChat") {
+      try {
+        await axios.delete(`/api/dm/${targetId}`, { headers: { "x-auth-token": token } });
+        toast("Chat deleted", "success");
+        setLastMessages(prev => ({ ...prev, [targetId]: null }));
+        if (selectedFriend?._id === targetId) setMessages([]);
+      } catch (err) {
+        toast("Failed to delete chat", "error");
+      }
+    } else if (action === "deleteMessage") {
+      // For message deletion
+      await confirmDelete("everyone");
+    }
+  };
   
   // Use useRef to avoid closure issues in event listener if needed, but state works fine here
   const startResizing = useCallback(() => setIsResizing(true), []);
@@ -103,7 +150,69 @@ export default function Friends() {
     };
   }, [resizeHandler, stopResizing]);
 
-  
+  // Socket Connection & Listeners
+  useEffect(() => {
+    if (user) {
+        if (!socket.connected) {
+            socket.on("connect", () => {
+                console.log("Socket connected, joining", user.userId);
+                socket.emit("join", user.userId);
+            });
+            socket.connect();
+        } else {
+            socket.emit("join", user.userId);
+        }
+
+        socket.on("onlineUsers", (users) => {
+            setOnlineUsers(users || []);
+        });
+
+        socket.on("typing", ({ fromUsername, isClub }) => {
+           if (!isClub) {
+               // We identify by username for now as simple visual
+               setTypingUsers(prev => new Set(prev).add(fromUsername));
+           }
+        });
+        
+        socket.on("stopTyping", ({ fromUsername }) => {
+            setTypingUsers(prev => {
+                const n = new Set(prev);
+                n.delete(fromUsername);
+                return n;
+            });
+        });
+    }
+
+    return () => {
+        socket.off("onlineUsers");
+        socket.off("typing");
+        socket.off("stopTyping");
+    };
+  }, [user]);
+
+  // Typing Emitters
+  useEffect(() => {
+    if (newMessage) {
+        // Emit typing to selected friend
+        if (selectedFriend) {
+            socket.emit("typing", { to: selectedFriend._id, fromUsername: user?.name, isClub: false });
+            const timeout = setTimeout(() => socket.emit("stopTyping", { to: selectedFriend._id, fromUsername: user?.name, isClub: false }), 3000);
+            return () => clearTimeout(timeout);
+        }
+    }
+  }, [newMessage, selectedFriend, user]);
+
+  // Click outside to close menus (message menu, friend menu)
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setMessageMenuId(null);
+      setActiveMenuId(null);
+      setShowReactionPicker(null);
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
   // Per-friend wallpaper settings (stored in localStorage)
   const [friendWallpapers, setFriendWallpapers] = useState(() => {
     const saved = localStorage.getItem("friendWallpapers");
@@ -611,8 +720,8 @@ export default function Friends() {
           )}
           
           <div className="relative">
-            <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative text-[15px] leading-relaxed break-words ${
-              isMe ? "bg-purple-500 text-white rounded-br-sm" : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-bl-sm shadow-lg"
+            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words ${
+              isMe ? "bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-br-md" : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-bl-md border border-gray-100 dark:border-slate-600"
             }`}>
               {!isMe && <span className="block text-[12px] font-bold mb-0.5 text-purple-600 dark:text-purple-400">{senderName}</span>}
               
@@ -656,8 +765,13 @@ export default function Friends() {
               
               {msg.content && <p>{renderWithLinks(msg.content)}</p>}
               
-              <div className={`text-[10px] mt-1 text-right ${isMe ? 'text-purple-200' : 'opacity-50'}`}>
-                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <div className={`flex items-center justify-end gap-1 text-[10px] mt-1 ${isMe ? 'text-purple-200' : 'opacity-50'}`}>
+                <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {isMe && (
+                  <span className={msg.readBy?.length > 0 ? 'text-blue-300' : 'text-purple-300'}>
+                    {msg.readBy?.length > 0 ? '✓✓' : (onlineUsers.includes(selectedFriend?._id) ? '✓✓' : '✓')}
+                  </span>
+                )}
               </div>
             </div>
             
@@ -671,27 +785,57 @@ export default function Friends() {
               </div>
             )}
             
-            {/* Hover Actions Bar - Stays within container bounds */}
-            <div className={`absolute ${isMe ? 'right-full mr-1' : 'left-full ml-1'} top-1 opacity-0 group-hover:opacity-100 transition-all bg-white dark:bg-slate-700 rounded-xl shadow-xl border border-gray-200 dark:border-slate-600 p-1 flex gap-0.5 z-30`}>
-              {['❤️', '😂', '😮', '👍', '😢'].map(emoji => (
-                <button key={emoji} onClick={() => addReaction(msg._id, emoji)}
-                  className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition">
-                  {emoji}
+            {/* WhatsApp-style Dropdown Trigger */}
+            <button 
+              onClick={(e) => { e.stopPropagation(); setMessageMenuId(messageMenuId === msg._id ? null : msg._id); }}
+              className={`absolute ${isMe ? '-left-6' : '-right-6'} top-2 w-5 h-5 rounded-full bg-white dark:bg-slate-600 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-gray-100 dark:hover:bg-slate-500 z-20`}
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" className="text-gray-500 dark:text-gray-300">
+                <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+              </svg>
+            </button>
+            
+            {/* WhatsApp-style Action Menu */}
+            {messageMenuId === msg._id && (
+              <div 
+                className={`absolute ${isMe ? 'right-0' : 'left-0'} top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-600 z-50 overflow-hidden`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Quick Reactions */}
+                <div className="flex justify-around p-2 border-b border-gray-100 dark:border-slate-700">
+                  {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
+                    <button key={emoji} onClick={() => { addReaction(msg._id, emoji); setMessageMenuId(null); }}
+                      className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-lg transition hover:scale-110">
+                      {emoji}
+                    </button>
+                  ))}
+                  <button onClick={() => setShowReactionPicker(msg._id)}
+                    className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-gray-500 transition">
+                    ➕
+                  </button>
+                </div>
+                {/* Menu Items */}
+                <button onClick={() => { setReplyingTo(msg); setMessageMenuId(null); }}
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                  <span>↩️</span> Reply
                 </button>
-              ))}
-              <button onClick={() => setShowReactionPicker(isReactionPickerOpen ? null : msg._id)}
-                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition border-l border-gray-200 dark:border-slate-600">
-                ➕
-              </button>
-              <button onClick={() => setReplyingTo(msg)}
-                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition" title="Reply">
-                ↩️
-              </button>
-              <button onClick={() => setDeleteTarget(msg)}
-                className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-600 rounded-lg text-lg transition text-red-500" title="Delete">
-                🗑️
-              </button>
-            </div>
+                <button onClick={() => { navigator.clipboard.writeText(msg.content || ''); toast('Copied!', 'success'); setMessageMenuId(null); }}
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                  <span>📋</span> Copy
+                </button>
+                <button className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                  <span>↗️</span> Forward
+                </button>
+                <button className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                  <span>📌</span> Pin
+                </button>
+                <div className="h-px bg-gray-100 dark:bg-slate-700"></div>
+                <button onClick={() => { setDeleteTarget(msg); setMessageMenuId(null); }}
+                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-red-500">
+                  <span>🗑️</span> Delete
+                </button>
+              </div>
+            )}
 
             {/* Full Emoji Picker */}
             {isReactionPickerOpen && (
@@ -721,7 +865,7 @@ export default function Friends() {
           {/* Friends List Sidebar - WhatsApp Style */}
           <div 
             ref={sidebarRef}
-            className="bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex flex-col relative group/sidebar"
+            className="bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex flex-col relative group/sidebar select-none"
             style={{ width: sidebarWidth }}
           >
             {/* Resize Handle */}
@@ -768,7 +912,17 @@ export default function Friends() {
                       : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
                   }`}
                 >
-                  ⭐ Favorites ({favoriteFriends.length})
+                  Favorites
+                </button>
+                <button
+                  onClick={() => setFriendFilterTab("unread")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                    friendFilterTab === "unread" 
+                      ? "bg-purple-500 text-white" 
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  Unread
                 </button>
               </div>
             </div>
@@ -784,7 +938,11 @@ export default function Friends() {
                 // Filter, search, and sort friends
                 friends
                   .filter(f => f.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .filter(f => friendFilterTab === "favorites" ? favoriteFriends.includes(f._id) : true)
+                  .filter(f => {
+                    if (friendFilterTab === "favorites") return favoriteFriends.includes(f._id);
+                    if (friendFilterTab === "unread") return unreadCounts[f._id] > 0;
+                    return true;
+                  })
                   .sort((a, b) => {
                     // Pinned friends first
                     const aIsPinned = pinnedFriends.includes(a._id);
@@ -797,84 +955,102 @@ export default function Friends() {
                   <div
                     key={friend._id}
                     onClick={() => { setSelectedFriend(friend); setViewProfile(null); }}
-                    className={`flex items-center gap-3 p-4 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-50 dark:border-slate-700/50 ${
+                    className={`group relative flex items-center gap-3 p-3 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-50 dark:border-slate-700/50 h-[72px] ${
                       selectedFriend?._id === friend._id ? 'bg-purple-50 dark:bg-purple-900/20' : ''
                     }`}
+                    onContextMenu={(e) => { e.preventDefault(); setActiveMenuId(friend._id); }}
                   >
-                    {/* Avatar with online dot and bestie indicator */}
-                    <div className="relative">
-                      <div className={`w-14 h-14 rounded-full ${getAvatarColor(friend.name)} flex items-center justify-center text-white text-xl font-bold overflow-hidden shadow-lg`}>
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      <div className={`w-12 h-12 rounded-full ${getAvatarColor(friend.name)} flex items-center justify-center text-white text-lg font-bold overflow-hidden shadow-sm`}>
                         {friend.avatar ? (
                           <img src={`http://localhost:5000${friend.avatar}`} className="w-full h-full object-cover" alt="" />
                         ) : (
                           friend.name?.[0]?.toUpperCase() || '?'
                         )}
                       </div>
-                      {/* Bestie indicator - shows 😍 if this is the user's bestie */}
-                      {bestie === friend._id ? (
-                        <div className="absolute -bottom-1 -right-1 text-lg" title="Your Bestie!">😍</div>
-                      ) : (
-                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-800"></div>
+                      {bestie === friend._id && (
+                        <div className="absolute -bottom-1 -right-1 text-sm bg-white dark:bg-slate-800 rounded-full p-[1px]" title="Bestie">😍</div>
                       )}
-                      {/* Pinned indicator */}
                       {pinnedFriends.includes(friend._id) && (
-                        <div className="absolute -top-1 -left-1 text-xs">📌</div>
+                         <div className="absolute top-0 -left-1 text-[10px] bg-white dark:bg-slate-800 rounded-full shadow-sm px-1">📌</div>
+                      )}
+                      {favoriteFriends.includes(friend._id) && (
+                         <div className="absolute top-0 -right-1 text-[10px] bg-white dark:bg-slate-800 rounded-full shadow-sm px-1">⭐</div>
                       )}
                     </div>
                     
-                    {/* Name + Last Message + Pin/Favorite buttons */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <h3 className="font-bold text-gray-900 dark:text-white truncate">{friend.name}</h3>
-                          {bestie === friend._id && <span className="text-xs text-pink-500">(Bestie)</span>}
-                        </div>
-                        {/* Time or Pin/Fav */}
-                        <div className="flex flex-col items-end gap-1">
-                          {lastMessages[friend._id] && (
-                            <span className={`text-xs ${unreadCounts[friend._id] > 0 ? 'text-purple-500 font-bold' : 'text-gray-400'}`}>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-center h-full border-b border-transparent group-hover:border-transparent">
+                      <div className="flex justify-between items-baseline mb-1">
+                         <h3 className="font-bold text-gray-900 dark:text-white truncate text-[15px]">{friend.name}</h3>
+                         {lastMessages[friend._id] && (
+                            <span className={`text-[11px] ${unreadCounts[friend._id] > 0 ? 'text-green-500 font-bold' : 'text-gray-400'}`}>
                               {formatTime(lastMessages[friend._id].time)}
                             </span>
-                          )}
-                           <div className="flex items-center gap-0.5">
-                            {/* Pin Button */}
-                            <button
-                              onClick={(e) => handleTogglePinFriend(friend._id, e)}
-                              className={`p-1 rounded-full transition ${pinnedFriends.includes(friend._id) ? 'text-orange-500' : 'text-gray-400 hover:text-gray-600'}`}
-                              title={pinnedFriends.includes(friend._id) ? "Unpin" : "Pin (max 5)"}
-                            >
-                              <span className="text-xs">📌</span>
-                            </button>
-                            {/* Favorite Button */}
-                            <button
-                              onClick={(e) => handleToggleFavoriteFriend(friend._id, e)}
-                              className={`p-1 rounded-full transition ${favoriteFriends.includes(friend._id) ? 'text-yellow-500' : 'text-gray-400 hover:text-gray-600'}`}
-                              title={favoriteFriends.includes(friend._id) ? "Unfavorite" : "Favorite"}
-                            >
-                              <span className="text-xs">{favoriteFriends.includes(friend._id) ? '⭐' : '☆'}</span>
-                            </button>
-                          </div>
-                        </div>
+                         )}
                       </div>
-                      <div className="flex items-center justify-between mt-0.5">
-                        <p className={`text-sm truncate ${unreadCounts[friend._id] > 0 ? 'text-gray-800 dark:text-gray-200 font-medium' : 'text-gray-500'}`}>
-                          {lastMessages[friend._id] ? (
-                            <>
-                              {lastMessages[friend._id].isMe && <span className="text-purple-500">You: </span>}
-                              {lastMessages[friend._id].content?.substring(0, 30) || '...'}
-                              {lastMessages[friend._id].content?.length > 30 ? '...' : ''}
-                            </>
-                          ) : (
-                            <span className="italic text-gray-400">Start a conversation</span>
-                          )}
-                        </p>
-                        {unreadCounts[friend._id] > 0 && (
-                          <span className="bg-purple-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-2">
-                            {unreadCounts[friend._id]}
-                          </span>
-                        )}
+                      
+                      <div className="flex justify-between items-center relative">
+                         <div className="flex items-center gap-1 text-[13px] text-gray-500 truncate dark:text-gray-400 w-[85%]">
+                            {typingUsers.has(friend.name) ? (
+                                <span className="text-green-500 font-bold italic animate-pulse">typing...</span>
+                            ) : (
+                                <>
+                                    {lastMessages[friend._id]?.isMe && (
+                                        <span className={lastMessages[friend._id].read ? "text-blue-500" : "text-gray-400"}>
+                                            {lastMessages[friend._id].read ? "✓✓" : (onlineUsers.includes(friend._id) ? "✓✓" : "✓")} 
+                                        </span>
+                                    )}
+                                    <span className="truncate">
+                                        {lastMessages[friend._id]?.content || <span className="italic">Click to start chatting</span>}
+                                    </span>
+                                </>
+                            )}
+                         </div>
+                         
+                         {/* Hover Menu Trigger - Absolute Right */}
+                         <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center">
+                            {unreadCounts[friend._id] > 0 && activeMenuId !== friend._id && (
+                                <span className="bg-green-500 text-white text-[10px] font-bold px-1.5 h-4 flex items-center justify-center rounded-full mr-2">
+                                    {unreadCounts[friend._id]}
+                                </span>
+                            )}
+                            
+                            <button
+                               onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === friend._id ? null : friend._id); }}
+                               className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600 transition-all ${activeMenuId === friend._id || (activeMenuId === null && 'opacity-0 group-hover:opacity-100') ? 'opacity-100 bg-gray-200 dark:bg-slate-600' : 'opacity-0'}`}
+                            >
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"></path></svg>
+                            </button>
+                         </div>
                       </div>
                     </div>
+
+                    {/* Dropdown Menu */}
+                    {activeMenuId === friend._id && (
+                       <div className="absolute top-10 right-4 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-100 dark:border-slate-700 z-[60] py-1 text-gray-800 dark:text-gray-200 font-sans" onClick={e => e.stopPropagation()}>
+                           <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                               <span>📂</span> Archive chat
+                           </button>
+                           <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                               <span>📌</span> {pinnedFriends.includes(friend._id) ? "Unpin chat" : "Pin chat"}
+                           </button>
+                           <button onClick={(e) => { setActiveMenuId(null); setUnreadCounts(prev => ({...prev, [friend._id]: (prev[friend._id] || 0) + 1})); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                               <span>📝</span> Mark as unread
+                           </button>
+                           <button onClick={(e) => { setActiveMenuId(null); handleToggleFavoriteFriend(friend._id, e); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                               <span>{favoriteFriends.includes(friend._id) ? "⭐" : "☆"}</span> {favoriteFriends.includes(friend._id) ? "Remove favorite" : "Add favorite"}
+                           </button>
+                           <div className="h-px bg-gray-100 dark:bg-slate-700 my-1"></div>
+                           <button onClick={() => openConfirmModal('block', friend._id, 'Block User', `Block ${friend.name}? They won't be able to message you.`)} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm text-red-500 flex items-center gap-3">
+                               <span>🚫</span> Block
+                           </button>
+                           <button onClick={() => openConfirmModal('deleteChat', friend._id, 'Delete Chat', 'Delete this entire chat history? This cannot be undone.')} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm text-red-500 flex items-center gap-3">
+                               <span>🗑️</span> Delete chat
+                           </button>
+                       </div>
+                    )}
                   </div>
                 ))
               )}
@@ -897,11 +1073,15 @@ export default function Friends() {
                           <img src={`http://localhost:5000${selectedFriend.avatar}`} className="w-full h-full object-cover" alt="" />
                         ) : selectedFriend.name?.[0]?.toUpperCase()}
                       </div>
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-800"></div>
+                      {onlineUsers.includes(selectedFriend._id) && (
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-800"></div>
+                      )}
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-800 dark:text-white">{selectedFriend.name}</h3>
-                      <p className="text-xs text-green-500">Online • Tap for info</p>
+                      <p className={`text-xs ${onlineUsers.includes(selectedFriend._id) ? 'text-green-500' : 'text-gray-400'}`}>
+                        {onlineUsers.includes(selectedFriend._id) ? 'Online' : 'Offline'} • Tap for info
+                      </p>
                     </div>
                   </div>
                   
@@ -1206,6 +1386,17 @@ export default function Friends() {
           </div>
         </div>
       )}
+      
+      {/* Custom Confirmation Modal */}
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen}
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmModal({ isOpen: false, action: null, targetId: null, title: "", message: "" })}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.action === 'block' ? 'Block' : 'Delete'}
+        variant="danger"
+      />
     </div>
   );
 }

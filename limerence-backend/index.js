@@ -1,9 +1,12 @@
 require("dotenv").config()
 const express = require("express")
+const http = require("http")
+const socketIo = require("socket.io")
 const connectDB = require("./config/db")
 const path = require("path")
 
 const app = express()
+const server = http.createServer(app)
 
 // Connect to DB
 connectDB()
@@ -11,6 +14,16 @@ connectDB()
 // Middleware
 app.use(express.json())
 app.use(require("cors")())
+
+// Socket.io Setup
+const io = socketIo(server, {
+  cors: {
+    origin: "*", 
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  }
+});
+app.set("io", io); // Make available in routes
+require("./socket")(io); // Init socket handlers
 
 // Serve uploaded files
 app.use("/uploads", express.static("uploads"))
@@ -26,4 +39,4 @@ app.use("/api/dm", require("./routes/dm"))
 app.use("/api/onboarding", require("./routes/onboarding"))
 
 const PORT = process.env.PORT || 5000
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`))

@@ -11,6 +11,7 @@ import BadgeModal from "../components/BadgeModal";
 import AttachmentMenu from "../components/AttachmentMenu";
 import CameraModal from "../components/CameraModal";
 import PollModal from "../components/PollModal";
+import ConfirmModal from "../components/ConfirmModal";
 
 // Generate unique colors per USER (using userId for uniqueness)
 const getNameColor = (name, uniqueId) => {
@@ -125,6 +126,7 @@ export default function Clubs() {
   // Resizable Sidebar State
   const [sidebarWidth, setSidebarWidth] = useState(320); // Default w-80 (320px)
   const [isResizing, setIsResizing] = useState(false);
+  const [activeClubMenuId, setActiveClubMenuId] = useState(null); // Dropdown menu for clubs
   
   const startResizing = useCallback(() => setIsResizing(true), []);
   const stopResizing = useCallback(() => setIsResizing(false), []);
@@ -198,10 +200,12 @@ export default function Clubs() {
         // If clicking inside relevant components, do nothing
         if (event.target.closest('.emoji-picker-container') || 
             event.target.closest('.attachment-menu-container') ||
-            event.target.closest('.recording-ui')) return;
+            event.target.closest('.recording-ui') ||
+            event.target.closest('.club-dropdown-menu')) return;
             
         setShowEmojiPicker(false);
         setShowAttachmentMenu(false);
+        setActiveClubMenuId(null);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -846,9 +850,14 @@ export default function Clubs() {
         c.description.toLowerCase().includes(searchQuery.toLowerCase())
       );
     
-    // Filter by favorites tab
+    // Filter by tab
     if (clubFilterTab === "favorites") {
       result = result.filter(c => favoriteClubs.includes(c._id));
+    } else if (clubFilterTab === "unread") {
+      result = result.filter(c => {
+        const isMember = c.members.some(m => (m._id || m) === user._id);
+        return isMember && calculateUnread(c) > 0;
+      });
     }
     
     // Sort with pinned clubs at top, then by latest message
@@ -867,7 +876,11 @@ export default function Clubs() {
       const bTime = bLastMsg ? new Date(bLastMsg.createdAt).getTime() : 0;
       return bTime - aTime;
     });
-  }, [clubs, searchQuery, clubFilterTab, pinnedClubs, favoriteClubs]);
+  }, [clubs, searchQuery, clubFilterTab, pinnedClubs, favoriteClubs, user]);
+
+  // Separate joined and unjoined clubs
+  const joinedClubs = useMemo(() => filteredClubs.filter(c => c.members.some(m => (m._id || m) === user._id)), [filteredClubs, user]);
+  const unjoinedClubs = useMemo(() => filteredClubs.filter(c => !c.members.some(m => (m._id || m) === user._id)), [filteredClubs, user]);
 
   // Scroll to a specific message by ID
   const scrollToMessage = (msgId) => {
@@ -888,7 +901,7 @@ export default function Clubs() {
         
       {/* LEFT SIDEBAR: CLUB LIST */}
       <div 
-        className="bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col z-20 shadow-lg relative group/sidebar"
+        className="bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col z-20 shadow-lg relative group/sidebar select-none"
         style={{ width: sidebarWidth }}
       >
         {/* Resize Handle */}
@@ -915,7 +928,6 @@ export default function Clubs() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
-          {/* Filter Tabs */}
           <div className="flex gap-2 mt-3">
             <button
               onClick={() => setClubFilterTab("all")}
@@ -925,7 +937,7 @@ export default function Clubs() {
                   : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
               }`}
             >
-              All Clubs
+              All
             </button>
             <button
               onClick={() => setClubFilterTab("favorites")}
@@ -935,114 +947,173 @@ export default function Clubs() {
                   : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
               }`}
             >
-              ⭐ Favorites ({favoriteClubs.length})
+              Favorites
+            </button>
+            <button
+              onClick={() => setClubFilterTab("unread")}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                clubFilterTab === "unread" 
+                  ? "bg-purple-500 text-white" 
+                  : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+              }`}
+            >
+              Unread
             </button>
           </div>
         </div>
         
         {/* Club List */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {filteredClubs.map(club => {
-            const unread = calculateUnread(club);
-            const isMember = club.members.some(m => (m._id || m) === user._id);
-            const isBanned = club.bannedUsers?.some(b => (b._id || b) === user._id);
-            const lastMsg = club.messages?.[club.messages.length - 1];
-            
-            return (
-              <div 
-                key={club._id} 
-                onClick={() => { 
-                  if (isBanned) {
-                    toast("You have been banned from this club", "error");
-                    return;
-                  }
-                  if (isMember) { 
-                    setSelectedClub(club); 
-                    setViewProfile(null); // Close any open profile when switching clubs
-                    markAsRead(club._id);
-                  } else { 
-                    handleJoin(club._id); 
-                  }
-                }}
-                className={`p-3 rounded-xl cursor-pointer transition-all duration-300 flex items-center gap-3 border ${
-                  selectedClub?._id === club._id 
-                    ? "bg-purple-500/10 dark:bg-purple-500/20 backdrop-blur-md border-purple-500/30 shadow-lg scale-[1.02]" 
-                    : "bg-white/30 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 border-transparent hover:shadow-md"
-                }`}
-              >
-                {/* Club Avatar */}
-                <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-purple-400 to-pink-400 flex-shrink-0 shadow-md">
-                  {club.coverImage ? (
-                    <img src={`http://localhost:5000${club.coverImage}`} className="w-full h-full object-cover" alt="" /> 
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-lg font-bold text-white">
-                      {club.name[0]}
-                    </div>
-                  )}
-                </div>
+          {/* Your Clubs Section */}
+          {joinedClubs.length > 0 && (
+            <>
+              <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-2 pt-2 pb-1">Your Clubs</h3>
+              {joinedClubs.map(club => {
+                const unread = calculateUnread(club);
+                const lastMsg = club.messages?.[club.messages.length - 1];
                 
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-1">
-                      {pinnedClubs.includes(club._id) && <span className="text-xs">📌</span>}
-                      <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{club.name}</h4>
+                return (
+                  <div 
+                    key={club._id} 
+                    className={`group relative p-3 rounded-xl cursor-pointer transition-all duration-300 flex items-center gap-3 border ${
+                      selectedClub?._id === club._id 
+                        ? "bg-purple-500/10 dark:bg-purple-500/20 backdrop-blur-md border-purple-500/30 shadow-lg scale-[1.02]" 
+                        : "bg-white/30 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 border-transparent hover:shadow-md"
+                    }`}
+                    onClick={() => { setSelectedClub(club); setViewProfile(null); markAsRead(club._id); }}
+                  >
+                    {/* Club Avatar */}
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-purple-400 to-pink-400 flex-shrink-0 shadow-md">
+                      {club.coverImage ? (
+                        <img src={`http://localhost:5000${club.coverImage}`} className="w-full h-full object-cover" alt="" /> 
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-lg font-bold text-white">
+                          {club.name[0]}
+                        </div>
+                      )}
                     </div>
-                    {lastMsg && (
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
-                        {new Date(lastMsg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </span>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-1">
+                          {pinnedClubs.includes(club._id) && <span className="text-xs">📌</span>}
+                          {favoriteClubs.includes(club._id) && <span className="text-xs">⭐</span>}
+                          <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{club.name}</h4>
+                        </div>
+                        {lastMsg && (
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+                            {new Date(lastMsg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {lastMsg ? (
+                          <>
+                            <span className={(lastMsg.user?._id || lastMsg.user) === user._id ? "text-purple-500 font-bold" : ""}>
+                              {(lastMsg.user?._id || lastMsg.user) === user._id ? "You" : (lastMsg.username || 'Unknown')}: 
+                            </span>{" "}
+                            {lastMsg.content || '📎 Attachment'}
+                          </>
+                        ) : club.description}
+                      </p>
+                    </div>
+                    
+                    {/* Right Side: Unread + Dropdown */}
+                    <div className="flex flex-col items-end gap-1 ml-2">
+                      {unread > 0 && (
+                        <span className="min-w-[20px] h-5 rounded-full bg-green-500 text-white text-[11px] font-bold flex items-center justify-center px-1.5">
+                          {unread}
+                        </span>
+                      )}
+                      
+                      {/* Dropdown Trigger */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setActiveClubMenuId(activeClubMenuId === club._id ? null : club._id); }}
+                        className={`w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600 transition-all ${activeClubMenuId === club._id ? 'opacity-100 bg-gray-200 dark:bg-slate-600' : 'opacity-0 group-hover:opacity-100'}`}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"></path></svg>
+                      </button>
+                    </div>
+                    
+                    {/* Dropdown Menu */}
+                    {activeClubMenuId === club._id && (
+                      <div className="club-dropdown-menu absolute top-full right-4 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-100 dark:border-slate-700 z-[60] py-1 text-gray-800 dark:text-gray-200" onClick={e => e.stopPropagation()}>
+                        <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                          <span>📂</span> Archive chat
+                        </button>
+                        <button onClick={(e) => { handleTogglePinClub(club._id, e); setActiveClubMenuId(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                          <span>📌</span> {pinnedClubs.includes(club._id) ? "Unpin" : "Pin"}
+                        </button>
+                        <button onClick={(e) => { handleToggleFavoriteClub(club._id, e); setActiveClubMenuId(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                          <span>{favoriteClubs.includes(club._id) ? "⭐" : "☆"}</span> {favoriteClubs.includes(club._id) ? "Remove favorite" : "Favorite"}
+                        </button>
+                        <div className="h-px bg-gray-100 dark:bg-slate-700 my-1"></div>
+                        <button onClick={() => { setSelectedClub(club); setActiveClubMenuId(null); setTimeout(handleLeaveClub, 100); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm text-red-500 flex items-center gap-3">
+                          <span>🚪</span> Leave club
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {isMember && lastMsg ? (
-                      <>
-                        <span className={(lastMsg.user?._id || lastMsg.user) === user._id ? "text-purple-500 font-bold" : ""}>
-                          {(lastMsg.user?._id || lastMsg.user) === user._id ? "You" : (lastMsg.username || 'Unknown')}: 
-                        </span>{" "}
-                        {lastMsg.content || (
-                             lastMsg.attachmentType === 'image' || (typeof lastMsg.attachment === 'string' && (lastMsg.attachment.includes('.jpg') || lastMsg.attachment.includes('.png'))) ? '📷 Photo' : 
-                             lastMsg.attachmentType === 'voice' || (typeof lastMsg.attachment === 'string' && lastMsg.attachment.includes('.webm')) ? '🎤 Voice note' : 
-                             lastMsg.attachmentType === 'file' ? '📄 Document' : 
-                             lastMsg.attachmentType === 'video' ? '🎥 Video' : 
-                             lastMsg.attachmentType === 'location' ? '📍 Location' : 
-                             lastMsg.poll ? '📊 Poll' : 
-                             '📎 Attachment'
-                        )}
-                      </>
-                    ) : club.description}
-                  </p>
-                </div>
+                );
+              })}
+            </>
+          )}
+          
+          {/* Discover Clubs Section */}
+          {unjoinedClubs.length > 0 && clubFilterTab === "all" && (
+            <>
+              <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-2 pt-4 pb-1">Discover Clubs</h3>
+              {unjoinedClubs.map(club => {
+                const isBanned = club.bannedUsers?.some(b => (b._id || b) === user._id);
                 
-                {/* Top Right Buttons & Badges */}
-                <div className="flex flex-col items-end gap-1 ml-2">
-                  {/* Pin & Favorite on top right */}
-                  <div className="flex items-center gap-0.5">
-                    <button
-                      onClick={(e) => handleTogglePinClub(club._id, e)}
-                      className={`p-1 rounded-full transition hover:bg-gray-100 dark:hover:bg-slate-600 ${pinnedClubs.includes(club._id) ? 'text-orange-500' : 'text-gray-400'}`}
-                      title={pinnedClubs.includes(club._id) ? "Unpin" : "Pin (max 5)"}
-                    >
-                      <span className="text-xs">📌</span>
-                    </button>
-                    <button
-                      onClick={(e) => handleToggleFavoriteClub(club._id, e)}
-                      className={`p-1 rounded-full transition hover:bg-gray-100 dark:hover:bg-slate-600 ${favoriteClubs.includes(club._id) ? 'text-yellow-500' : 'text-gray-400'}`}
-                      title={favoriteClubs.includes(club._id) ? "Unfavorite" : "Favorite"}
-                    >
-                      <span className="text-xs">{favoriteClubs.includes(club._id) ? '⭐' : '☆'}</span>
-                    </button>
+                return (
+                  <div 
+                    key={club._id} 
+                    onClick={() => { 
+                      if (isBanned) {
+                        toast("You have been banned from this club", "error");
+                        return;
+                      }
+                      handleJoin(club._id); 
+                    }}
+                    className="p-3 rounded-xl cursor-pointer transition-all duration-300 flex items-center gap-3 border bg-white/30 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 border-transparent hover:shadow-md opacity-75 hover:opacity-100"
+                  >
+                    {/* Club Avatar */}
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-gray-300 to-gray-400 dark:from-slate-600 dark:to-slate-700 flex-shrink-0 shadow-md">
+                      {club.coverImage ? (
+                        <img src={`http://localhost:5000${club.coverImage}`} className="w-full h-full object-cover" alt="" /> 
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-lg font-bold text-white">
+                          {club.name[0]}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{club.name}</h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{club.description}</p>
+                    </div>
+                    
+                    <div className="flex flex-col items-end gap-1 ml-2">
+                      {isBanned ? (
+                        <span className="text-[10px] bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-bold">Banned</span>
+                      ) : (
+                        <span className="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold">Join</span>
+                      )}
+                      <span className="text-[10px] text-gray-400">{club.members.length} members</span>
+                    </div>
                   </div>
-                  {isBanned && <span className="text-[10px] bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-bold">Banned</span>}
-                  {!isMember && !isBanned && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold">Join</span>}
-                  {unread > 0 && isMember && (
-                    <span className="min-w-[20px] h-5 rounded-full bg-purple-500 text-white text-[11px] font-bold flex items-center justify-center px-1.5">
-                      {unread}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </>
+          )}
+          
+          {joinedClubs.length === 0 && unjoinedClubs.length === 0 && (
+            <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+              <span className="text-4xl block mb-2">📚</span>
+              <p className="text-sm">No clubs found</p>
+            </div>
+          )}
         </div>
       </div>
 

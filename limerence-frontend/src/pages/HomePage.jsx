@@ -352,7 +352,7 @@ export default function HomePage() {
   }, [searchQuery]);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 pb-0 flex flex-col transition-colors duration-300 pt-6">
+    <div className="min-h-screen bg-white dark:bg-slate-900 font-sans text-gray-900 dark:text-gray-100 pb-0 flex flex-col transition-colors duration-300 pt-6 overflow-x-hidden">
       
       {/* Search Results Overlay */}
       {searchQuery && (
