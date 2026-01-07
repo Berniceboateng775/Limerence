@@ -145,15 +145,15 @@ export default function ClubDetails() {
           <div className="p-6 -mt-12 relative">
             <div className="flex flex-col md:flex-row items-start gap-6">
               {/* Club Icon */}
-              <div className="w-24 h-24 bg-white dark:bg-slate-700 rounded-2xl shadow-xl flex items-center justify-center text-4xl border-4 border-white dark:border-slate-800">
+              <div className="w-16 h-16 bg-white dark:bg-slate-700 rounded-xl shadow-xl flex items-center justify-center text-2xl border-2 border-white dark:border-slate-800">
                 📚
               </div>
 
-              <div className="flex-1">
+              <div className="flex-1 -mt-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{club.name}</h1>
-                    <p className="text-gray-500 flex items-center gap-2 mt-1">
+                    <h1 className="text-2xl font-bold text-white drop-shadow-lg">{club.name}</h1>
+                    <p className="text-gray-700 dark:text-white/80 flex items-center gap-2 mt-1">
                       <span>👥 {members.length} members</span>
                       <span>•</span>
                       <span>👑 {admins.length} admin{admins.length > 1 ? "s" : ""}</span>
@@ -278,24 +278,6 @@ export default function ClubDetails() {
             <p className="text-gray-500 text-center py-8">No members yet. Be the first to join!</p>
           )}
         </div>
-
-        {/* Club Chat Preview (if member) */}
-        {isMember && (
-          <div className="mt-6 bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 border border-gray-100 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">💬 Club Chat</h2>
-              <button 
-                onClick={() => navigate("/clubs")}
-                className="text-purple-600 hover:underline text-sm font-medium"
-              >
-                Open Full Chat →
-              </button>
-            </div>
-            <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4 text-center">
-              <p className="text-gray-500">Chat preview coming soon...</p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

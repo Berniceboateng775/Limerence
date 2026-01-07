@@ -93,48 +93,62 @@ export default function Notifications() {
                                         </span>
                                         
                                         {/* Accept/Reject Friend Request */}
-                                        {notif.type === 'friend_request' && !notif.isRead && notif.sender && (
-                                            <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                                                <button 
-                                                    onClick={async () => {
-                                                        try {
-                                                            await axios.post('/api/users/friend-response', 
-                                                                { requesterId: notif.sender._id || notif.sender, action: 'accept' },
-                                                                { headers: { 'x-auth-token': token } }
-                                                            );
-                                                            markAsRead(notif._id);
-                                                            // Show success feedback
-                                                            setNotifications(prev => prev.map(n => 
-                                                                n._id === notif._id ? { ...n, isRead: true, content: '✅ Friend request accepted!' } : n
-                                                            ));
-                                                        } catch (err) {
-                                                            console.error(err);
-                                                        }
-                                                    }} 
-                                                    className="text-xs bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-bold transition"
-                                                >
-                                                    ✓ Accept
-                                                </button>
-                                                <button 
-                                                    onClick={async () => {
-                                                        try {
-                                                            await axios.post('/api/users/friend-response', 
-                                                                { requesterId: notif.sender._id || notif.sender, action: 'reject' },
-                                                                { headers: { 'x-auth-token': token } }
-                                                            );
-                                                            markAsRead(notif._id);
-                                                            setNotifications(prev => prev.map(n => 
-                                                                n._id === notif._id ? { ...n, isRead: true, content: 'Friend request declined' } : n
-                                                            ));
-                                                        } catch (err) {
-                                                            console.error(err);
-                                                        }
-                                                    }} 
-                                                    className="text-xs bg-gray-300 dark:bg-slate-600 hover:bg-gray-400 dark:hover:bg-slate-500 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full font-bold transition"
-                                                >
-                                                    ✗ Decline
-                                                </button>
-                                            </div>
+                                        {notif.type === 'friend_request' && notif.sender && (
+                                            notif.content.includes('accepted') ? (
+                                                <div className="mt-3">
+                                                    <span className="text-xs bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 px-4 py-2 rounded-full font-bold">
+                                                        ✓ Accepted
+                                                    </span>
+                                                </div>
+                                            ) : notif.content.includes('declined') ? (
+                                                <div className="mt-3">
+                                                    <span className="text-xs bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 px-4 py-2 rounded-full font-bold">
+                                                        ✗ Declined
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <div className="mt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            try {
+                                                                await axios.post('/api/users/friend-response', 
+                                                                    { requesterId: notif.sender._id || notif.sender, action: 'accept' },
+                                                                    { headers: { 'x-auth-token': token } }
+                                                                );
+                                                                // Update notification to show accepted state
+                                                                setNotifications(prev => prev.map(n => 
+                                                                    n._id === notif._id ? { ...n, isRead: true, content: '✅ Friend request accepted!' } : n
+                                                                ));
+                                                                fetchUnreadNotifications();
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                            }
+                                                        }} 
+                                                        className="text-xs bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full font-bold transition"
+                                                    >
+                                                        ✓ Accept
+                                                    </button>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            try {
+                                                                await axios.post('/api/users/friend-response', 
+                                                                    { requesterId: notif.sender._id || notif.sender, action: 'reject' },
+                                                                    { headers: { 'x-auth-token': token } }
+                                                                );
+                                                                setNotifications(prev => prev.map(n => 
+                                                                    n._id === notif._id ? { ...n, isRead: true, content: 'Friend request declined' } : n
+                                                                ));
+                                                                fetchUnreadNotifications();
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                            }
+                                                        }} 
+                                                        className="text-xs bg-gray-300 dark:bg-slate-600 hover:bg-gray-400 dark:hover:bg-slate-500 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full font-bold transition"
+                                                    >
+                                                        ✗ Decline
+                                                    </button>
+                                                </div>
+                                            )
                                         )}
                                     </div>
                                     {!notif.isRead && (

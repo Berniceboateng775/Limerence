@@ -68,8 +68,8 @@ export default function Badges() {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans pb-24 transition-colors duration-300">
-             {/* Premium Hero */}
-            <div className="relative pt-32 pb-16 px-6 text-center overflow-hidden">
+            {/* Premium Hero */}
+            <div className="relative pt-16 pb-12 px-6 text-center overflow-hidden">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-purple-300/20 dark:bg-purple-900/20 rounded-full blur-[100px] pointer-events-none"></div>
                 <h1 className="relative text-5xl md:text-7xl font-serif font-bold mb-4 tracking-tighter text-slate-900 dark:text-white">
                     Hall of <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500">Fame.</span>

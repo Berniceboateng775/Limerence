@@ -39,7 +39,7 @@ export default function Navbar() {
     { path: "/friends", label: "Friends", icon: "👯", hasDMBadge: true },
     { path: "/clubs", label: "Clubs", icon: "💬", hasBadge: true },
     { path: "/badges", label: "Badges", icon: "🎖️" }, 
-    { path: "/moods", label: "Moods", icon: "🔥" },
+    { path: "/moods", label: "Genres", icon: "🔥" },
     { path: "/profile", label: "Me", icon: "👤" },
   ];
 

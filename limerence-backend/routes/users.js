@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const auth = require("../middleware/auth");
+const { checkAndAwardBadge } = require("../utils/badgeUtils");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");

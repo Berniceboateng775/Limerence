@@ -243,7 +243,8 @@ export default function HomePage() {
       "Age Gap": { type: 'q', value: 'age gap romance' },
       "Forced Proximity": { type: 'q', value: 'forced proximity romance' },
       "Fake Dating": { type: 'q', value: 'fake dating romance' },
-      "Arranged Marriage": { type: 'q', value: 'arranged marriage romance' }
+      "Arranged Marriage": { type: 'q', value: 'arranged marriage romance' },
+      "Spicy/Erotic": { type: 'q', value: 'erotic romance steamy' }
     };
     return mapping[genre] || { type: 'q', value: genre.toLowerCase() + ' romance' };
   };

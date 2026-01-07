@@ -27,7 +27,8 @@ const AVAILABLE_GENRES = [
     "Age Gap",
     "Forced Proximity",
     "Fake Dating",
-    "Arranged Marriage"
+    "Arranged Marriage",
+    "Spicy/Erotic"
 ];
 
 // @route   GET /api/onboarding/genres

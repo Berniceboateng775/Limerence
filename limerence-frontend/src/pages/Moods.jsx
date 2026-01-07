@@ -34,19 +34,16 @@ export default function Moods() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-24 transition-colors duration-300">
-      {/* Header - matches Badges page style */}
-      <div className="bg-slate-900 text-white py-16 px-4 shadow-sm relative overflow-hidden mb-8">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-pink-600/20 rounded-full blur-[80px]"></div>
+      {/* Header - matches Badges (Hall of Fame) page style */}
+      <div className="relative pt-16 pb-12 px-6 text-center overflow-hidden bg-slate-50 dark:bg-slate-950">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-purple-300/20 dark:bg-purple-900/20 rounded-full blur-[100px] pointer-events-none"></div>
         
-        <div className="max-w-4xl mx-auto relative z-10 text-center space-y-4">
-          <h1 className="text-4xl md:text-6xl font-serif font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200">
-            What's your vibe?
-          </h1>
-          <p className="text-lg text-purple-200/80 font-light max-w-xl mx-auto">
-            Pick a mood, find your next obsession.
-          </p>
-        </div>
+        <h1 className="relative text-5xl md:text-7xl font-serif font-bold mb-4 tracking-tighter text-slate-900 dark:text-white">
+          What's your <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500">vibe?</span>
+        </h1>
+        <p className="relative text-xl text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
+          Pick a genre, find your next obsession.
+        </p>
       </div>
 
       {/* Mood Cards */}
