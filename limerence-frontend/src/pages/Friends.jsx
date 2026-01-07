@@ -593,10 +593,12 @@ export default function Friends() {
     if (!selectedFriend) return;
     try {
       await axios.post(`/api/dm/${selectedFriend._id}/message/${messageId}/reaction`, { emoji }, { headers: { "x-auth-token": token } });
-      fetchConversation(selectedFriend._id);
+      await fetchConversation(selectedFriend._id);
       setShowReactionPicker(null);
+      setMessageMenuId(null);
     } catch (err) {
-      console.error(err);
+      console.error("Reaction error:", err);
+      toast("Failed to react", "error");
     }
   };
 
@@ -775,72 +777,99 @@ export default function Friends() {
               </div>
             </div>
             
-            {/* Reactions Display - Inline below bubble */}
+            {/* Reactions Display - Inline below bubble (clickable to toggle) */}
             {msg.reactions?.length > 0 && (
-              <div className="flex gap-0.5 bg-white dark:bg-slate-600 rounded-full px-2 py-1 shadow-md mt-1 w-fit">
+              <div className="flex gap-0.5 bg-white dark:bg-slate-600 rounded-full px-2 py-1 shadow-md mt-1 w-fit cursor-pointer">
                 {[...new Set(msg.reactions.map(r => r.emoji))].slice(0, 5).map((emoji, i) => (
-                  <span key={i} className="text-sm">{emoji}</span>
+                  <span 
+                    key={i} 
+                    className="text-sm hover:scale-125 transition cursor-pointer"
+                    onClick={() => addReaction(msg._id, emoji)}
+                  >{emoji}</span>
                 ))}
-                <span className="text-xs text-gray-500 dark:text-gray-300 ml-1">{msg.reactions.length}</span>
               </div>
             )}
             
-            {/* WhatsApp-style Dropdown Trigger */}
+            {/* WhatsApp-style Dropdown Trigger - at TOP of message */}
             <button 
-              onClick={(e) => { e.stopPropagation(); setMessageMenuId(messageMenuId === msg._id ? null : msg._id); }}
-              className={`absolute ${isMe ? '-left-6' : '-right-6'} top-2 w-5 h-5 rounded-full bg-white dark:bg-slate-600 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-gray-100 dark:hover:bg-slate-500 z-20`}
+              onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setMessageMenuId(messageMenuId === msg._id ? null : msg._id); setShowReactionPicker(null); }}
+              className={`absolute ${isMe ? '-left-7' : '-right-7'} top-0 w-6 h-6 rounded-full bg-white dark:bg-slate-700 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-gray-100 dark:hover:bg-slate-600 z-20 border border-gray-200 dark:border-slate-600`}
             >
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" className="text-gray-500 dark:text-gray-300">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" className="text-gray-500 dark:text-gray-300">
                 <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
               </svg>
             </button>
             
-            {/* WhatsApp-style Action Menu */}
-            {messageMenuId === msg._id && (
+            {/* Vertical Action Menu - appears beside text at top */}
+            {messageMenuId === msg._id && !isReactionPickerOpen && (
               <div 
-                className={`absolute ${isMe ? 'right-0' : 'left-0'} top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-600 z-50 overflow-hidden`}
-                onClick={(e) => e.stopPropagation()}
+                className={`absolute ${isMe ? 'right-full mr-2' : 'left-full ml-2'} top-0 w-44 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-600 z-50 overflow-hidden`}
+                onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
               >
-                {/* Quick Reactions */}
-                <div className="flex justify-around p-2 border-b border-gray-100 dark:border-slate-700">
+                {/* Quick Reactions Row */}
+                <div className="flex items-center justify-around p-2 border-b border-gray-100 dark:border-slate-700">
                   {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => (
-                    <button key={emoji} onClick={() => { addReaction(msg._id, emoji); setMessageMenuId(null); }}
-                      className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-lg transition hover:scale-110">
+                    <button key={emoji} 
+                      onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); addReaction(msg._id, emoji); setMessageMenuId(null); }}
+                      className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-lg transition hover:scale-110">
                       {emoji}
                     </button>
                   ))}
-                  <button onClick={() => setShowReactionPicker(msg._id)}
-                    className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-gray-500 transition">
-                    ➕
+                  <button 
+                    onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowReactionPicker(msg._id); }}
+                    className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-lg transition">
+                    +
                   </button>
                 </div>
-                {/* Menu Items */}
-                <button onClick={() => { setReplyingTo(msg); setMessageMenuId(null); }}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                {/* Menu Items with Text */}
+                <button 
+                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); setReplyingTo(msg); setMessageMenuId(null); }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
                   <span>↩️</span> Reply
                 </button>
-                <button onClick={() => { navigator.clipboard.writeText(msg.content || ''); toast('Copied!', 'success'); setMessageMenuId(null); }}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                <button 
+                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); navigator.clipboard.writeText(msg.content || ''); toast('Copied!', 'success'); setMessageMenuId(null); }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
                   <span>📋</span> Copy
                 </button>
-                <button className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
                   <span>↗️</span> Forward
                 </button>
-                <button className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
                   <span>📌</span> Pin
                 </button>
                 <div className="h-px bg-gray-100 dark:bg-slate-700"></div>
-                <button onClick={() => { setDeleteTarget(msg); setMessageMenuId(null); }}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-3 text-red-500">
+                <button 
+                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDeleteTarget(msg); setMessageMenuId(null); }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-red-500">
                   <span>🗑️</span> Delete
                 </button>
               </div>
             )}
-
-            {/* Full Emoji Picker */}
+            
+            {/* Compact Emoji Picker - replaces menu when + clicked */}
             {isReactionPickerOpen && (
-              <div className="absolute bottom-full left-0 z-50 mb-2">
-                <EmojiPicker onEmojiClick={(e) => addReaction(msg._id, e.emoji)} theme="dark" height={350} />
+              <div 
+                className={`absolute ${isMe ? 'right-full mr-2' : 'left-full ml-2'} top-0 z-50`}
+                onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              >
+                <EmojiPicker 
+                  onEmojiClick={(emojiData) => { addReaction(msg._id, emojiData.emoji); setShowReactionPicker(null); setMessageMenuId(null); }} 
+                  theme="dark" 
+                  height={320} 
+                  width={320}
+                  previewConfig={{ showPreview: false }}
+                  searchDisabled
+                  skinTonesDisabled
+                />
               </div>
             )}
           </div>

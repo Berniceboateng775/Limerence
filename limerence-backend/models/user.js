@@ -111,6 +111,10 @@ const UserSchema = new mongoose.Schema({
 
   }],
 
+  // Archived Chats
+  archivedFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  archivedClubs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Club" }],
+
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
 });
 

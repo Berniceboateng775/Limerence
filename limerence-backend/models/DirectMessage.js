@@ -44,13 +44,25 @@ const DirectMessageSchema = new mongoose.Schema({
     deletedBy: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
-    }]
+    }],
+    isForwarded: {
+      type: Boolean,
+      default: false
+    },
+    forwardedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }
   }],
   // Track when each participant last read the conversation
   lastReadBy: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     lastReadAt: { type: Date, default: Date.now }
   }],
+  // Pinned message
+  pinnedMessage: {
+    type: mongoose.Schema.Types.ObjectId
+  },
   createdAt: {
     type: Date,
     default: Date.now

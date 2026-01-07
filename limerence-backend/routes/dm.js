@@ -356,4 +356,98 @@ router.delete("/:friendId", auth, async (req, res) => {
     }
 });
 
+// Pin/Unpin a message
+router.post("/:friendId/message/:messageId/pin", auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { friendId, messageId } = req.params;
+
+    const conversation = await DirectMessage.findOne({
+      participants: { $all: [userId, friendId] }
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ msg: "Conversation not found" });
+    }
+
+    // Toggle pin
+    if (conversation.pinnedMessage?.toString() === messageId) {
+      conversation.pinnedMessage = null;
+    } else {
+      conversation.pinnedMessage = messageId;
+    }
+
+    await conversation.save();
+    
+    // Return pinned message with details
+    const pinnedMsg = conversation.pinnedMessage 
+      ? conversation.messages.id(conversation.pinnedMessage)
+      : null;
+    
+    res.json({ pinnedMessage: pinnedMsg });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
+// Forward a message to another friend
+router.post("/:friendId/message/:messageId/forward", auth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { friendId, messageId } = req.params;
+    const { targetFriendIds } = req.body; // Array of friend IDs to forward to
+
+    // Get original conversation and message
+    const origConversation = await DirectMessage.findOne({
+      participants: { $all: [userId, friendId] }
+    });
+
+    if (!origConversation) {
+      return res.status(404).json({ msg: "Conversation not found" });
+    }
+
+    const originalMsg = origConversation.messages.id(messageId);
+    if (!originalMsg) {
+      return res.status(404).json({ msg: "Message not found" });
+    }
+
+    const user = await require("../models/User").findById(userId);
+    const forwardedCount = [];
+
+    // Forward to each target
+    for (const targetId of targetFriendIds) {
+      let targetConversation = await DirectMessage.findOne({
+        participants: { $all: [userId, targetId] }
+      });
+
+      if (!targetConversation) {
+        targetConversation = new DirectMessage({ 
+          participants: [userId, targetId], 
+          messages: [] 
+        });
+      }
+
+      const newMessage = {
+        sender: userId,
+        content: originalMsg.content,
+        attachment: originalMsg.attachment,
+        attachmentType: originalMsg.attachmentType,
+        isForwarded: true,
+        forwardedFrom: originalMsg.sender
+      };
+
+      targetConversation.messages.push(newMessage);
+      targetConversation.updatedAt = new Date();
+      await targetConversation.save();
+      forwardedCount.push(targetId);
+    }
+
+    res.json({ forwardedTo: forwardedCount.length, targetIds: forwardedCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
 module.exports = router;

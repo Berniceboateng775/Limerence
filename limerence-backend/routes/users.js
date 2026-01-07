@@ -562,4 +562,64 @@ router.post("/block/:id", auth, async (req, res) => {
   }
 });
 
+// Toggle Archive Friend
+router.post("/archive/friend/:friendId", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const friendId = req.params.friendId;
+    
+    const isArchived = user.archivedFriends.some(id => id.toString() === friendId);
+    
+    if (isArchived) {
+      user.archivedFriends = user.archivedFriends.filter(id => id.toString() !== friendId);
+    } else {
+      user.archivedFriends.push(friendId);
+    }
+    
+    await user.save();
+    res.json({ archivedFriends: user.archivedFriends, isArchived: !isArchived });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Toggle Archive Club
+router.post("/archive/club/:clubId", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const clubId = req.params.clubId;
+    
+    const isArchived = user.archivedClubs.some(id => id.toString() === clubId);
+    
+    if (isArchived) {
+      user.archivedClubs = user.archivedClubs.filter(id => id.toString() !== clubId);
+    } else {
+      user.archivedClubs.push(clubId);
+    }
+    
+    await user.save();
+    res.json({ archivedClubs: user.archivedClubs, isArchived: !isArchived });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get user's archived items
+router.get("/archived", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId)
+      .populate("archivedFriends", "name avatar")
+      .populate("archivedClubs", "name coverImage");
+    res.json({ 
+      archivedFriends: user.archivedFriends || [],
+      archivedClubs: user.archivedClubs || []
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
 module.exports = router;
