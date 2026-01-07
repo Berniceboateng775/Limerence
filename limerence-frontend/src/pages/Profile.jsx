@@ -13,6 +13,8 @@ export default function Profile() {
   const [editForm, setEditForm] = useState({ name: "", email: "", avatar: "", about: "" });
   const [activeTab, setActiveTab] = useState("books");
   const [activeNetworkTab, setActiveNetworkTab] = useState("followers");
+  const [showSummary, setShowSummary] = useState(false);
+  const [activeBookStatus, setActiveBookStatus] = useState("want_to_read");
   
   // Tab data states
   const [stats, setStats] = useState(null);
@@ -190,10 +192,24 @@ export default function Profile() {
 
             {/* Info */}
             <div className="flex-1 text-center md:text-left">
+              {/* Clickable Username with Badge */}
+              <div className="flex items-center gap-2 justify-center md:justify-start">
+                <button 
+                  onClick={() => setShowSummary(!showSummary)}
+                  className="text-purple-600 dark:text-purple-400 font-bold hover:underline"
+                >
+                  @{profile.username || profile.name.toLowerCase().replace(/\s/g, '')}
+                </button>
+                <span className="bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                  {stats?.booksRead || 0} Reads
+                </span>
+              </div>
               <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white">{profile.name}</h1>
-              {profile.username && <p className="text-purple-500 dark:text-purple-400">@{profile.username}</p>}
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">{profile.email}</p>
-              <p className="text-gray-600 dark:text-gray-300 italic text-sm max-w-md">
+              <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1 justify-center md:justify-start">
+                <span className="font-medium">Followers <span className="text-purple-600 dark:text-purple-400">{stats?.followersCount || 0}</span></span>
+                <span className="font-medium">Following <span className="text-purple-600 dark:text-purple-400">{stats?.followingCount || 0}</span></span>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300 italic text-sm max-w-md mt-2">
                 "{profile.about || "Hey there! I'm using Limerence 📚"}"
               </p>
               
@@ -290,6 +306,84 @@ export default function Profile() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* Summary Popup Modal - Hardcover Style */}
+          {showSummary && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowSummary(false)}>
+              <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">📊 {profile.name}'s Summary</h3>
+                  <button onClick={() => setShowSummary(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-4 text-center text-white">
+                    <div className="text-2xl font-bold">{stats?.booksRead || 0}</div>
+                    <div className="text-xs opacity-90">📚 Books Read</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl p-4 text-center text-white">
+                    <div className="text-2xl font-bold">{(stats?.pagesRead || 0).toLocaleString()}</div>
+                    <div className="text-xs opacity-90">📄 Pages</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl p-4 text-center text-white">
+                    <div className="text-2xl font-bold">{stats?.authorsRead || 0}</div>
+                    <div className="text-xs opacity-90">✍️ Authors</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-4 text-center text-white">
+                    <div className="text-2xl font-bold">{stats?.reviewsPosted || 0}</div>
+                    <div className="text-xs opacity-90">📝 Reviews</div>
+                  </div>
+                </div>
+
+                {/* Books by Status */}
+                <div className="mb-6">
+                  <h4 className="font-bold text-gray-900 dark:text-white mb-3">📖 Books by Status</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between bg-purple-50 dark:bg-purple-900/30 p-3 rounded-xl">
+                      <span className="text-gray-700 dark:text-gray-300">Want to Read</span>
+                      <span className="bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-bold">{stats?.shelfByStatus?.want_to_read || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 p-3 rounded-xl">
+                      <span className="text-gray-700 dark:text-gray-300">Currently Reading</span>
+                      <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-bold">{stats?.shelfByStatus?.reading || 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/30 p-3 rounded-xl">
+                      <span className="text-gray-700 dark:text-gray-300">Completed</span>
+                      <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">{stats?.shelfByStatus?.completed || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Genre Breakdown Chart */}
+                {stats?.genreBreakdown?.length > 0 && (
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white mb-3">📊 Top Genres</h4>
+                    <div className="space-y-2">
+                      {stats.genreBreakdown.map((item, idx) => {
+                        const maxCount = stats.genreBreakdown[0]?.count || 1;
+                        const percentage = Math.round((item.count / maxCount) * 100);
+                        const colors = ['bg-purple-500', 'bg-pink-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500'];
+                        return (
+                          <div key={idx} className="flex items-center gap-3">
+                            <span className="w-24 text-sm text-gray-700 dark:text-gray-300 truncate">{item.genre}</span>
+                            <div className="flex-1 h-5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full ${colors[idx % colors.length]} flex items-center justify-end pr-2`}
+                                style={{ width: `${percentage}%` }}
+                              >
+                                <span className="text-xs font-bold text-white">{item.count}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -445,35 +539,85 @@ export default function Profile() {
 
           {/* STATS TAB */}
           {activeTab === "stats" && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-4 text-center text-white">
-                <div className="text-3xl font-bold">{stats?.booksRead || 0}</div>
-                <div className="text-sm opacity-90">Books Read</div>
+            <div className="space-y-6">
+              {/* Main Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-4 text-center text-white">
+                  <div className="text-3xl font-bold">{stats?.booksRead || 0}</div>
+                  <div className="text-sm opacity-90">📚 Books Read</div>
+                </div>
+                <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl p-4 text-center text-white">
+                  <div className="text-3xl font-bold">{(stats?.pagesRead || 0).toLocaleString()}</div>
+                  <div className="text-sm opacity-90">📄 Pages Read</div>
+                </div>
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl p-4 text-center text-white">
+                  <div className="text-3xl font-bold">{stats?.authorsRead || 0}</div>
+                  <div className="text-sm opacity-90">✍️ Authors Read</div>
+                </div>
+                <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-4 text-center text-white">
+                  <div className="text-3xl font-bold">{stats?.reviewsPosted || 0}</div>
+                  <div className="text-sm opacity-90">📝 Reviews</div>
+                </div>
               </div>
-              <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl p-4 text-center text-white">
-                <div className="text-3xl font-bold">{stats?.reviewsPosted || 0}</div>
-                <div className="text-sm opacity-90">Reviews Posted</div>
+
+              {/* Secondary Stats */}
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center border border-gray-100 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-orange-500">{stats?.currentStreak || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">🔥 Day Streak</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center border border-gray-100 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-green-500">{stats?.messagesSent || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">💬 Messages</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center border border-gray-100 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-violet-500">{stats?.badgesEarned || badges.length}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">🎖️ Badges</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center border border-gray-100 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-rose-500">{stats?.clubsMember || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">💬 Clubs</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center border border-gray-100 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-blue-500">{stats?.followersCount || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">👥 Followers</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center border border-gray-100 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-purple-500">{stats?.followingCount || 0}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">👤 Following</div>
+                </div>
               </div>
-              <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl p-4 text-center text-white">
-                <div className="text-3xl font-bold">{stats?.currentStreak || 0}</div>
-                <div className="text-sm opacity-90">Day Streak 🔥</div>
-              </div>
-              <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl p-4 text-center text-white">
-                <div className="text-3xl font-bold">{stats?.messagesSent || 0}</div>
-                <div className="text-sm opacity-90">Messages Sent</div>
-              </div>
-              <div className="bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl p-4 text-center text-white">
-                <div className="text-3xl font-bold">{stats?.badgesEarned || badges.length}</div>
-                <div className="text-sm opacity-90">Badges Earned</div>
-              </div>
-              <div className="bg-gradient-to-br from-rose-500 to-pink-500 rounded-2xl p-4 text-center text-white">
-                <div className="text-3xl font-bold">{stats?.clubsMember || 0}</div>
-                <div className="text-sm opacity-90">Clubs Joined</div>
-              </div>
+
+              {/* Genre Breakdown Chart */}
+              {stats?.genreBreakdown?.length > 0 && (
+                <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📊 Your Top Genres</h3>
+                  <div className="space-y-3">
+                    {stats.genreBreakdown.map((item, idx) => {
+                      const maxCount = stats.genreBreakdown[0]?.count || 1;
+                      const percentage = Math.round((item.count / maxCount) * 100);
+                      const colors = ['bg-purple-500', 'bg-pink-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500'];
+                      return (
+                        <div key={idx} className="flex items-center gap-3">
+                          <span className="w-28 text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{item.genre}</span>
+                          <div className="flex-1 h-6 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${colors[idx % colors.length]} flex items-center justify-end pr-2 transition-all duration-500`}
+                              style={{ width: `${percentage}%` }}
+                            >
+                              <span className="text-xs font-bold text-white">{item.count}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               
               {/* Badges Section */}
               {badges.length > 0 && (
-                <div className="col-span-full mt-4">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-gray-100 dark:border-slate-700">
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">🎖️ Your Badges</h3>
                   <div className="flex flex-wrap gap-3">
                     {badges.map((badge, idx) => (

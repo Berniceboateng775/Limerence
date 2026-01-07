@@ -56,8 +56,6 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-module.exports = router;
-
 // @route   POST /api/books/:bookId/comments/:commentId/like
 // @desc    Like a comment
 router.post("/:commentId/like", auth, async (req, res) => {
@@ -130,3 +128,5 @@ router.post("/:commentId/reply", auth, async (req, res) => {
         res.status(500).send("Server Error");
     }
 });
+
+module.exports = router;

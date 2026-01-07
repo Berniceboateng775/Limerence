@@ -325,15 +325,55 @@ router.get("/:id/clubs", auth, async (req, res) => {
 router.get("/:id/stats", auth, async (req, res) => {
   try {
     const Club = require("../models/Club");
-    const user = await User.findById(req.params.id).select("stats badges shelf followers following readingGoal");
+    const user = await User.findById(req.params.id)
+      .select("stats badges shelf followers following readingGoal preferredGenres")
+      .populate("shelf.book", "title authors genres pageCount");
     
     if (!user) return res.status(404).json({ msg: "User not found" });
     
     const clubsAdmin = await Club.countDocuments({ admins: req.params.id });
     const clubsMember = await Club.countDocuments({ members: req.params.id });
     
+    // Calculate extended stats from shelf
+    const completedBooks = user.shelf?.filter(s => s.status === 'completed') || [];
+    const authorsSet = new Set();
+    let totalPages = 0;
+    const genreCount = {};
+    
+    completedBooks.forEach(item => {
+      // Count pages
+      if (item.book?.pageCount) {
+        totalPages += item.book.pageCount;
+      }
+      // Count unique authors
+      if (item.book?.authors) {
+        item.book.authors.forEach(a => authorsSet.add(a));
+      }
+      // Count genres
+      if (item.book?.genres) {
+        item.book.genres.forEach(g => {
+          genreCount[g] = (genreCount[g] || 0) + 1;
+        });
+      }
+    });
+    
+    // Calculate shelf breakdown
+    const shelfByStatus = {
+      want_to_read: user.shelf?.filter(s => s.status === 'want_to_read').length || 0,
+      reading: user.shelf?.filter(s => s.status === 'reading').length || 0,
+      completed: completedBooks.length
+    };
+    
+    // Top 5 genres for breakdown chart
+    const genreBreakdown = Object.entries(genreCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([genre, count]) => ({ genre, count }));
+    
     res.json({
-      booksRead: user.stats?.booksRead || 0,
+      booksRead: user.stats?.booksRead || completedBooks.length,
+      pagesRead: user.stats?.pagesRead || totalPages,
+      authorsRead: authorsSet.size,
       reviewsPosted: user.stats?.reviewsPosted || 0,
       currentStreak: user.stats?.currentStreak || 0,
       messagesSent: user.stats?.messagesSent || 0,
@@ -343,7 +383,10 @@ router.get("/:id/stats", auth, async (req, res) => {
       followingCount: user.following?.length || 0,
       clubsAdmin,
       clubsMember,
-      readingGoal: user.readingGoal || 12
+      readingGoal: user.readingGoal || 12,
+      shelfByStatus,
+      genreBreakdown,
+      preferredGenres: user.preferredGenres || []
     });
   } catch (err) {
     console.error(err);
