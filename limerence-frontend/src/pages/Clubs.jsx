@@ -113,9 +113,38 @@ export default function Clubs() {
   // Friends & Profile
   const [myFriends, setMyFriends] = useState([]);
   
+  // Pin/Favorite States
+  const [pinnedClubs, setPinnedClubs] = useState([]);
+  const [favoriteClubs, setFavoriteClubs] = useState([]);
+  const [clubFilterTab, setClubFilterTab] = useState("all"); // "all" | "favorites"
+  
   // UI State
   const [imagePreview, setImagePreview] = useState(null);
   const [fontSize, setFontSize] = useState("medium");
+  
+  // Resizable Sidebar State
+  const [sidebarWidth, setSidebarWidth] = useState(320); // Default w-80 (320px)
+  const [isResizing, setIsResizing] = useState(false);
+  
+  const startResizing = useCallback(() => setIsResizing(true), []);
+  const stopResizing = useCallback(() => setIsResizing(false), []);
+  const resize = useCallback((mouseMoveEvent) => {
+    if (isResizing) {
+      const newWidth = mouseMoveEvent.clientX;
+      if (newWidth > 200 && newWidth < 600) { // Min 200px, Max 600px
+        setSidebarWidth(newWidth);
+      }
+    }
+  }, [isResizing]);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", resize);
+    window.addEventListener("mouseup", stopResizing);
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [resize, stopResizing]);
 
   const documentInputRef = useRef(null);
 
@@ -138,14 +167,19 @@ export default function Clubs() {
     try {
       const res = await axios.get("/api/clubs");
       setClubs(res.data);
-      // Update selected club if it exists - use ref to avoid stale closure
-      // const currentSelectedId = selectedClubIdRef.current; // This ref is removed
-      // if (currentSelectedId) {
-      //   const updated = res.data.find(c => c._id === currentSelectedId);
-      //   if (updated) setSelectedClub(updated);
-      // }
     } catch (err) { console.error(err); }
-  }, []); // No dependencies needed - uses ref
+  }, []);
+
+  const fetchMyPinsFavorites = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await axios.get("/api/users/my-pins-favorites", {
+        headers: { "x-auth-token": token }
+      });
+      setPinnedClubs(res.data.pinnedClubs?.map(c => c._id || c) || []);
+      setFavoriteClubs(res.data.favoriteClubs?.map(c => c._id || c) || []);
+    } catch (err) { console.error(err); }
+  }, [token]);
 
   // Keep messageRef in sync
   useEffect(() => {
@@ -154,6 +188,7 @@ export default function Clubs() {
 
   useEffect(() => {
     fetchClubs();
+    fetchMyPinsFavorites();
     // No interval - fetch only on initial load and specific actions to prevent flickering
   }, []);
 
@@ -775,22 +810,64 @@ export default function Clubs() {
     return {};
   };
 
+  // Toggle pin club
+  const handleTogglePinClub = async (clubId, e) => {
+    e.stopPropagation();
+    try {
+      const res = await axios.post(`/api/users/pin-club/${clubId}`, {}, {
+        headers: { "x-auth-token": token }
+      });
+      setPinnedClubs(res.data.pinnedClubs.map(id => id.toString()));
+      toast(pinnedClubs.includes(clubId) ? "Unpinned club" : "Pinned club!", "success");
+    } catch (err) {
+      toast(err.response?.data?.msg || "Failed to pin", "error");
+    }
+  };
+
+  // Toggle favorite club
+  const handleToggleFavoriteClub = async (clubId, e) => {
+    e.stopPropagation();
+    try {
+      const res = await axios.post(`/api/users/favorite-club/${clubId}`, {}, {
+        headers: { "x-auth-token": token }
+      });
+      setFavoriteClubs(res.data.favoriteClubs.map(id => id.toString()));
+      toast(favoriteClubs.includes(clubId) ? "Removed from favorites" : "Added to favorites!", "success");
+    } catch (err) {
+      toast("Failed to favorite", "error");
+    }
+  };
+
   // Memoize filteredClubs to prevent recalculation on every keystroke
   const filteredClubs = useMemo(() => {
-    return clubs
+    let result = clubs
       .filter(c => 
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         c.description.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      .sort((a, b) => {
-        // Sort by latest message time (most recent first)
-        const aLastMsg = a.messages?.[a.messages.length - 1];
-        const bLastMsg = b.messages?.[b.messages.length - 1];
-        const aTime = aLastMsg ? new Date(aLastMsg.createdAt).getTime() : 0;
-        const bTime = bLastMsg ? new Date(bLastMsg.createdAt).getTime() : 0;
-        return bTime - aTime;
-      });
-  }, [clubs, searchQuery]); // Only recalculate when these change
+      );
+    
+    // Filter by favorites tab
+    if (clubFilterTab === "favorites") {
+      result = result.filter(c => favoriteClubs.includes(c._id));
+    }
+    
+    // Sort with pinned clubs at top, then by latest message
+    return result.sort((a, b) => {
+      const aIsPinned = pinnedClubs.includes(a._id);
+      const bIsPinned = pinnedClubs.includes(b._id);
+      
+      // Pinned clubs come first
+      if (aIsPinned && !bIsPinned) return -1;
+      if (!aIsPinned && bIsPinned) return 1;
+      
+      // Then sort by latest message time (most recent first)
+      const aLastMsg = a.messages?.[a.messages.length - 1];
+      const bLastMsg = b.messages?.[b.messages.length - 1];
+      const aTime = aLastMsg ? new Date(aLastMsg.createdAt).getTime() : 0;
+      const bTime = bLastMsg ? new Date(bLastMsg.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [clubs, searchQuery, clubFilterTab, pinnedClubs, favoriteClubs]);
 
   // Scroll to a specific message by ID
   const scrollToMessage = (msgId) => {
@@ -810,7 +887,16 @@ export default function Clubs() {
     <div className="h-screen flex overflow-hidden font-sans bg-gray-50 dark:bg-slate-900 transition-colors duration-300">
         
       {/* LEFT SIDEBAR: CLUB LIST */}
-      <div className="w-80 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col z-20 shadow-lg">
+      <div 
+        className="bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col z-20 shadow-lg relative group/sidebar"
+        style={{ width: sidebarWidth }}
+      >
+        {/* Resize Handle */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-purple-500/50 z-50 transition-colors"
+          onMouseDown={startResizing}
+        />
+
         {/* Header */}
         <div className="p-5 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800">
           <div className="flex justify-between items-center mb-4">
@@ -829,6 +915,29 @@ export default function Clubs() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
+          {/* Filter Tabs */}
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => setClubFilterTab("all")}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                clubFilterTab === "all" 
+                  ? "bg-purple-500 text-white" 
+                  : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+              }`}
+            >
+              All Clubs
+            </button>
+            <button
+              onClick={() => setClubFilterTab("favorites")}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                clubFilterTab === "favorites" 
+                  ? "bg-purple-500 text-white" 
+                  : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+              }`}
+            >
+              ⭐ Favorites ({favoriteClubs.length})
+            </button>
+          </div>
         </div>
         
         {/* Club List */}
@@ -874,7 +983,10 @@ export default function Clubs() {
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{club.name}</h4>
+                    <div className="flex items-center gap-1">
+                      {pinnedClubs.includes(club._id) && <span className="text-xs">📌</span>}
+                      <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{club.name}</h4>
+                    </div>
                     {lastMsg && (
                       <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">
                         {new Date(lastMsg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -901,8 +1013,25 @@ export default function Clubs() {
                   </p>
                 </div>
                 
-                {/* Badges */}
-                <div className="flex flex-col items-end gap-1">
+                {/* Top Right Buttons & Badges */}
+                <div className="flex flex-col items-end gap-1 ml-2">
+                  {/* Pin & Favorite on top right */}
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={(e) => handleTogglePinClub(club._id, e)}
+                      className={`p-1 rounded-full transition hover:bg-gray-100 dark:hover:bg-slate-600 ${pinnedClubs.includes(club._id) ? 'text-orange-500' : 'text-gray-400'}`}
+                      title={pinnedClubs.includes(club._id) ? "Unpin" : "Pin (max 5)"}
+                    >
+                      <span className="text-xs">📌</span>
+                    </button>
+                    <button
+                      onClick={(e) => handleToggleFavoriteClub(club._id, e)}
+                      className={`p-1 rounded-full transition hover:bg-gray-100 dark:hover:bg-slate-600 ${favoriteClubs.includes(club._id) ? 'text-yellow-500' : 'text-gray-400'}`}
+                      title={favoriteClubs.includes(club._id) ? "Unfavorite" : "Favorite"}
+                    >
+                      <span className="text-xs">{favoriteClubs.includes(club._id) ? '⭐' : '☆'}</span>
+                    </button>
+                  </div>
                   {isBanned && <span className="text-[10px] bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full font-bold">Banned</span>}
                   {!isMember && !isBanned && <span className="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-full font-bold">Join</span>}
                   {unread > 0 && isMember && (

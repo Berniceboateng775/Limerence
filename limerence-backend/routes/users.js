@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
+const Comment = require("../models/Comment");
 const Notification = require("../models/Notification");
 const auth = require("../middleware/auth");
 const { checkAndAwardBadge } = require("../utils/badgeUtils");
@@ -46,6 +47,56 @@ router.get("/me", auth, async (req, res) => {
       .populate("friendRequests.from", "name avatar")
       .populate("shelf.book", "title coverImage authors");
     res.json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get user's pinned and favorites (must be before /:id route)
+router.get("/my-pins-favorites", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId)
+      .populate("pinnedClubs", "name coverImage")
+      .populate("favoriteClubs", "name coverImage")
+      .populate("pinnedFriends", "name username avatar")
+      .populate("favoriteFriends", "name username avatar")
+      .populate("friendMessageCounts.friend", "name username avatar");
+    
+    // Calculate bestie (most messages)
+    let bestie = null;
+    if (user.friendMessageCounts?.length > 0) {
+      const sorted = [...user.friendMessageCounts].sort((a, b) => b.count - a.count);
+      if (sorted[0]?.count >= 10) { // Minimum 10 messages to be bestie
+        bestie = sorted[0].friend?._id?.toString() || null;
+      }
+    }
+    
+    res.json({
+      pinnedClubs: user.pinnedClubs || [],
+      favoriteClubs: user.favoriteClubs || [],
+      pinnedFriends: user.pinnedFriends || [],
+      favoriteFriends: user.favoriteFriends || [],
+      bestie
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get user's most popular reviews
+router.get("/:id/popular-reviews", auth, async (req, res) => {
+  try {
+    const comments = await Comment.find({ user: req.params.id })
+      .populate("book", "title coverImage authors")
+      .lean();
+
+    // Sort by likes count descending
+    comments.sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
+
+    // Return top 3
+    res.json(comments.slice(0, 3));
   } catch (err) {
     console.error(err);
     res.status(500).send("Server Error");
@@ -388,6 +439,90 @@ router.get("/:id/stats", auth, async (req, res) => {
       genreBreakdown,
       preferredGenres: user.preferredGenres || []
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// =============== PIN/FAVORITE ROUTES ===============
+
+// Toggle pin club (max 5)
+router.post("/pin-club/:clubId", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const clubId = req.params.clubId;
+    
+    if (user.pinnedClubs.includes(clubId)) {
+      user.pinnedClubs = user.pinnedClubs.filter(id => id.toString() !== clubId);
+    } else {
+      if (user.pinnedClubs.length >= 5) {
+        return res.status(400).json({ msg: "Maximum 5 pinned clubs allowed" });
+      }
+      user.pinnedClubs.push(clubId);
+    }
+    await user.save();
+    res.json({ pinnedClubs: user.pinnedClubs });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Toggle favorite club
+router.post("/favorite-club/:clubId", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const clubId = req.params.clubId;
+    
+    if (user.favoriteClubs.includes(clubId)) {
+      user.favoriteClubs = user.favoriteClubs.filter(id => id.toString() !== clubId);
+    } else {
+      user.favoriteClubs.push(clubId);
+    }
+    await user.save();
+    res.json({ favoriteClubs: user.favoriteClubs });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Toggle pin friend (max 5)
+router.post("/pin-friend/:friendId", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const friendId = req.params.friendId;
+    
+    if (user.pinnedFriends.includes(friendId)) {
+      user.pinnedFriends = user.pinnedFriends.filter(id => id.toString() !== friendId);
+    } else {
+      if (user.pinnedFriends.length >= 5) {
+        return res.status(400).json({ msg: "Maximum 5 pinned friends allowed" });
+      }
+      user.pinnedFriends.push(friendId);
+    }
+    await user.save();
+    res.json({ pinnedFriends: user.pinnedFriends });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Toggle favorite friend
+router.post("/favorite-friend/:friendId", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const friendId = req.params.friendId;
+    
+    if (user.favoriteFriends.includes(friendId)) {
+      user.favoriteFriends = user.favoriteFriends.filter(id => id.toString() !== friendId);
+    } else {
+      user.favoriteFriends.push(friendId);
+    }
+    await user.save();
+    res.json({ favoriteFriends: user.favoriteFriends });
   } catch (err) {
     console.error(err);
     res.status(500).send("Server Error");

@@ -21,6 +21,7 @@ export default function Profile() {
   const [clubs, setClubs] = useState([]);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
+  const [reviews, setReviews] = useState([]); // Popular reviews
   const [clubFilter, setClubFilter] = useState("all");
   const [unfollowTargetId, setUnfollowTargetId] = useState(null);
 
@@ -33,7 +34,10 @@ export default function Profile() {
       fetchStats();
       fetchClubs();
       fetchFollowers();
+      fetchClubs();
+      fetchFollowers();
       fetchFollowing();
+      fetchReviews();
     }
   }, [profile]);
 
@@ -93,6 +97,17 @@ export default function Profile() {
         headers: { "x-auth-token": token },
       });
       setFollowing(res.data.following || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/users/${profile._id}/popular-reviews`, {
+        headers: { "x-auth-token": token },
+      });
+      setReviews(res.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -167,6 +182,7 @@ export default function Profile() {
   const TABS = [
     { id: "books", label: "📚 Books", count: shelf.length },
     { id: "stats", label: "📊 Stats", count: null },
+    { id: "reviews", label: "✍️ Reviews", count: stats?.reviewsPosted || 0 }, // New Reviews Tab
     { id: "goals", label: "🎯 Goals", count: null },
     { id: "network", label: "👥 Network", count: (stats?.followersCount || 0) + (stats?.followingCount || 0) },
     { id: "clubs", label: "🏛️ Clubs", count: clubs.length },
@@ -627,6 +643,66 @@ export default function Profile() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* REVIEWS TAB */}
+          {activeTab === "reviews" && (
+            <div className="space-y-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Top Reviews</h3>
+              {reviews.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {reviews.map((review) => (
+                    <div key={review._id} className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 hover:shadow-md transition">
+                      <div className="flex gap-4">
+                        {/* Book Cover */}
+                        <div 
+                          className="w-16 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200 cursor-pointer shadow-sm"
+                          onClick={() => navigate(`/book/${review.book?._id}`)}
+                        >
+                          {review.book?.coverImage ? (
+                            <img src={review.book.coverImage} className="w-full h-full object-cover" alt="" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-center font-bold text-gray-400 p-1">
+                              {review.book?.title}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start mb-1">
+                            <h4 className="font-bold text-gray-900 dark:text-white cursor-pointer hover:text-purple-500" onClick={() => navigate(`/book/${review.book?._id}`)}>
+                              {review.book?.title}
+                            </h4>
+                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                              <span>❤️ {review.likes?.length || 0}</span>
+                              <span>•</span>
+                              <span>{new Date(review.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3">
+                            "{review.content}"
+                          </p>
+                          
+                          <button 
+                            onClick={() => navigate(`/book/${review.book?._id}`)}
+                            className="text-xs font-bold text-purple-600 mt-2 hover:underline"
+                          >
+                            Read more
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                  <div className="text-4xl mb-2">✍️</div>
+                  <p>No reviews posted yet.</p>
+                  <p className="text-sm mt-1">Share your thoughts on books you've read!</p>
                 </div>
               )}
             </div>

@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useRef } from "react";
+import React, { useContext, useEffect, useState, useRef, useCallback } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { NotificationContext } from "../context/NotificationContext";
@@ -43,11 +43,65 @@ export default function Friends() {
   const [showReactionPicker, setShowReactionPicker] = useState(null); // Which message to show picker for
   const [joinClubModal, setJoinClubModal] = useState(null); // Club join popup: { clubId, clubName, loading }
   
+  // Pin/Favorite States
+  const [pinnedFriends, setPinnedFriends] = useState([]);
+  const [favoriteFriends, setFavoriteFriends] = useState([]);
+  const [friendFilterTab, setFriendFilterTab] = useState("all"); // "all" | "favorites"
+  const [bestie, setBestie] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  
   // New States for UI Overhaul
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [pendingLocation, setPendingLocation] = useState(null);
   const documentInputRef = useRef(null); // For generic files
+  
+  // Resizable Sidebar State
+  const [sidebarWidth, setSidebarWidth] = useState(384); // Default w-96 (384px)
+  const [isResizing, setIsResizing] = useState(false);
+  
+  // Use useRef to avoid closure issues in event listener if needed, but state works fine here
+  const startResizing = useCallback(() => setIsResizing(true), []);
+  const stopResizing = useCallback(() => setIsResizing(false), []);
+  const resize = useCallback((mouseMoveEvent) => {
+    if (isResizing) {
+      const newWidth = mouseMoveEvent.clientX - (window.innerWidth - 1280 > 0 ? (window.innerWidth - 1280) / 2 : 0); // Adjust for container mx-auto if needed?
+      // Wait, Friends page has max-w-7xl mx-auto (line 623). clientX is absolute.
+      // We need relative mouse position or just use clientX if sidebar is on left edge.
+      // Friends page has pt-20 and max-w-7xl mx-auto. This makes resizing tricky if centered.
+      // However, the requested sidebar is seemingly the one inside the card.
+      // Let's assume user wants to resize the split between friend list and chat.
+      // The friend list is usually on the left.
+      // Simpler approach: current sidebar width + delta movement.
+      // Or just map clientX to width if sidebar is left-aligned.
+      // The Friends component has `max-w-7xl mx-auto`, so content is centered.
+      // This makes simple clientX mapping inaccurate if window > 7xl.
+      
+      // Better approach for centered container: 
+      // Calculate width based on mouse delta? Or get container offset.
+      // For now, let's just allow resizing based on movement, or assume simplistic resizing.
+      // Actually, if I use a ref for the sidebar container, I can get its left position.
+    }
+  }, [isResizing]);
+  
+  // Revised resize logic below using ref
+  const sidebarRef = useRef(null); 
+  const resizeHandler = useCallback((e) => {
+    if (isResizing && sidebarRef.current) {
+        const containerLeft = sidebarRef.current.getBoundingClientRect().left;
+        const newWidth = e.clientX - containerLeft;
+        if (newWidth > 250 && newWidth < 600) setSidebarWidth(newWidth);
+    }
+  }, [isResizing]);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", resizeHandler);
+    window.addEventListener("mouseup", stopResizing);
+    return () => {
+      window.removeEventListener("mousemove", resizeHandler);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [resizeHandler, stopResizing]);
 
   
   // Per-friend wallpaper settings (stored in localStorage)
@@ -78,7 +132,48 @@ export default function Friends() {
     return avatarColors[hash % avatarColors.length];
   };
 
-  useEffect(() => { fetchFriends(); }, []);
+  // Fetch pins/favorites on mount
+  const fetchMyPinsFavorites = async () => {
+    if (!token) return;
+    try {
+      const res = await axios.get("/api/users/my-pins-favorites", {
+        headers: { "x-auth-token": token }
+      });
+      setPinnedFriends(res.data.pinnedFriends?.map(f => f._id || f) || []);
+      setFavoriteFriends(res.data.favoriteFriends?.map(f => f._id || f) || []);
+      setBestie(res.data.bestie || null);
+    } catch (err) { console.error(err); }
+  };
+
+  // Toggle pin friend
+  const handleTogglePinFriend = async (friendId, e) => {
+    e.stopPropagation();
+    try {
+      const res = await axios.post(`/api/users/pin-friend/${friendId}`, {}, {
+        headers: { "x-auth-token": token }
+      });
+      setPinnedFriends(res.data.pinnedFriends.map(id => id.toString()));
+      toast(pinnedFriends.includes(friendId) ? "Unpinned" : "Pinned!", "success");
+    } catch (err) {
+      toast(err.response?.data?.msg || "Failed to pin", "error");
+    }
+  };
+
+  // Toggle favorite friend
+  const handleToggleFavoriteFriend = async (friendId, e) => {
+    e.stopPropagation();
+    try {
+      const res = await axios.post(`/api/users/favorite-friend/${friendId}`, {}, {
+        headers: { "x-auth-token": token }
+      });
+      setFavoriteFriends(res.data.favoriteFriends.map(id => id.toString()));
+      toast(favoriteFriends.includes(friendId) ? "Removed from favorites" : "Added to favorites!", "success");
+    } catch (err) {
+      toast("Failed to favorite", "error");
+    }
+  };
+
+  useEffect(() => { fetchFriends(); fetchMyPinsFavorites(); }, []);
 
   useEffect(() => {
     if (selectedFriend) fetchConversation(selectedFriend._id);
@@ -624,7 +719,16 @@ export default function Friends() {
         <div className="flex gap-0 h-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-slate-700">
           
           {/* Friends List Sidebar - WhatsApp Style */}
-          <div className="w-96 bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex flex-col">
+          <div 
+            ref={sidebarRef}
+            className="bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 flex flex-col relative group/sidebar"
+            style={{ width: sidebarWidth }}
+          >
+            {/* Resize Handle */}
+            <div
+              className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-purple-500/50 z-50 transition-colors"
+               onMouseDown={startResizing}
+            />
             <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-purple-600 to-pink-500">
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-serif font-bold text-white">Chats</h1>
@@ -636,6 +740,39 @@ export default function Friends() {
               </div>
             </div>
             
+            {/* Search and Filter Tabs */}
+            <div className="p-3 border-b border-gray-100 dark:border-slate-700">
+              <input 
+                type="text" 
+                placeholder="Search friends..." 
+                className="w-full bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 p-2 px-4 rounded-xl text-sm focus:ring-2 focus:ring-purple-300 outline-none dark:text-white dark:placeholder-gray-400 transition mb-2"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFriendFilterTab("all")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                    friendFilterTab === "all" 
+                      ? "bg-purple-500 text-white" 
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  All Friends
+                </button>
+                <button
+                  onClick={() => setFriendFilterTab("favorites")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                    friendFilterTab === "favorites" 
+                      ? "bg-purple-500 text-white" 
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  ⭐ Favorites ({favoriteFriends.length})
+                </button>
+              </div>
+            </div>
+            
             <div className="overflow-y-auto flex-1">
               {friends.length === 0 ? (
                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
@@ -644,7 +781,19 @@ export default function Friends() {
                   <p className="text-sm mt-2 opacity-75">Visit Clubs to meet readers and make friends</p>
                 </div>
               ) : (
-                friends.map((friend) => (
+                // Filter, search, and sort friends
+                friends
+                  .filter(f => f.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .filter(f => friendFilterTab === "favorites" ? favoriteFriends.includes(f._id) : true)
+                  .sort((a, b) => {
+                    // Pinned friends first
+                    const aIsPinned = pinnedFriends.includes(a._id);
+                    const bIsPinned = pinnedFriends.includes(b._id);
+                    if (aIsPinned && !bIsPinned) return -1;
+                    if (!aIsPinned && bIsPinned) return 1;
+                    return 0; // Keep original order for unpinned
+                  })
+                  .map((friend) => (
                   <div
                     key={friend._id}
                     onClick={() => { setSelectedFriend(friend); setViewProfile(null); }}
@@ -652,7 +801,7 @@ export default function Friends() {
                       selectedFriend?._id === friend._id ? 'bg-purple-50 dark:bg-purple-900/20' : ''
                     }`}
                   >
-                    {/* Avatar with online dot */}
+                    {/* Avatar with online dot and bestie indicator */}
                     <div className="relative">
                       <div className={`w-14 h-14 rounded-full ${getAvatarColor(friend.name)} flex items-center justify-center text-white text-xl font-bold overflow-hidden shadow-lg`}>
                         {friend.avatar ? (
@@ -661,18 +810,51 @@ export default function Friends() {
                           friend.name?.[0]?.toUpperCase() || '?'
                         )}
                       </div>
-                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-800"></div>
+                      {/* Bestie indicator - shows 😍 if this is the user's bestie */}
+                      {bestie === friend._id ? (
+                        <div className="absolute -bottom-1 -right-1 text-lg" title="Your Bestie!">😍</div>
+                      ) : (
+                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-800"></div>
+                      )}
+                      {/* Pinned indicator */}
+                      {pinnedFriends.includes(friend._id) && (
+                        <div className="absolute -top-1 -left-1 text-xs">📌</div>
+                      )}
                     </div>
                     
-                    {/* Name + Last Message */}
+                    {/* Name + Last Message + Pin/Favorite buttons */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-gray-900 dark:text-white truncate">{friend.name}</h3>
-                        {lastMessages[friend._id] && (
-                          <span className={`text-xs ${unreadCounts[friend._id] > 0 ? 'text-purple-500 font-bold' : 'text-gray-400'}`}>
-                            {formatTime(lastMessages[friend._id].time)}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <h3 className="font-bold text-gray-900 dark:text-white truncate">{friend.name}</h3>
+                          {bestie === friend._id && <span className="text-xs text-pink-500">(Bestie)</span>}
+                        </div>
+                        {/* Time or Pin/Fav */}
+                        <div className="flex flex-col items-end gap-1">
+                          {lastMessages[friend._id] && (
+                            <span className={`text-xs ${unreadCounts[friend._id] > 0 ? 'text-purple-500 font-bold' : 'text-gray-400'}`}>
+                              {formatTime(lastMessages[friend._id].time)}
+                            </span>
+                          )}
+                           <div className="flex items-center gap-0.5">
+                            {/* Pin Button */}
+                            <button
+                              onClick={(e) => handleTogglePinFriend(friend._id, e)}
+                              className={`p-1 rounded-full transition ${pinnedFriends.includes(friend._id) ? 'text-orange-500' : 'text-gray-400 hover:text-gray-600'}`}
+                              title={pinnedFriends.includes(friend._id) ? "Unpin" : "Pin (max 5)"}
+                            >
+                              <span className="text-xs">📌</span>
+                            </button>
+                            {/* Favorite Button */}
+                            <button
+                              onClick={(e) => handleToggleFavoriteFriend(friend._id, e)}
+                              className={`p-1 rounded-full transition ${favoriteFriends.includes(friend._id) ? 'text-yellow-500' : 'text-gray-400 hover:text-gray-600'}`}
+                              title={favoriteFriends.includes(friend._id) ? "Unfavorite" : "Favorite"}
+                            >
+                              <span className="text-xs">{favoriteFriends.includes(friend._id) ? '⭐' : '☆'}</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                       <div className="flex items-center justify-between mt-0.5">
                         <p className={`text-sm truncate ${unreadCounts[friend._id] > 0 ? 'text-gray-800 dark:text-gray-200 font-medium' : 'text-gray-500'}`}>

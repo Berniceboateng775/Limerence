@@ -95,6 +95,34 @@ router.post("/:friendId/message", auth, upload.single("attachment"), async (req,
     conversation.updatedAt = new Date();
     await conversation.save();
 
+    // Update friendMessageCounts for both users (for bestie tracking)
+    const updateMessageCount = async (userId, friendId) => {
+      const user = await User.findById(userId);
+      if (!user) return;
+      
+      const existingEntry = user.friendMessageCounts?.find(
+        e => e.friend?.toString() === friendId
+      );
+      
+      if (existingEntry) {
+        existingEntry.count += 1;
+        existingEntry.lastMessage = new Date();
+      } else {
+        if (!user.friendMessageCounts) user.friendMessageCounts = [];
+        user.friendMessageCounts.push({
+          friend: friendId,
+          count: 1,
+          lastMessage: new Date()
+        });
+      }
+      await user.save();
+    };
+
+    // Update for sender
+    await updateMessageCount(userId, friendId);
+    // Update for receiver too (so they also track this friendship)
+    await updateMessageCount(friendId, userId);
+
     // Populate sender info for response
     await conversation.populate("messages.sender", "name avatar");
 

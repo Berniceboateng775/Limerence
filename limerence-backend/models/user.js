@@ -95,7 +95,20 @@ const UserSchema = new mongoose.Schema({
   
   // Follow System (for Phase 4)
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-  following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+  following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  
+  // Pinned & Favorites (max 5 each)
+  pinnedClubs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Club" }],
+  favoriteClubs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Club" }],
+  pinnedFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  favoriteFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  
+  // Bestie Tracking - message counts per friend for Snapchat-style bestie indicator
+  friendMessageCounts: [{
+    friend: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    count: { type: Number, default: 0 },
+    lastMessage: { type: Date }
+  }]
 });
 
 module.exports = mongoose.models.User || mongoose.model("User", UserSchema);
