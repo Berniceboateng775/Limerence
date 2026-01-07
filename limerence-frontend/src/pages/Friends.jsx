@@ -288,10 +288,52 @@ export default function Friends() {
     if (selectedFriend) fetchConversation(selectedFriend._id);
   }, [selectedFriend]);
 
+  // Scroll to bottom only when new messages appear, not on reactions
+  const prevMessagesLength = useRef(0);
   useEffect(() => {
-    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > prevMessagesLength.current) {
+      if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevMessagesLength.current = messages.length;
   }, [messages]);
 
+  const addReaction = async (messageId, emoji) => {
+    if (!selectedFriend) return;
+    
+    // Optimistic Update
+    setMessages(prev => prev.map(msg => {
+      if (msg._id === messageId) {
+        const existingReaction = msg.reactions?.find(r => r.user === user._id && r.emoji === emoji);
+        let newReactions = [...(msg.reactions || [])];
+        if (existingReaction) {
+           // Toggle off
+           newReactions = newReactions.filter(r => !(r.user === user._id && r.emoji === emoji));
+        } else {
+           // Toggle on
+           newReactions.push({ user: user._id, emoji });
+        }
+        return { ...msg, reactions: newReactions };
+      }
+      return msg;
+    }));
+    
+    setShowReactionPicker(null);
+    setMessageMenuId(null);
+    
+    try {
+      await axios.post(`/api/dm/${selectedFriend._id}/message/${messageId}/reaction`, { emoji }, { headers: { "x-auth-token": token } });
+      // We don't need to fetchConversation here if optimistic update is correct, 
+      // but let's do it seamlessly in background without loading state
+      const res = await axios.get(`/api/dm/${selectedFriend._id}`, { headers: { "x-auth-token": token } });
+      // Only update if length changed or specific content to avoid re-render flicker? 
+      // Actually standard SetMessages is fine now that we fixed the scroll effect.
+      setMessages(res.data.messages || []);
+    } catch (err) {
+      console.error("Reaction error:", err);
+      toast("Failed to react", "error");
+      fetchConversation(selectedFriend._id); // Revert on error
+    }
+  };  
   useEffect(() => { localStorage.setItem("friendWallpapers", JSON.stringify(friendWallpapers)); }, [friendWallpapers]);
   useEffect(() => { localStorage.setItem("friendCustomWallpapers", JSON.stringify(friendCustomWallpapers)); }, [friendCustomWallpapers]);
 
@@ -589,18 +631,7 @@ export default function Friends() {
     }
   };
 
-  const addReaction = async (messageId, emoji) => {
-    if (!selectedFriend) return;
-    try {
-      await axios.post(`/api/dm/${selectedFriend._id}/message/${messageId}/reaction`, { emoji }, { headers: { "x-auth-token": token } });
-      await fetchConversation(selectedFriend._id);
-      setShowReactionPicker(null);
-      setMessageMenuId(null);
-    } catch (err) {
-      console.error("Reaction error:", err);
-      toast("Failed to react", "error");
-    }
-  };
+
 
   const confirmDelete = async (mode) => {
     if (!deleteTarget || !selectedFriend) return;

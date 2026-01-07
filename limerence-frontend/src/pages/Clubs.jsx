@@ -838,7 +838,8 @@ export default function Clubs() {
       setFavoriteClubs(res.data.favoriteClubs.map(id => id.toString()));
       toast(favoriteClubs.includes(clubId) ? "Removed from favorites" : "Added to favorites!", "success");
     } catch (err) {
-      toast("Failed to favorite", "error");
+      console.error("Favorite error:", err);
+      toast(err.response?.data?.msg || "Failed to favorite", "error");
     }
   };
 
@@ -983,21 +984,28 @@ export default function Clubs() {
                     onClick={() => { setSelectedClub(club); setViewProfile(null); markAsRead(club._id); }}
                   >
                     {/* Club Avatar */}
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-purple-400 to-pink-400 flex-shrink-0 shadow-md">
-                      {club.coverImage ? (
-                        <img src={`http://localhost:5000${club.coverImage}`} className="w-full h-full object-cover" alt="" /> 
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-lg font-bold text-white">
-                          {club.name[0]}
+                    <div className="w-12 h-12 rounded-full relative bg-gradient-to-br from-purple-400 to-pink-400 flex-shrink-0 shadow-md">
+                      <div className="w-full h-full rounded-full overflow-hidden">
+                        {club.coverImage ? (
+                          <img src={`http://localhost:5000${club.coverImage}`} className="w-full h-full object-cover" alt="" /> 
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-lg font-bold text-white">
+                            {club.name[0]}
+                          </div>
+                        )}
+                      </div>
+                      {/* Favorite Star on Avatar */}
+                      {favoriteClubs.includes(club._id) && (
+                        <div className="absolute -top-1 -right-1 bg-white dark:bg-slate-800 rounded-full p-0.5 shadow-sm text-[10px] border border-gray-100 dark:border-slate-700 z-10">
+                          ⭐
                         </div>
                       )}
                     </div>
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-1">
-                          {pinnedClubs.includes(club._id) && <span className="text-xs">📌</span>}
-                          {favoriteClubs.includes(club._id) && <span className="text-xs">⭐</span>}
+                        <div className="flex items-center gap-1 min-w-0">
+                          {pinnedClubs.includes(club._id) && <span className="text-xs flex-shrink-0">📌</span>}
                           <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{club.name}</h4>
                         </div>
                         {lastMsg && (
@@ -1037,7 +1045,7 @@ export default function Clubs() {
                     
                     {/* Dropdown Menu */}
                     {activeClubMenuId === club._id && (
-                      <div className="club-dropdown-menu absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-600 z-[100] py-1 text-gray-800 dark:text-gray-100" onClick={e => e.stopPropagation()}>
+                      <div className="club-dropdown-menu absolute top-full right-0 mt-1 w-48 bg-white dark:!bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-600 z-[100] py-1 text-gray-800 dark:text-gray-100 ring-1 ring-black/5 !opacity-100" onClick={e => e.stopPropagation()}>
                         <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
                           <span>📂</span> Archive chat
                         </button>
@@ -1122,7 +1130,7 @@ export default function Clubs() {
         {selectedClub ? (
           <>
             {/* Chat Header */}
-            <div className="flex-shrink-0 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-white/10 flex justify-between items-center shadow-sm z-10 sticky top-0">
+            <div className="flex-shrink-0 px-4 py-2 bg-white/95 dark:bg-slate-900/95 border-b border-gray-200 dark:border-slate-800 flex justify-between items-center shadow-sm z-10 sticky top-0">
               <div className="flex items-center gap-3 cursor-pointer" onClick={() => setViewProfile(selectedClub)}>
                 <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center font-bold text-white overflow-hidden shadow-md">
                   {selectedClub.coverImage ? (
@@ -1210,7 +1218,7 @@ export default function Clubs() {
             </div>
 
             {/* Input Area - Always Visible at Bottom */}
-            <div className="flex-shrink-0 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-white/10 relative">
+            <div className="flex-shrink-0 p-4 bg-white/95 dark:bg-slate-900/95 border-t border-gray-200 dark:border-slate-800 relative">
               {/* Main Emoji Picker */}
               {showEmojiPicker && (
                 <div className="absolute bottom-full left-4 mb-2 z-50">
