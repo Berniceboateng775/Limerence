@@ -201,4 +201,4 @@ Whether you're obsessed with morally grey villains, crying over sports romances,
 
 ## 📄 License
 
-MIT © 2024 Limerence
+MIT © 2026 Limerence
