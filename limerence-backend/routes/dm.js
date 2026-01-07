@@ -59,7 +59,7 @@ router.post("/:friendId/message", auth, upload.single("attachment"), async (req,
   try {
     const userId = req.user.userId;
     const friendId = req.params.friendId;
-    const { content, attachmentType, replyToId, replyToContent, replyToUsername } = req.body;
+    const { content, attachmentType, replyToId, replyToContent, replyToUsername, isForwarded, forwardedFrom } = req.body;
     
     // Check block status
     const receiver = await User.findById(friendId);
@@ -87,8 +87,10 @@ router.post("/:friendId/message", auth, upload.single("attachment"), async (req,
     const newMessage = {
       sender: userId,
       content: content || "",
-      attachment: req.file ? `/uploads/dm/${req.file.filename}` : "",
+      attachment: req.file ? `/uploads/dm/${req.file.filename}` : (req.body.attachment || ""),
       attachmentType: attachmentType || "none",
+      isForwarded: !!isForwarded,
+      forwardedFrom: forwardedFrom || null,
       createdAt: new Date()
     };
     

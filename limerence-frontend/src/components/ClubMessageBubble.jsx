@@ -54,11 +54,29 @@ const ClubMessageBubble = ({
   messageRefs,
   firstUnreadRef,
   isMe,
-  onUpdateMessages
+  onUpdateMessages,
+  handleForwardMessage
 }) => {
   const { theme } = useTheme();
   const { token } = useContext(AuthContext);
   const [voting, setVoting] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+
+  // New Handlers
+  const handlePin = async () => {
+      try {
+          const res = await axios.post(`/api/clubs/${selectedClub._id}/messages/${msg._id}/pin`, {}, { headers: { "x-auth-token": token } });
+          if (onUpdateMessages) onUpdateMessages(res.data);
+          toast(msg.pinned ? "Unpinned" : "Pinned", "success");
+          setShowMenu(false);
+      } catch (err) { toast(err.response?.data?.msg || "Failed to pin", "error"); }
+  };
+
+  const handleCopy = () => {
+      navigator.clipboard.writeText(msg.content || "");
+      toast("Copied!", "success");
+      setShowMenu(false);
+  };
 
   // IsMe Logic
   const senderId = msg.user?._id || msg.user;
@@ -144,6 +162,7 @@ const ClubMessageBubble = ({
 
   return (
     <div 
+      id={`msg-${msg._id}`}
       ref={(el) => { 
         if (el && messageRefs && messageRefs.current) messageRefs.current[msg._id] = el;
         if (isFirstUnread && el && firstUnreadRef) firstUnreadRef.current = el;
@@ -186,7 +205,7 @@ const ClubMessageBubble = ({
         )}
         
         <div className="relative">
-          <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${fontSizes[fontSize]} leading-relaxed break-words ${
+          <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${fontSizes[fontSize]} leading-relaxed break-all whitespace-pre-wrap ${
             calculatedIsMe 
               ? "bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-white rounded-tr-sm" 
               : "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white rounded-tl-sm"
@@ -206,7 +225,7 @@ const ClubMessageBubble = ({
               <div className="mb-2">
                 {msg.attachment.fileType === 'image' ? (
                   <div className="relative group/img">
-                    <img src={`http://localhost:5000${msg.attachment.url}`} className="rounded-lg max-h-64 object-cover" alt="" />
+                    <img src={`http://localhost:5000${msg.attachment.url}`} className="rounded-lg max-h-64 max-w-full object-cover" alt="" />
                     <a 
                       href={`http://localhost:5000${msg.attachment.url}`} 
                       download 
@@ -250,29 +269,71 @@ const ClubMessageBubble = ({
 
           {/* Reactions */}
           {msg.reactions?.length > 0 && (
-            <div className="flex gap-0.5 bg-white dark:bg-slate-700 shadow-md rounded-full px-1.5 py-0.5 border border-gray-100 dark:border-slate-600 mt-1 w-fit">
-              {[...new Set(msg.reactions.map(r => r.emoji))].slice(0, 5).map((emoji, i) => (
-                <span key={i} className="text-xs">{emoji}</span>
-              ))}
-              {msg.reactions.length > 1 && <span className="text-xs text-gray-500 ml-0.5">{msg.reactions.length}</span>}
+            <div className="flex flex-wrap gap-1 mt-1">
+              {[...new Set(msg.reactions.map(r => r.emoji))].map((emoji, i) => {
+                  const isReactedByMe = msg.reactions.some(r => r.emoji === emoji && r.user === user._id);
+                  return (
+                    <button 
+                        key={i} 
+                        onClick={(e) => { e.stopPropagation(); handleReaction(msg._id, emoji); }}
+                        className={`text-xs px-1.5 py-0.5 rounded-full border transition-all ${
+                            isReactedByMe 
+                            ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800" 
+                            : "bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700"
+                        }`}
+                    >
+                        {emoji}
+                    </button>
+                  );
+              })}
             </div>
           )}
 
-          {/* Action Menu (Hover) */}
-          <div className={`absolute ${calculatedIsMe ? 'right-full mr-1' : 'left-full ml-1'} top-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 bg-white dark:bg-slate-700 p-1 rounded-full shadow-lg border dark:border-slate-600 z-20`}>
-            <button onClick={() => setReplyingTo(msg)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full text-sm" title="Reply">↩️</button>
-            <button onClick={() => handleReaction(msg._id, "❤️")} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full text-sm">❤️</button>
-            <button onClick={() => handleReaction(msg._id, "👍")} className="p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full text-sm">👍</button>
-            <button onClick={() => handleReaction(msg._id, "😂")} className="p-1.5 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded-full text-sm">😂</button>
-            <button onClick={() => setReactionTarget(reactionTarget === msg._id ? null : msg._id)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-full text-sm">➕</button>
-            {(selectedClub?.admins?.some(a => (a._id || a) === user._id) || calculatedIsMe) && (
-              <button onClick={() => handleDeleteMessage(msg._id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full text-sm text-red-500" title="Delete message">🗑️</button>
-            )}
+          {/* Action Menu Trigger (Chevron) */ }
+          <div className={`absolute top-0 ${calculatedIsMe ? '-left-7' : '-right-7'} opacity-0 group-hover:opacity-100 transition-opacity z-20`}>
+             <button 
+                onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                className="w-6 h-6 flex items-center justify-center bg-white dark:bg-slate-700 rounded-full shadow border dark:border-slate-600 text-gray-500 hover:text-purple-500 bg-opacity-90 backdrop-blur-sm"
+             >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 9l-7 7-7-7"></path></svg>
+             </button>
+
+             {/* Dropdown Menu */}
+             {showMenu && (
+                <div className={`absolute ${calculatedIsMe ? 'right-full mr-2' : 'left-full ml-2'} top-0 bg-white dark:bg-slate-800 shadow-xl rounded-xl border border-gray-100 dark:border-slate-700 py-2 w-48 z-50 text-sm animate-fade-in click-stops-propagation`} onClick={e => e.stopPropagation()}>
+                    {/* Quick Reactions */}
+                    <div className="flex justify-between px-3 pb-2 border-b border-gray-100 dark:border-slate-700 mb-1">
+                        {["❤️", "😂", "😮", "👍", "👎"].map(emoji => (
+                             <button key={emoji} onClick={() => { handleReaction(msg._id, emoji); setShowMenu(false); }} className="hover:scale-125 transition text-lg">{emoji}</button>
+                        ))}
+                        <button onClick={() => { setReactionTarget(msg._id); setShowMenu(false); }} className="hover:scale-125 transition text-lg">➕</button>
+                    </div>
+
+                    <button onClick={() => { setReplyingTo(msg); setShowMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                        <span>↩️</span> Reply
+                    </button>
+                    <button onClick={handleCopy} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                        <span>📋</span> Copy text
+                    </button>
+                    <button onClick={handlePin} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                        <span>📌</span> {msg.pinned ? "Unpin message" : "Pin message"}
+                    </button>
+                    <button onClick={() => { handleForwardMessage && handleForwardMessage(msg); setShowMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 flex items-center gap-3 text-gray-700 dark:text-gray-200">
+                        <span>➡️</span> Forward
+                    </button>
+                    
+                    {(selectedClub?.admins?.some(a => (a._id || a) === user._id) || calculatedIsMe) && (
+                        <button onClick={() => { handleDeleteMessage(msg._id); setShowMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 flex items-center gap-3">
+                            <span>🗑️</span> Delete
+                        </button>
+                    )}
+                </div>
+             )}
           </div>
           
           {reactionTarget === msg._id && (
-            <div className={`fixed z-[100] ${calculatedIsMe ? "right-[400px]" : "left-[400px]"} top-1/2 -translate-y-1/2`}>
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border dark:border-slate-700">
+            <div className={`absolute ${calculatedIsMe ? 'right-full mr-2' : 'left-full ml-2'} top-0 z-[100]`}>
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border dark:border-slate-700" onClick={e=>e.stopPropagation()}>
                 <div className="flex justify-between items-center p-2 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-700">
                   <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Choose Reaction</span>
                   <button onClick={() => setReactionTarget(null)} className="text-gray-400 hover:text-red-500 font-bold px-2">×</button>
@@ -282,7 +343,7 @@ const ClubMessageBubble = ({
                   height={350} 
                   theme={theme}
                   previewConfig={{ showPreview: false }}
-                  onEmojiClick={(e) => handleReaction(msg._id, e.emoji)} 
+                  onEmojiClick={(e) => { handleReaction(msg._id, e.emoji); setReactionTarget(null); }} 
                 />
               </div>
             </div>

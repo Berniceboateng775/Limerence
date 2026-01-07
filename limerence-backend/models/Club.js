@@ -78,6 +78,14 @@ const ClubSchema = new mongoose.Schema({
               }
           ]
       },
+      pinned: { type: Boolean, default: false },
+      isForwarded: { type: Boolean, default: false },
+      forwardedFrom: {
+          clubId: String,
+          clubName: String,
+          userId: String,
+          username: String
+      },
       createdAt: { type: Date, default: Date.now },
     },
   ],

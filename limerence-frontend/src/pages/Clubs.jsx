@@ -12,6 +12,7 @@ import AttachmentMenu from "../components/AttachmentMenu";
 import CameraModal from "../components/CameraModal";
 import PollModal from "../components/PollModal";
 import ConfirmModal from "../components/ConfirmModal";
+import ForwardModal from "../components/ForwardModal";
 
 // Generate unique colors per USER (using userId for uniqueness)
 const getNameColor = (name, uniqueId) => {
@@ -68,6 +69,7 @@ export default function Clubs() {
   };
 
   const [clubs, setClubs] = useState([]);
+  const [loadingClubs, setLoadingClubs] = useState(true);
   const [selectedClub, setSelectedClub] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -80,6 +82,7 @@ export default function Clubs() {
   const [shareTab, setShareTab] = useState('groups'); // 'groups' or 'friends'
   const [showJoinModal, setShowJoinModal] = useState(null); // club object to join
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', message: '', onConfirm: null });
+  const [forwardMessage, setForwardMessage] = useState(null);
   
   // Forms
   const [clubForm, setClubForm] = useState({ name: "", description: "", currentBook: "" });
@@ -117,6 +120,7 @@ export default function Clubs() {
   // Pin/Favorite States
   const [pinnedClubs, setPinnedClubs] = useState([]);
   const [favoriteClubs, setFavoriteClubs] = useState([]);
+  const [archivedClubs, setArchivedClubs] = useState([]);
   const [clubFilterTab, setClubFilterTab] = useState("all"); // "all" | "favorites"
   
   // UI State
@@ -167,9 +171,11 @@ export default function Clubs() {
 
   const fetchClubs = useCallback(async () => {
     try {
+      setLoadingClubs(true);
       const res = await axios.get("/api/clubs");
       setClubs(res.data);
     } catch (err) { console.error(err); }
+    finally { setLoadingClubs(false); }
   }, []);
 
   const fetchMyPinsFavorites = useCallback(async () => {
@@ -191,6 +197,13 @@ export default function Clubs() {
   useEffect(() => {
     fetchClubs();
     fetchMyPinsFavorites();
+    const fetchArchived = async () => {
+      try {
+        const res = await axios.get("/api/users/archived", { headers: { "x-auth-token": token } });
+        setArchivedClubs(res.data.archivedClubs?.map(c => c._id || c) || []);
+      } catch (err) { console.error(err); }
+    };
+    fetchArchived();
     // No interval - fetch only on initial load and specific actions to prevent flickering
   }, []);
 
@@ -681,6 +694,26 @@ export default function Clubs() {
     });
   };
 
+  const handleForwardMessage = (message) => {
+    setForwardMessage(message);
+    setActiveClubMenuId(null);
+  };
+
+  const handlePinMessage = async (messageId) => {
+      try {
+          const res = await axios.post(`/api/clubs/${selectedClub._id}/messages/${messageId}/pin`, {}, { headers: { "x-auth-token": token } });
+          // Update local state
+          const updatedMessages = selectedClub.messages.map(m => {
+              if (m._id === messageId) return { ...m, pinned: !m.pinned };
+              return m;
+          });
+          setSelectedClub(prev => ({ ...prev, messages: updatedMessages }));
+          toast("Pin updated", "success");
+      } catch (err) {
+          toast(err.response?.data?.msg || "Failed to pin", "error");
+      }
+  };
+
   /* Handlers for New Features */
   const handleAttachmentSelect = (type) => {
     setShowAttachmentMenu(false);
@@ -843,6 +876,21 @@ export default function Clubs() {
     }
   };
 
+  const handleToggleArchiveClub = async (clubId, e) => {
+    if(e) e.stopPropagation();
+    try {
+      const res = await axios.post(`/api/users/archive/club/${clubId}`, {}, { headers: { "x-auth-token": token } });
+      setArchivedClubs(res.data.archivedClubs.map(id => id.toString()));
+      toast(res.data.isArchived ? "Archived chat" : "Unarchived chat", "success");
+      await fetchClubs(); // Refresh list to remove archived if filtered
+    } catch (err) {
+      console.error(err);
+      toast("Failed to archive", "error");
+    }
+  };
+
+
+
   // Memoize filteredClubs to prevent recalculation on every keystroke
   const filteredClubs = useMemo(() => {
     let result = clubs
@@ -925,7 +973,7 @@ export default function Clubs() {
           <input 
             type="text" 
             placeholder="Search clubs..." 
-            className="w-full bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 p-2.5 px-4 rounded-xl text-sm focus:ring-2 focus:ring-purple-300 dark:focus:ring-purple-600 outline-none dark:text-white dark:placeholder-gray-400 transition shadow-inner"
+            className="w-full bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 p-2 px-4 rounded-xl text-sm focus:ring-2 focus:ring-purple-300 outline-none dark:text-white dark:placeholder-gray-400 transition mb-2"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -976,11 +1024,11 @@ export default function Clubs() {
                 return (
                   <div 
                     key={club._id} 
-                    className={`group relative p-3 rounded-xl cursor-pointer transition-all duration-300 flex items-center gap-3 border ${
+                    className={`relative group flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all border border-transparent ${
                       selectedClub?._id === club._id 
                         ? "bg-purple-500/10 dark:bg-purple-500/20 backdrop-blur-md border-purple-500/30 shadow-lg scale-[1.02]" 
-                        : "bg-white/30 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 border-transparent hover:shadow-md"
-                    }`}
+                        : "bg-transparent hover:bg-gray-100 dark:hover:bg-slate-800 border-transparent hover:shadow-md"
+                    } ${activeClubMenuId === club._id ? 'z-50' : 'z-0'}`}
                     onClick={() => { setSelectedClub(club); setViewProfile(null); markAsRead(club._id); }}
                   >
                     {/* Club Avatar */}
@@ -1045,9 +1093,9 @@ export default function Clubs() {
                     
                     {/* Dropdown Menu */}
                     {activeClubMenuId === club._id && (
-                      <div className="club-dropdown-menu absolute top-full right-0 mt-1 w-48 bg-white dark:!bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-600 z-[100] py-1 text-gray-800 dark:text-gray-100 ring-1 ring-black/5 !opacity-100" onClick={e => e.stopPropagation()}>
-                        <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
-                          <span>📂</span> Archive chat
+                      <div className="club-dropdown-menu absolute top-10 right-4 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-600 z-[100] py-1 text-gray-800 dark:text-gray-100 ring-1 ring-black/5 !opacity-100" onClick={e => e.stopPropagation()}>
+                        <button onClick={(e) => { handleToggleArchiveClub(club._id, e); setActiveClubMenuId(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                          <span>{archivedClubs.includes(club._id) ? "📂" : "📁"}</span> {archivedClubs.includes(club._id) ? "Unarchive chat" : "Archive chat"}
                         </button>
                         <button onClick={(e) => { handleTogglePinClub(club._id, e); setActiveClubMenuId(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
                           <span>📌</span> {pinnedClubs.includes(club._id) ? "Unpin" : "Pin"}
@@ -1116,11 +1164,16 @@ export default function Clubs() {
             </>
           )}
           
-          {joinedClubs.length === 0 && unjoinedClubs.length === 0 && (
+          {joinedClubs.length === 0 && unjoinedClubs.length === 0 && !loadingClubs && (
             <div className="text-center text-gray-500 dark:text-gray-400 py-8">
               <span className="text-4xl block mb-2">📚</span>
               <p className="text-sm">No clubs found</p>
             </div>
+          )}
+          {loadingClubs && (
+             <div className="flex justify-center py-8 text-purple-500">
+               <span className="loading loading-spinner loading-md"></span>
+             </div>
           )}
         </div>
       </div>
@@ -1182,6 +1235,85 @@ export default function Clubs() {
             </div>
 
             {/* Messages Area */}
+            {/* Pinned Message Banner */}
+            {/* Pinned Message Banner (Multi-Pin Support) */}
+            {selectedClub.messages?.some(m => m.pinned) && (() => {
+               const pinnedMsgs = selectedClub.messages.filter(m => m.pinned);
+               const firstPinned = pinnedMsgs[0];
+               const hasMultiple = pinnedMsgs.length > 1;
+               
+               const getLabel = (m) => {
+                 if (m.content) return m.content;
+                 if (m.attachmentType === 'image') return "Pinned Photo";
+                 if (m.attachmentType === 'video') return "Pinned Video";
+                 if (m.attachmentType === 'voice') return "Pinned Voice Note";
+                 if (m.attachmentType === 'file') return "Pinned Document";
+                 if (m.attachmentType === 'location') return "Pinned Location";
+                 return "Pinned Message";
+               };
+
+               return (
+               <div className="relative z-30">
+                  <div 
+                    className="bg-purple-50 dark:bg-purple-900/20 px-4 py-2 border-b border-purple-100 dark:border-purple-800/30 flex justify-between items-center cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex-shrink-0"
+                    onClick={() => {
+                        if (hasMultiple) {
+                            // Toggle dropdown
+                            setActiveClubMenuId(activeClubMenuId === 'pinned-list' ? null : 'pinned-list');
+                        } else {
+                            const el = document.getElementById(`msg-${firstPinned._id}`);
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            else toast("Pinned message scroll failed", "info");
+                        }
+                    }}
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                        <span className="text-purple-600 dark:text-purple-400">📌</span>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                                {hasMultiple ? `${pinnedMsgs.length} Pinned Messages` : "Pinned Message"}
+                            </span>
+                            <span className="text-xs text-purple-600/70 dark:text-purple-400/70 truncate max-w-[200px]">
+                                {hasMultiple ? "Click to view list" : getLabel(firstPinned)}
+                            </span>
+                        </div>
+                    </div>
+                    <span className="text-xs text-purple-400 underline transform transition-transform duration-200" style={{ transform: activeClubMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                        {hasMultiple ? "▼" : "View"}
+                    </span>
+                  </div>
+
+                  {/* Multi-Pin Dropdown List */}
+                  {activeClubMenuId === 'pinned-list' && hasMultiple && (
+                      <div className="absolute top-full left-0 right-0 bg-white dark:bg-slate-800 shadow-xl border-b border-gray-100 dark:border-slate-700 max-h-60 overflow-y-auto animate-fade-in-down z-40">
+                          {pinnedMsgs.map(msg => (
+                              <div key={msg._id} className="p-3 border-b border-gray-50 dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700 flex justify-between items-center group/pin">
+                                  <div 
+                                    className="flex-1 min-w-0 cursor-pointer mr-2"
+                                    onClick={() => {
+                                        const el = document.getElementById(`msg-${msg._id}`);
+                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        setActiveClubMenuId(null);
+                                    }}
+                                  >
+                                      <p className="text-sm text-gray-800 dark:text-gray-200 truncate font-medium">{getLabel(msg)}</p>
+                                      <p className="text-[10px] text-gray-400">{new Date(msg.createdAt).toLocaleDateString()}</p>
+                                  </div>
+                                  <button 
+                                      onClick={(e) => { e.stopPropagation(); handlePinMessage(msg._id); }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition"
+                                      title="Unpin"
+                                  >
+                                      ✕
+                                  </button>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+               </div>
+               );
+            })()}
+
             <div 
               ref={chatContainerRef}
               className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-1 ${getCurrentWallpaper() || ''}`}
@@ -1211,6 +1343,7 @@ export default function Clubs() {
                     messageRefs={messageRefs}
                     firstUnreadRef={firstUnreadRef}
                     onUpdateMessages={(newMsgs) => setSelectedClub(prev => ({...prev, messages: newMsgs}))}
+                    handleForwardMessage={handleForwardMessage}
                   />
                 );
               })}
@@ -1577,6 +1710,15 @@ export default function Clubs() {
         </div>
       )}
 
+      {/* Forward Modal */}
+      {forwardMessage && (
+        <ForwardModal 
+           message={forwardMessage} 
+           onClose={() => setForwardMessage(null)} 
+           onForward={() => { setForwardMessage(null); }}
+        />
+      )}
+
       {/* Modal (Create/Edit Club) */}
       {(showCreateModal || showEditModal) && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1883,6 +2025,10 @@ export default function Clubs() {
          onClose={() => setPollModalOpen(false)}
          onSubmit={handlePollCreate} 
       />
+
+
+      
+
 
       {/* CSS Animations */}
       <style>{`

@@ -267,6 +267,36 @@ router.post("/:id/messages/:msgId/react", auth, async (req, res) => {
     }
 });
 
+// Pin/Unpin a message (Admin or Original Sender?) - Usually Admin or any member? Let's say Admin + Sender.
+router.post("/:id/messages/:msgId/pin", auth, async (req, res) => {
+    try {
+        const club = await Club.findById(req.params.id);
+        const msg = club.messages.id(req.params.msgId);
+        if (!msg) return res.status(404).json({ msg: "Message not found" });
+
+        // Toggle pinned status
+        // Since it's a shared pin state (for everyone), maybe restrict to Admin?
+        // Friends chat (DM) is personal, so either can pin.
+        // Club chat is public group. Usually only Admins pin.
+        // But user said "implement pin to work" - likely implies Admin rights or open.
+        // I will restrict to Admin for cleanliness, or allow all?
+        // Friends allow both. I'll allow Admins only for now to avoid chaos, or Sender?
+        // Let's stick to standard group chat rules: Admins pin.
+        const isAdmin = club.admins.some(a => a.toString() === req.user.userId);
+        if (!isAdmin) {
+             return res.status(403).json({ msg: "Only admins can pin messages" });
+        }
+
+        msg.pinned = !msg.pinned;
+        await club.save();
+        res.json(club.messages);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: "Server Error" });
+    }
+});
+
+
 // Delete a message (Admin only)
 router.delete("/:id/messages/:msgId", auth, async (req, res) => {
     try {

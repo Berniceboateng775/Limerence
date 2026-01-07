@@ -4,6 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 import { NotificationContext } from "../context/NotificationContext";
 import axios from "axios";
 import EmojiPicker from "emoji-picker-react";
+import ForwardModal from "../components/ForwardModal";
 import { toast } from "../components/Toast";
 import CustomAudioPlayer from "../components/CustomAudioPlayer";
 import AttachmentMenu from "../components/AttachmentMenu";
@@ -36,7 +37,8 @@ export default function Friends() {
   const [viewProfile, setViewProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
-  const [attachment, setAttachment] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null); // Renamed from document to selectedFile
+  const [forwardMessage, setForwardMessage] = useState(null); // Added forwardMessage state
   const [imagePreview, setImagePreview] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
@@ -228,6 +230,7 @@ export default function Friends() {
   const messagesEndRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const chatContainerRef = useRef(null); // Added for scrolling to pinned messages
 
   // Avatar colors for users without profile pics
   const avatarColors = [
@@ -270,19 +273,29 @@ export default function Friends() {
 
   // Toggle favorite friend
   const handleToggleFavoriteFriend = async (friendId, e) => {
-    e.stopPropagation();
+    e?.stopPropagation();
     try {
-      const res = await axios.post(`/api/users/favorite-friend/${friendId}`, {}, {
-        headers: { "x-auth-token": token }
-      });
-      setFavoriteFriends(res.data.favoriteFriends.map(id => id.toString()));
-      toast(favoriteFriends.includes(friendId) ? "Removed from favorites" : "Added to favorites!", "success");
-    } catch (err) {
-      toast("Failed to favorite", "error");
-    }
+      await axios.put(`/api/users/favorite-friend/${friendId}`, {}, { headers: { "x-auth-token": token } });
+      await fetchMyPinsFavorites();
+      fetchFriends();
+    } catch (err) { console.error(err); toast("Failed to favorite", "error"); }
   };
 
-  useEffect(() => { fetchFriends(); fetchMyPinsFavorites(); }, []);
+  const handleToggleArchiveFriend = async (friendId, e) => {
+    e?.stopPropagation();
+    try {
+      await axios.put(`/api/users/archive-friend/${friendId}`, {}, { headers: { "x-auth-token": token } });
+      await fetchFriends();
+      toast("Chat archived state updated", "success");
+    } catch (err) { console.error(err); toast("Failed to archive", "error"); }
+  };
+
+  useEffect(() => { 
+    if (token) {
+      fetchFriends(); 
+      fetchMyPinsFavorites(); 
+    }
+  }, [token]);
 
   useEffect(() => {
     if (selectedFriend) fetchConversation(selectedFriend._id);
@@ -338,6 +351,7 @@ export default function Friends() {
   useEffect(() => { localStorage.setItem("friendCustomWallpapers", JSON.stringify(friendCustomWallpapers)); }, [friendCustomWallpapers]);
 
   const fetchFriends = async () => {
+    if (!token) return;
     try {
       const res = await axios.get("/api/users/me", { headers: { "x-auth-token": token } });
       const friendsList = res.data.friends || [];
@@ -346,42 +360,62 @@ export default function Friends() {
       const unreads = {};
       const lastMsgs = {};
       
+      console.log("Fetching DMs for", friendsList.length, "friends");
+
       for (const friend of friendsList) {
         try {
+          if (!friend._id) continue;
           const convRes = await axios.get(`/api/dm/${friend._id}`, { headers: { "x-auth-token": token } });
           const msgs = convRes.data.messages || [];
+          
           if (msgs.length > 0) {
             const lastMsg = msgs[msgs.length - 1];
             timestamps[friend._id] = new Date(lastMsg.createdAt).getTime();
-            lastMsgs[friend._id] = {
-              content: lastMsg.content || (
-                lastMsg.attachmentType === 'image' ? '📷 Photo' : 
-                lastMsg.attachmentType === 'voice' ? '🎤 Voice message' : 
-                lastMsg.attachmentType === 'file' ? '📄 Document' : 
-                lastMsg.attachmentType === 'video' ? '🎥 Video' : 
-                lastMsg.attachmentType === 'location' ? '📍 Location' : ''
-              ),
-              time: new Date(lastMsg.createdAt),
-              isMe: (lastMsg.sender?._id || lastMsg.sender) === user._id
-            };
-            // Count unread based on timestamps (Club Logic)
-            const myReadInfo = convRes.data.lastReadBy?.find(r => r.user === user._id || r.user?._id === user._id);
-            const lastReadAt = myReadInfo ? new Date(myReadInfo.lastReadAt).getTime() : 0;
+            
+            let contentText = lastMsg.content;
+            if (!contentText) {
+                if (lastMsg.attachmentType === 'image') contentText = '📷 Photo';
+                else if (lastMsg.attachmentType === 'voice') contentText = '🎤 Voice message';
+                else if (lastMsg.attachmentType === 'file') contentText = '📄 Document';
+                else if (lastMsg.attachmentType === 'video') contentText = '🎥 Video';
+                else if (lastMsg.attachmentType === 'location') contentText = '📍 Location';
+                else contentText = 'Message'; 
+            }
 
-            unreads[friend._id] = msgs.filter(m => 
-              (m.sender?._id || m.sender) !== user._id && 
+            lastMsgs[friend._id] = {
+              content: contentText,
+              time: new Date(lastMsg.createdAt),
+              isMe: (lastMsg.sender?._id || lastMsg.sender) === user?._id,
+              read: lastMsg.isRead 
+            };
+            
+            // Unread Logic
+            const myReadInfo = convRes.data.lastReadBy?.find(r => r.user === user?._id || r.user?._id === user?._id);
+            const lastReadAt = myReadInfo ? new Date(myReadInfo.lastReadAt).getTime() : 0;
+            const unreadCount = msgs.filter(m => 
+              (m.sender?._id || m.sender) !== user?._id && 
               new Date(m.createdAt).getTime() > lastReadAt
             ).length;
+            unreads[friend._id] = unreadCount;
           }
-        } catch (e) { /* No conversation */ }
+        } catch (e) { 
+            console.error(`Error fetching DM for ${friend.name}:`, e); 
+        }
       }
       
       setLastMessages(lastMsgs);
       setUnreadCounts(unreads);
-      friendsList.sort((a, b) => (timestamps[b._id] || 0) - (timestamps[a._id] || 0));
+      
+      // Sort friends
+      friendsList.sort((a, b) => {
+         const timeA = timestamps[a._id] || 0;
+         const timeB = timestamps[b._id] || 0;
+         return timeB - timeA;
+      });
+      
       setFriends(friendsList);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching friends list:", err);
     } finally {
       setLoading(false);
     }
@@ -469,7 +503,7 @@ export default function Friends() {
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setAttachment(file);
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
@@ -502,14 +536,14 @@ export default function Friends() {
   const handleDocumentSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setAttachment(file);
+      setSelectedFile(file);
     }
   };
 
 
 
   const handleCameraCapture = (file) => {
-    setAttachment(file);
+    setSelectedFile(file);
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
@@ -580,7 +614,7 @@ export default function Friends() {
   /* Unified Send Message Logic */
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() && !attachment && !audioBlob && !pendingLocation) return;
+    if (!newMessage.trim() && !selectedFile && !audioBlob && !pendingLocation) return; // Changed from attachment to document
     if (!selectedFriend) return;
 
     try {
@@ -593,15 +627,20 @@ export default function Friends() {
         formData.append('attachmentType', 'location');
       } 
       // Handle Attachments (Image/File)
-      else if (attachment) {
-        formData.append('attachment', attachment);
-        if (attachment.type.startsWith('image')) {
+      else if (selectedFile) { // Changed from attachment to document
+        formData.append('attachment', selectedFile); // Changed from attachment to document
+        if (selectedFile.type.startsWith('image')) { // Changed from attachment to document
             formData.append('attachmentType', 'image');
-        } else if (attachment.type.startsWith('video')) {
+        } else if (selectedFile.type.startsWith('video')) { // Changed from attachment to document
             formData.append('attachmentType', 'video');
         } else {
             formData.append('attachmentType', 'file');
         }
+      }
+      // Handle Audio
+      else if (audioBlob) {
+        formData.append('attachment', audioBlob, 'voice.webm');
+        formData.append('attachmentType', 'voice');
       }
 
       formData.append('content', contentToSend);
@@ -619,7 +658,7 @@ export default function Friends() {
       setMessages(prev => [...prev, res.data]);
       setNewMessage(""); 
       setReplyingTo(null);
-      setAttachment(null);
+      setSelectedFile(null); // Changed from setAttachment to setDocument
       setImagePreview(null);
       setPendingLocation(null);
       setAudioBlob(null);
@@ -630,6 +669,45 @@ export default function Friends() {
       toast("Failed to send", "error");
     }
   };
+
+  // Handler for forwarding a message
+  const handleForwardMessage = (message) => {
+    setForwardMessage(message);
+    setMessageMenuId(null);
+  };
+
+  // Handler for pinning/unpinning a message
+  // Handler for pinning/unpinning a message
+  const handleTogglePinMessage = async (messageId) => {
+    if (!selectedFriend) return;
+    try {
+      const messageToPin = messages.find(m => m._id === messageId);
+      if (!messageToPin) return;
+
+      const isCurrentlyPinned = messageToPin.pinned;
+
+      // Optimistic update: Pin target, Unpin others
+      setMessages(prev => prev.map(msg => {
+          if (msg._id === messageId) return { ...msg, pinned: !isCurrentlyPinned };
+          // If pinning new one, unpin others. If unpinning, others remain unpinned.
+          return { ...msg, pinned: false };
+      }));
+      
+      setMessageMenuId(null);
+
+      await axios.post(`/api/dm/${selectedFriend._id}/message/${messageId}/pin`, { pin: !isCurrentlyPinned }, {
+        headers: { "x-auth-token": token }
+      });
+      toast(isCurrentlyPinned ? "Message unpinned" : "Message pinned!", "success");
+      // Re-fetch conversation to ensure state consistency
+      fetchConversation(selectedFriend._id);
+    } catch (err) {
+      console.error("Pin message error:", err);
+      toast("Failed to toggle pin", "error");
+      fetchConversation(selectedFriend._id);
+    }
+  };
+
 
 
 
@@ -734,11 +812,18 @@ export default function Friends() {
     };
     
     return (
-      <div className={`flex flex-col mb-3 group ${isMe ? "items-end" : "items-start"} relative`}>
-        {msg.replyTo && (
+    <div id={`msg-${msg._id}`} className={`flex flex-col mb-3 group ${isMe ? "items-end" : "items-start"} relative`}>
+      {msg.replyTo && (
           <div className="text-xs mb-2 p-2.5 rounded-lg border-l-4 max-w-[70%] bg-gray-100 dark:bg-slate-700 border-gray-400 dark:border-slate-500 text-gray-700 dark:text-gray-200">
             <span className="font-bold">{msg.replyTo.username}</span>: {msg.replyTo.content?.substring(0, 40)}...
           </div>
+        )}
+        
+        {/* Pinned Indicator on Message */}
+        {msg.pinned && (
+           <div className={`text-[10px] mb-1 flex items-center gap-1 ${isMe ? 'opacity-80' : 'opacity-60 text-purple-600 dark:text-purple-400'}`}>
+             <span>📌</span> Pinned
+           </div>
         )}
 
         <div className="flex gap-2 max-w-[75%]">
@@ -753,15 +838,15 @@ export default function Friends() {
           )}
           
           <div className="relative">
-            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words ${
+            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap ${
               isMe ? "bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-br-md" : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-bl-md border border-gray-100 dark:border-slate-600"
             }`}>
               {!isMe && <span className="block text-[12px] font-bold mb-0.5 text-purple-600 dark:text-purple-400">{senderName}</span>}
               
               {msg.attachmentType === 'image' && msg.attachment && (
-                <div className="relative group">
+                <div className="relative group max-w-full">
                   <img src={`http://localhost:5000${msg.attachment}`} alt="Shared" 
-                    className="max-w-[280px] max-h-[300px] rounded-lg mb-2 cursor-pointer object-cover hover:brightness-95 transition"
+                    className="max-w-full max-h-[300px] w-auto h-auto rounded-lg mb-2 cursor-pointer object-contain bg-gray-900/5 hover:brightness-95 transition"
                     onClick={() => window.open(`http://localhost:5000${msg.attachment}`, '_blank')}
                   />
                   <a href={`http://localhost:5000${msg.attachment}`} download target="_blank" rel="noopener noreferrer" 
@@ -869,16 +954,19 @@ export default function Friends() {
                   className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
                   <span>📋</span> Copy
                 </button>
-                <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                <button 
+                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); handleForwardMessage(msg); setMessageMenuId(null); }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
                   <span>↗️</span> Forward
                 </button>
-                <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
-                  <span>📌</span> Pin
+                <button 
+                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); handleTogglePinMessage(msg._id); setMessageMenuId(null); }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                  <span>📌</span> {msg.pinned ? "Unpin" : "Pin"}
                 </button>
                 <div className="h-px bg-gray-100 dark:bg-slate-700"></div>
                 <button 
-                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDeleteTarget(msg); setMessageMenuId(null); }}
+                  onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); setDeleteTarget(msg); setMessageMenuId(null); }}
                   className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 text-red-500">
                   <span>🗑️</span> Delete
                 </button>
@@ -1005,8 +1093,8 @@ export default function Friends() {
                   })
                   .sort((a, b) => {
                     // Pinned friends first
-                    const aIsPinned = pinnedFriends.includes(a._id);
-                    const bIsPinned = pinnedFriends.includes(b._id);
+                    const aIsPinned = pinnedFriends.includes(a._id?.toString());
+                    const bIsPinned = pinnedFriends.includes(b._id?.toString());
                     if (aIsPinned && !bIsPinned) return -1;
                     if (!aIsPinned && bIsPinned) return 1;
                     return 0; // Keep original order for unpinned
@@ -1017,7 +1105,7 @@ export default function Friends() {
                     onClick={() => { setSelectedFriend(friend); setViewProfile(null); }}
                     className={`group relative flex items-center gap-3 p-3 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-50 dark:border-slate-700/50 h-[72px] ${
                       selectedFriend?._id === friend._id ? 'bg-purple-50 dark:bg-purple-900/20' : ''
-                    }`}
+                    } ${activeMenuId === friend._id ? 'z-50' : 'z-0'}`}
                     onContextMenu={(e) => { e.preventDefault(); setActiveMenuId(friend._id); }}
                   >
                     {/* Avatar */}
@@ -1090,10 +1178,10 @@ export default function Friends() {
                     {/* Dropdown Menu */}
                     {activeMenuId === friend._id && (
                        <div className="absolute top-10 right-4 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-100 dark:border-slate-700 z-[60] py-1 text-gray-800 dark:text-gray-200 font-sans" onClick={e => e.stopPropagation()}>
-                           <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                           <button onClick={(e) => { handleToggleArchiveFriend(friend._id, e); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
                                <span>📂</span> Archive chat
                            </button>
-                           <button className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
+                           <button onClick={(e) => { handleTogglePinFriend(friend._id, e); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
                                <span>📌</span> {pinnedFriends.includes(friend._id) ? "Unpin chat" : "Pin chat"}
                            </button>
                            <button onClick={(e) => { setActiveMenuId(null); setUnreadCounts(prev => ({...prev, [friend._id]: (prev[friend._id] || 0) + 1})); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
@@ -1121,7 +1209,16 @@ export default function Friends() {
           <div className="flex-1 flex flex-col">
             {selectedFriend && !viewProfile ? (
               <>
-                {/* Chat Header */}
+                {/* Forward Modal */}
+      {forwardMessage && (
+        <ForwardModal 
+           message={forwardMessage} 
+           onClose={() => setForwardMessage(null)} 
+           onForward={() => { setForwardMessage(null); }}
+        />
+      )}
+
+      {/* Modal (Create Group) */}
                 <div 
                   className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-slate-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 transition"
                   onClick={() => fetchFriendProfile(selectedFriend._id)}
@@ -1168,9 +1265,92 @@ export default function Friends() {
                     <input type="file" ref={wallpaperInputRef} onChange={handleCustomWallpaperUpload} accept="image/*" className="hidden" />
                   </div>
                 )}
-                
-                {/* Messages Area */}
-                <div className={`flex-1 p-4 overflow-y-auto overflow-x-hidden ${getCurrentWallpaper() || ''}`} style={getCustomWallpaperStyle()}>
+               {/* Pinned Message Banner */}
+
+            
+
+
+            {/* Pinned Message Banner (Multi-Pin Support) */}
+            {messages.some(m => m.pinned) && (() => {
+               const pinnedMsgs = messages.filter(m => m.pinned);
+               const firstPinned = pinnedMsgs[0];
+               const hasMultiple = pinnedMsgs.length > 1;
+               
+               // Determine label based on attachment type if content is missing
+               const getLabel = (m) => {
+                 if (m.content) return m.content;
+                 if (m.attachmentType === 'image') return "Pinned Photo";
+                 if (m.attachmentType === 'video') return "Pinned Video";
+                 if (m.attachmentType === 'voice') return "Pinned Voice Note";
+                 if (m.attachmentType === 'file') return "Pinned Document";
+                 if (m.attachmentType === 'location') return "Pinned Location";
+                 return "Pinned Message";
+               };
+
+               return (
+               <div className="relative z-30">
+                  <div 
+                    className="bg-purple-50 dark:bg-purple-900/20 px-4 py-2 border-b border-purple-100 dark:border-purple-800/30 flex justify-between items-center cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex-shrink-0"
+                    onClick={() => {
+                        if (hasMultiple) {
+                            setActiveMenuId(activeMenuId === 'pinned-list' ? null : 'pinned-list');
+                        } else {
+                            const el = document.getElementById(`msg-${firstPinned._id}`);
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            else toast("Pinned message scroll failed", "info");
+                        }
+                    }}
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                        <span className="text-purple-600 dark:text-purple-400">📌</span>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                                {hasMultiple ? `${pinnedMsgs.length} Pinned Messages` : "Pinned Message"}
+                            </span>
+                            <span className="text-xs text-purple-600/70 dark:text-purple-400/70 truncate max-w-[200px]">
+                                {hasMultiple ? "Click to view list" : getLabel(firstPinned)}
+                            </span>
+                        </div>
+                    </div>
+                    <span className="text-xs text-purple-400 underline transform transition-transform duration-200" style={{ transform: activeMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                        {hasMultiple ? "▼" : "View"}
+                    </span>
+                  </div>
+
+                  {/* Multi-Pin Dropdown List */}
+                  {activeMenuId === 'pinned-list' && hasMultiple && (
+                      <div className="absolute top-full left-0 right-0 bg-white dark:bg-slate-800 shadow-xl border-b border-gray-100 dark:border-slate-700 max-h-60 overflow-y-auto animate-fade-in-down z-40">
+                          {pinnedMsgs.map(msg => (
+                              <div key={msg._id} className="p-3 border-b border-gray-50 dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700 flex justify-between items-center group/pin">
+                                  <div 
+                                    className="flex-1 min-w-0 cursor-pointer mr-2"
+                                    onClick={() => {
+                                        const el = document.getElementById(`msg-${msg._id}`);
+                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        setActiveMenuId(null);
+                                    }}
+                                  >
+                                      <p className="text-sm text-gray-800 dark:text-gray-200 truncate font-medium">{getLabel(msg)}</p>
+                                      <p className="text-[10px] text-gray-400">{new Date(msg.createdAt).toLocaleDateString()}</p>
+                                  </div>
+                                  <button 
+                                      onClick={(e) => { e.stopPropagation(); handleTogglePinMessage(msg._id); }}
+                                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition"
+                                      title="Unpin"
+                                  >
+                                      ✕
+                                  </button>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+               </div>
+               );
+            })()}
+
+            <div 
+              ref={chatContainerRef}
+              className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-1 ${getCurrentWallpaper() || ''}`} style={getCustomWallpaperStyle()}>
                   {messages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400">
                       <div className="w-24 h-24 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center mb-4">
@@ -1201,8 +1381,8 @@ export default function Friends() {
                 </div>
               )}
 
-              {/* Attachment Preview (Image or File) */}
-              {attachment && (
+              {/* Attachment Preview (Image or File) */ }
+              {selectedFile && (
                 <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 p-2 rounded-lg mb-2">
                    {imagePreview ? (
                       <img src={imagePreview} alt="Preview" className="h-10 w-10 rounded object-cover" />
@@ -1211,9 +1391,9 @@ export default function Friends() {
                    )}
                    <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-500 dark:text-gray-400">Selected File</p>
-                      <p className="text-sm font-bold text-purple-700 dark:text-purple-300 max-w-[200px] truncate">{attachment.name}</p>
+                      <p className="text-sm font-bold text-purple-700 dark:text-purple-300 max-w-[200px] truncate">{selectedFile.name}</p>
                    </div>
-                   <button onClick={() => { setAttachment(null); setImagePreview(null); }} className="text-gray-400 hover:text-red-500">✕</button>
+                   <button onClick={() => { setSelectedFile(null); setImagePreview(null); }} className="text-gray-400 hover:text-red-500">✕</button>
                 </div>
               )}
         
@@ -1289,7 +1469,7 @@ export default function Friends() {
                 ) : (
                   <button 
                     type="submit" 
-                    disabled={!newMessage.trim() && !attachment}
+                    disabled={!newMessage.trim() && !selectedFile}
                     className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full shadow-lg hover:from-purple-600 hover:to-pink-600 transition w-12 h-12 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     ➤

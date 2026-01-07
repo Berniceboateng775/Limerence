@@ -53,6 +53,33 @@ router.get("/me", auth, async (req, res) => {
   }
 });
 
+// Get friends list directly (for ForwardModal etc)
+router.get("/friends", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).populate("friends", "name avatar");
+    res.json(user.friends || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
+// Get user's archived items
+router.get("/archived", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId)
+      .populate("archivedFriends", "name avatar")
+      .populate("archivedClubs", "name coverImage");
+    res.json({ 
+      archivedFriends: user.archivedFriends || [],
+      archivedClubs: user.archivedClubs || []
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
 // Get user's pinned and favorites (must be before /:id route)
 router.get("/my-pins-favorites", auth, async (req, res) => {
   try {
@@ -606,20 +633,6 @@ router.post("/archive/club/:clubId", auth, async (req, res) => {
   }
 });
 
-// Get user's archived items
-router.get("/archived", auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.userId)
-      .populate("archivedFriends", "name avatar")
-      .populate("archivedClubs", "name coverImage");
-    res.json({ 
-      archivedFriends: user.archivedFriends || [],
-      archivedClubs: user.archivedClubs || []
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Server Error");
-  }
-});
+
 
 module.exports = router;
