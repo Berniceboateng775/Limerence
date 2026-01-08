@@ -1099,9 +1099,9 @@ export default function Friends() {
               className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-purple-500/50 z-50 transition-colors"
                onMouseDown={startResizing}
             />
-            <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-purple-600 to-pink-500">
+            <div className="p-4 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800">
               <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-serif font-bold text-white">Chats</h1>
+                <h1 className="text-2xl font-serif font-bold text-gray-800 dark:text-white">Chats</h1>
                 {getTotalUnread() > 0 && (
                   <span className="bg-white text-purple-600 text-xs font-bold px-2.5 py-1 rounded-full shadow">
                     {getTotalUnread()} new

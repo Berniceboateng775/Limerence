@@ -231,7 +231,7 @@ const ClubMessageBubble = ({
         </div>
       )}
 
-      <div className="flex gap-2 max-w-[85%] md:max-w-[75%]">
+      <div className="flex gap-2 max-w-[50%]">
         {!calculatedIsMe && (
           <div 
             onClick={() => fetchUserProfile(msg.user)} 
@@ -254,7 +254,7 @@ const ClubMessageBubble = ({
           )}
           <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${fontSizes[fontSize]} leading-relaxed break-words whitespace-pre-wrap overflow-hidden ${
             calculatedIsMe 
-              ? "bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-white rounded-tr-sm" 
+              ? "bg-purple-600 text-white dark:bg-purple-600 dark:text-white rounded-tr-sm" 
               : "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white rounded-tl-sm"
           }`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
             {!calculatedIsMe && (
