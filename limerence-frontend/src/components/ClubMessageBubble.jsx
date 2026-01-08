@@ -231,7 +231,7 @@ const ClubMessageBubble = ({
         </div>
       )}
 
-      <div className="flex gap-2 max-w-[50%]">
+      <div className="flex gap-2 max-w-[85%] md:max-w-[75%]">
         {!calculatedIsMe && (
           <div 
             onClick={() => fetchUserProfile(msg.user)} 
@@ -245,7 +245,7 @@ const ClubMessageBubble = ({
           </div>
         )}
         
-        <div className="relative max-w-[70%]" style={{ maxWidth: 'min(70%, 500px)' }}>
+        <div className="relative w-full">
           {/* Forwarded label */}
           {msg.isForwarded && (
             <div className="text-[10px] italic text-gray-400 dark:text-gray-500 mb-0.5">

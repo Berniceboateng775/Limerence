@@ -128,7 +128,7 @@ export default function Clubs() {
   const [fontSize, setFontSize] = useState("medium");
   
   // Resizable Sidebar State
-  const [sidebarWidth, setSidebarWidth] = useState(320); // Default w-80 (320px)
+  const [sidebarWidth, setSidebarWidth] = useState(384); // Default w-96 (384px)
   const [isResizing, setIsResizing] = useState(false);
   const [activeClubMenuId, setActiveClubMenuId] = useState(null); // Dropdown menu for clubs
   

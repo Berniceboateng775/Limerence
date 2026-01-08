@@ -871,7 +871,7 @@ export default function Friends() {
            </div>
         )}
 
-        <div className="flex gap-2 max-w-[85%] md:max-w-[70%]">
+        <div className={`flex gap-2 ${['voice','file','video'].includes(msg.attachmentType) ? 'max-w-[85%] md:max-w-[75%]' : 'max-w-[85%] md:max-w-[50%]'}`}>
           {!isMe && (
             <div className={`w-9 h-9 rounded-full ${avatarColor} flex-shrink-0 overflow-hidden shadow-md flex items-center justify-center text-xs font-bold text-white ring-2 ring-white dark:ring-slate-700`}>
               {msg.sender?.avatar ? (
@@ -1384,19 +1384,18 @@ export default function Friends() {
                return (
                <div className="relative z-30">
                   <div 
-                    className="bg-purple-50 dark:bg-purple-900/20 px-4 py-2 border-b border-purple-100 dark:border-purple-800/30 flex justify-between items-center cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex-shrink-0"
+                    className="bg-gray-50 dark:bg-slate-700/50 px-4 py-2 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition flex-shrink-0"
                     onClick={() => {
                         if (hasMultiple) {
                             setActiveMenuId(activeMenuId === 'pinned-list' ? null : 'pinned-list');
                         } else {
                             const el = document.getElementById(`msg-${firstPinned._id}`);
                             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            else toast("Pinned message scroll failed", "info");
                         }
                     }}
                   >
                     <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="text-purple-600 dark:text-purple-400">📌</span>
+                        <span className="text-purple-500">📌</span>
                         <div className="flex flex-col">
                             <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
                                 {hasMultiple ? `${pinnedMsgs.length} Pinned Messages` : "Pinned Message"}
