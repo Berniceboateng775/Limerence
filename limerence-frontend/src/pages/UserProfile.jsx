@@ -28,6 +28,7 @@ export default function UserProfile() {
   const [clubs, setClubs] = useState([]);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
+  const [reviews, setReviews] = useState([]);
 
   const isOwnProfile = currentUser?._id === id || currentUser?.id === id;
 
@@ -45,6 +46,7 @@ export default function UserProfile() {
       fetchClubs();
       fetchFollowers();
       fetchFollowing();
+      fetchReviews();
       checkRelationship();
     }
   }, [profile]);
@@ -102,6 +104,17 @@ export default function UserProfile() {
         headers: { "x-auth-token": token },
       });
       setFollowing(res.data.following || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/users/${id}/reviews`, {
+        headers: { "x-auth-token": token },
+      });
+      setReviews(res.data.reviews || res.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -223,6 +236,7 @@ export default function UserProfile() {
 
   const TABS = [
     { id: "books", label: "📚 Books", count: shelf.length },
+    { id: "reviews", label: "⭐ Reviews", count: reviews.length },
     { id: "stats", label: "📊 Stats", count: null },
     { id: "network", label: "👥 Network", count: followers.length + following.length },
     { id: "clubs", label: "🏛️ Clubs", count: clubs.length },
@@ -456,6 +470,52 @@ export default function UserProfile() {
                 </>
               ) : (
                 <p className="text-gray-500 text-center py-8">This user hasn't added any books yet.</p>
+              )}
+            </div>
+          )}
+
+          {/* REVIEWS TAB */}
+          {activeTab === "reviews" && (
+            <div className="space-y-4">
+              {reviews.length > 0 ? (
+                reviews.map((review, idx) => (
+                  <div key={idx} className="bg-gray-50 dark:bg-slate-700 rounded-2xl p-4 border border-gray-100 dark:border-slate-600">
+                    <div className="flex items-start gap-4">
+                      {/* Book Cover */}
+                      <div 
+                        onClick={() => navigate(`/book/${review.bookId || review.book?._id}`)}
+                        className="w-16 h-24 rounded-lg overflow-hidden shadow-md cursor-pointer hover:shadow-xl transition flex-shrink-0 bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center"
+                      >
+                        {review.bookCover || review.book?.coverImage ? (
+                          <img src={review.bookCover || review.book?.coverImage} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-white text-xs text-center p-1">{review.bookTitle || review.book?.title || 'Book'}</span>
+                        )}
+                      </div>
+                      
+                      {/* Review Content */}
+                      <div className="flex-1">
+                        <h4 className="font-bold text-gray-900 dark:text-white">{review.bookTitle || review.book?.title || 'Unknown Book'}</h4>
+                        <div className="flex items-center gap-1 my-1">
+                          {[1,2,3,4,5].map(star => (
+                            <span key={star} className={star <= (review.rating || 0) ? 'text-yellow-500' : 'text-gray-300'}>★</span>
+                          ))}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">{review.content || review.text || 'No review text'}</p>
+                        <p className="text-xs text-gray-400 mt-2">{new Date(review.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Likes */}
+                    {review.likes && (
+                      <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
+                        <span>❤️ {review.likes.length || 0} likes</span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-8">This user hasn't written any reviews yet.</p>
               )}
             </div>
           )}

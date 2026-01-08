@@ -702,12 +702,8 @@ export default function Clubs() {
   const handlePinMessage = async (messageId) => {
       try {
           const res = await axios.post(`/api/clubs/${selectedClub._id}/messages/${messageId}/pin`, {}, { headers: { "x-auth-token": token } });
-          // Update local state
-          const updatedMessages = selectedClub.messages.map(m => {
-              if (m._id === messageId) return { ...m, pinned: !m.pinned };
-              return m;
-          });
-          setSelectedClub(prev => ({ ...prev, messages: updatedMessages }));
+          // Use server response directly
+          setSelectedClub(prev => ({ ...prev, messages: res.data }));
           toast("Pin updated", "success");
       } catch (err) {
           toast(err.response?.data?.msg || "Failed to pin", "error");
@@ -907,6 +903,11 @@ export default function Clubs() {
         const isMember = c.members.some(m => (m._id || m) === user._id);
         return isMember && calculateUnread(c) > 0;
       });
+    } else if (clubFilterTab === "archived") {
+      result = result.filter(c => archivedClubs.includes(c._id));
+    } else {
+      // "all" tab - hide archived clubs
+      result = result.filter(c => !archivedClubs.includes(c._id));
     }
     
     // Sort with pinned clubs at top, then by latest message
@@ -1008,6 +1009,16 @@ export default function Clubs() {
             >
               Unread
             </button>
+            <button
+              onClick={() => setClubFilterTab("archived")}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                clubFilterTab === "archived" 
+                  ? "bg-purple-500 text-white" 
+                  : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+              }`}
+            >
+              📁
+            </button>
           </div>
         </div>
         
@@ -1068,7 +1079,15 @@ export default function Clubs() {
                             <span className={(lastMsg.user?._id || lastMsg.user) === user._id ? "text-purple-500 font-bold" : ""}>
                               {(lastMsg.user?._id || lastMsg.user) === user._id ? "You" : (lastMsg.username || 'Unknown')}: 
                             </span>{" "}
-                            {lastMsg.content || '📎 Attachment'}
+                            {lastMsg.content || (
+                              lastMsg.poll ? '📊 Poll' :
+                              lastMsg.attachment?.fileType === 'image' ? '📷 Image' :
+                              lastMsg.attachment?.fileType === 'video' ? '🎥 Video' :
+                              lastMsg.attachment?.fileType === 'audio' ? '🎵 Voice' :
+                              lastMsg.attachment?.fileType === 'file' ? '📄 Document' :
+                              lastMsg.attachmentType === 'location' ? '📍 Location' :
+                              '📎 Attachment'
+                            )}
                           </>
                         ) : club.description}
                       </p>
@@ -1244,12 +1263,13 @@ export default function Clubs() {
                
                const getLabel = (m) => {
                  if (m.content) return m.content;
-                 if (m.attachmentType === 'image') return "Pinned Photo";
-                 if (m.attachmentType === 'video') return "Pinned Video";
-                 if (m.attachmentType === 'voice') return "Pinned Voice Note";
-                 if (m.attachmentType === 'file') return "Pinned Document";
-                 if (m.attachmentType === 'location') return "Pinned Location";
-                 return "Pinned Message";
+                 if (m.poll) return "📊 Poll";
+                 if (m.attachmentType === 'image' || m.attachment?.fileType === 'image') return "📷 Image";
+                 if (m.attachmentType === 'video' || m.attachment?.fileType === 'video') return "🎥 Video";
+                 if (m.attachmentType === 'voice' || m.attachment?.fileType === 'audio') return "🎵 Voice Note";
+                 if (m.attachmentType === 'file' || m.attachment?.fileType === 'file') return "📄 Document";
+                 if (m.attachmentType === 'location') return "📍 Location";
+                 return "📌 Pinned Message";
                };
 
                return (
@@ -1300,7 +1320,7 @@ export default function Clubs() {
                                       <p className="text-[10px] text-gray-400">{new Date(msg.createdAt).toLocaleDateString()}</p>
                                   </div>
                                   <button 
-                                      onClick={(e) => { e.stopPropagation(); handlePinMessage(msg._id); }}
+                                      onClick={(e) => { e.stopPropagation(); handlePinMessage(msg._id); setActiveClubMenuId(null); }}
                                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition"
                                       title="Unpin"
                                   >

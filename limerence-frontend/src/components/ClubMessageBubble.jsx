@@ -190,7 +190,7 @@ const ClubMessageBubble = ({
         </div>
       )}
 
-      <div className="flex gap-2 max-w-[85%] md:max-w-[75%]">
+      <div className="flex gap-2 max-w-[50%]">
         {!calculatedIsMe && (
           <div 
             onClick={() => fetchUserProfile(msg.user)} 
@@ -205,6 +205,12 @@ const ClubMessageBubble = ({
         )}
         
         <div className="relative">
+          {/* Forwarded label */}
+          {msg.isForwarded && (
+            <div className="text-[10px] italic text-gray-400 dark:text-gray-500 mb-0.5">
+              ↪ Forwarded
+            </div>
+          )}
           <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${fontSizes[fontSize]} leading-relaxed break-all whitespace-pre-wrap ${
             calculatedIsMe 
               ? "bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-white rounded-tr-sm" 

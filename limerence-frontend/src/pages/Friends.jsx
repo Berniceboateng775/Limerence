@@ -50,7 +50,8 @@ export default function Friends() {
   // Pin/Favorite States
   const [pinnedFriends, setPinnedFriends] = useState([]);
   const [favoriteFriends, setFavoriteFriends] = useState([]);
-  const [friendFilterTab, setFriendFilterTab] = useState("all"); // "all" | "favorites"
+  const [archivedFriends, setArchivedFriends] = useState([]);
+  const [friendFilterTab, setFriendFilterTab] = useState("all"); // "all" | "favorites" | "archived"
   const [bestie, setBestie] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -284,9 +285,10 @@ export default function Friends() {
   const handleToggleArchiveFriend = async (friendId, e) => {
     e?.stopPropagation();
     try {
-      await axios.put(`/api/users/archive-friend/${friendId}`, {}, { headers: { "x-auth-token": token } });
+      const res = await axios.post(`/api/users/archive/friend/${friendId}`, {}, { headers: { "x-auth-token": token } });
+      setArchivedFriends(res.data.archivedFriends?.map(id => id.toString()) || []);
+      toast(res.data.isArchived ? "Chat archived" : "Chat unarchived", "success");
       await fetchFriends();
-      toast("Chat archived state updated", "success");
     } catch (err) { console.error(err); toast("Failed to archive", "error"); }
   };
 
@@ -838,7 +840,13 @@ export default function Friends() {
           )}
           
           <div className="relative">
-            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap ${
+            {/* Forwarded label */}
+            {msg.isForwarded && (
+              <div className="text-[10px] italic text-gray-400 dark:text-gray-500 mb-0.5">
+                ↪ Forwarded
+              </div>
+            )}
+            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap max-w-[50%] ${
               isMe ? "bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-br-md" : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-bl-md border border-gray-100 dark:border-slate-600"
             }`}>
               {!isMe && <span className="block text-[12px] font-bold mb-0.5 text-purple-600 dark:text-purple-400">{senderName}</span>}
@@ -1072,6 +1080,16 @@ export default function Friends() {
                 >
                   Unread
                 </button>
+                <button
+                  onClick={() => setFriendFilterTab("archived")}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                    friendFilterTab === "archived" 
+                      ? "bg-purple-500 text-white" 
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  📁
+                </button>
               </div>
             </div>
             
@@ -1089,7 +1107,9 @@ export default function Friends() {
                   .filter(f => {
                     if (friendFilterTab === "favorites") return favoriteFriends.includes(f._id);
                     if (friendFilterTab === "unread") return unreadCounts[f._id] > 0;
-                    return true;
+                    if (friendFilterTab === "archived") return archivedFriends.includes(f._id);
+                    // "all" tab - hide archived
+                    return !archivedFriends.includes(f._id);
                   })
                   .sort((a, b) => {
                     // Pinned friends first
