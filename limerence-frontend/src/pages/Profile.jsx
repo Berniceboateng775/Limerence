@@ -104,10 +104,10 @@ export default function Profile() {
 
   const fetchReviews = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/users/${profile._id}/popular-reviews`, {
+      const res = await axios.get(`http://localhost:5000/api/users/${profile._id}/reviews`, {
         headers: { "x-auth-token": token },
       });
-      setReviews(res.data || []);
+      setReviews(res.data.reviews || res.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -182,7 +182,7 @@ export default function Profile() {
   const TABS = [
     { id: "books", label: "📚 Books", count: shelf.length },
     { id: "stats", label: "📊 Stats", count: null },
-    { id: "reviews", label: "✍️ Reviews", count: stats?.reviewsPosted || 0 }, // New Reviews Tab
+    { id: "reviews", label: "✍️ Reviews", count: reviews.length }, // Use actual reviews count
     { id: "goals", label: "🎯 Goals", count: null },
     { id: "network", label: "👥 Network", count: (stats?.followersCount || 0) + (stats?.followingCount || 0) },
     { id: "clubs", label: "🏛️ Clubs", count: clubs.length },

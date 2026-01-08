@@ -15,9 +15,10 @@ const DirectMessageSchema = new mongoose.Schema({
       type: String,
       default: ""
     },
+    // Support both string URL and object with fileType/url/name
     attachment: {
-      type: String, // URL to uploaded file (image or voice note)
-      default: ""
+      type: mongoose.Schema.Types.Mixed,
+      default: null
     },
     attachmentType: {
       type: String,
@@ -49,9 +50,10 @@ const DirectMessageSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    // Support object with userId, username, originalMsgId
     forwardedFrom: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
+      type: mongoose.Schema.Types.Mixed,
+      default: null
     }
   }],
   // Track when each participant last read the conversation

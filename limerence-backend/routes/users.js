@@ -130,6 +130,34 @@ router.get("/:id/popular-reviews", auth, async (req, res) => {
   }
 });
 
+// Get ALL user's reviews (for UserProfile)
+router.get("/:id/reviews", auth, async (req, res) => {
+  try {
+    const comments = await Comment.find({ user: req.params.id })
+      .populate("book", "title coverImage authors")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Format for frontend
+    const reviews = comments.map(c => ({
+      _id: c._id,
+      bookId: c.book?._id,
+      bookTitle: c.book?.title,
+      bookCover: c.book?.coverImage,
+      rating: c.rating,
+      content: c.text || c.content,
+      text: c.text,
+      likes: c.likes || [],
+      createdAt: c.createdAt
+    }));
+
+    res.json({ reviews, count: reviews.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+});
+
 // Get user by ID (for viewing friend profiles)
 router.get("/:id", auth, async (req, res) => {
   try {

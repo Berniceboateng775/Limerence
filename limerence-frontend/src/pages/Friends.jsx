@@ -828,7 +828,7 @@ export default function Friends() {
            </div>
         )}
 
-        <div className="flex gap-2 max-w-[75%]">
+        <div className="flex gap-2 max-w-[80%]">
           {!isMe && (
             <div className={`w-9 h-9 rounded-full ${avatarColor} flex-shrink-0 overflow-hidden shadow-md flex items-center justify-center text-xs font-bold text-white ring-2 ring-white dark:ring-slate-700`}>
               {msg.sender?.avatar ? (
@@ -839,14 +839,14 @@ export default function Friends() {
             </div>
           )}
           
-          <div className="relative">
+          <div className="relative flex-1 min-w-0">
             {/* Forwarded label */}
             {msg.isForwarded && (
               <div className="text-[10px] italic text-gray-400 dark:text-gray-500 mb-0.5">
                 ↪ Forwarded
               </div>
             )}
-            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words break-all whitespace-pre-wrap max-w-[50%] ${
+            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words whitespace-pre-wrap ${
               isMe ? "bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-br-md" : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-bl-md border border-gray-100 dark:border-slate-600"
             }`}>
               {!isMe && <span className="block text-[12px] font-bold mb-0.5 text-purple-600 dark:text-purple-400">{senderName}</span>}
@@ -1199,7 +1199,7 @@ export default function Friends() {
                     {activeMenuId === friend._id && (
                        <div className="absolute top-10 right-4 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-100 dark:border-slate-700 z-[60] py-1 text-gray-800 dark:text-gray-200 font-sans" onClick={e => e.stopPropagation()}>
                            <button onClick={(e) => { handleToggleArchiveFriend(friend._id, e); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
-                               <span>📂</span> Archive chat
+                               <span>📂</span> {archivedFriends.includes(friend._id) ? "Unarchive chat" : "Archive chat"}
                            </button>
                            <button onClick={(e) => { handleTogglePinFriend(friend._id, e); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-sm flex items-center gap-3">
                                <span>📌</span> {pinnedFriends.includes(friend._id) ? "Unpin chat" : "Pin chat"}
