@@ -54,6 +54,11 @@ const DirectMessageSchema = new mongoose.Schema({
     forwardedFrom: {
       type: mongoose.Schema.Types.Mixed,
       default: null
+    },
+    // Pinned status on individual message
+    pinned: {
+      type: Boolean,
+      default: false
     }
   }],
   // Track when each participant last read the conversation

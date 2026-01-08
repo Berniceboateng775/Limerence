@@ -1250,6 +1250,21 @@ export default function Clubs() {
                   🖼️
                   <input type="file" accept="image/*" className="hidden" onChange={handleWallpaperUpload} />
                 </label>
+                
+                {/* Share Icon - visible to members only */}
+                {selectedClub.members?.some(m => (m._id || m) === user?._id) && (
+                  <button 
+                    onClick={() => {
+                      const shareLink = `${window.location.origin}/clubs?join=${selectedClub._id}`;
+                      navigator.clipboard.writeText(`Join my club ${selectedClub.name}! ${shareLink}`);
+                      toast("Club invite link copied!", "success");
+                    }}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition text-gray-600 dark:text-gray-300"
+                    title="Share Club"
+                  >
+                    📤
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1276,14 +1291,14 @@ export default function Clubs() {
                <div className="relative z-30">
                   <div 
                     className="bg-purple-50 dark:bg-purple-900/20 px-4 py-2 border-b border-purple-100 dark:border-purple-800/30 flex justify-between items-center cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex-shrink-0"
-                    onClick={() => {
+                    onClick={(e) => {
                         if (hasMultiple) {
                             // Toggle dropdown
                             setActiveClubMenuId(activeClubMenuId === 'pinned-list' ? null : 'pinned-list');
                         } else {
-                            const el = document.getElementById(`msg-${firstPinned._id}`);
-                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            else toast("Pinned message scroll failed", "info");
+                            // Single pin - clicking X unpins the message
+                            e.stopPropagation();
+                            handlePinMessage(firstPinned._id);
                         }
                     }}
                   >
@@ -1299,7 +1314,7 @@ export default function Clubs() {
                         </div>
                     </div>
                     <span className="text-xs text-purple-400 underline transform transition-transform duration-200" style={{ transform: activeClubMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                        {hasMultiple ? "▼" : "View"}
+                        {hasMultiple ? "▼" : "✕"}
                     </span>
                   </div>
 
@@ -2046,9 +2061,66 @@ export default function Clubs() {
          onSubmit={handlePollCreate} 
       />
 
-
-      
-
+      {/* Join Club Modal - from club link in messages */}
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200]" onClick={() => setShowJoinModal(null)}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {showJoinModal.loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading club info...</p>
+              </div>
+            ) : showJoinModal.club ? (
+              <>
+                <div className="text-center mb-4">
+                  <div className="w-20 h-20 mx-auto bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-3 overflow-hidden">
+                    {showJoinModal.club.avatar ? (
+                      <img src={`http://localhost:5000${showJoinModal.club.avatar}`} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      showJoinModal.club.name?.[0]?.toUpperCase()
+                    )}
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{showJoinModal.club.name}</h3>
+                  <p className="text-sm text-gray-500">{showJoinModal.club.members?.length || 0} members</p>
+                  {showJoinModal.club.description && (
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{showJoinModal.club.description}</p>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowJoinModal(null)}
+                    className="flex-1 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await axios.post(`/api/clubs/${showJoinModal.clubId}/join`, {}, { headers: { "x-auth-token": token } });
+                        toast("Joined club successfully!", "success");
+                        setShowJoinModal(null);
+                        // Refresh clubs list
+                        const res = await axios.get("/api/clubs/me", { headers: { "x-auth-token": token } });
+                        setClubs(res.data.clubs || []);
+                      } catch (err) {
+                        toast(err.response?.data?.msg || "Failed to join club", "error");
+                      }
+                    }}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl hover:from-purple-600 hover:to-pink-600 transition shadow-lg"
+                  >
+                    Join Club
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-red-500">Club not found</p>
+                <button onClick={() => setShowJoinModal(null)} className="mt-4 text-purple-500 font-bold">Close</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* CSS Animations */}
       <style>{`

@@ -477,7 +477,7 @@ router.get("/:id/stats", auth, async (req, res) => {
       .map(([genre, count]) => ({ genre, count }));
     
     res.json({
-      booksRead: user.stats?.booksRead || completedBooks.length,
+      booksRead: completedBooks.length, // Always use actual completed count
       pagesRead: user.stats?.pagesRead || totalPages,
       authorsRead: authorsSet.size,
       reviewsPosted: user.stats?.reviewsPosted || 0,

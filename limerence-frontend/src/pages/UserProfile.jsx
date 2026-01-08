@@ -29,6 +29,8 @@ export default function UserProfile() {
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [showSummary, setShowSummary] = useState(false);
+  const [reviewsShown, setReviewsShown] = useState(3);
 
   const isOwnProfile = currentUser?._id === id || currentUser?.id === id;
 
@@ -267,8 +269,19 @@ export default function UserProfile() {
 
             {/* Info */}
             <div className="flex-1 text-center md:text-left">
+              {/* Clickable Username with Badge */}
+              <div className="flex items-center gap-2 justify-center md:justify-start">
+                <button 
+                  onClick={() => setShowSummary(!showSummary)}
+                  className="text-purple-600 dark:text-purple-400 font-bold hover:underline"
+                >
+                  @{profile.username || profile.name?.toLowerCase().replace(/\s/g, '')}
+                </button>
+                <span className="bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 text-xs px-2 py-0.5 rounded-full font-bold">
+                  {stats?.booksRead || booksCompleted.length} Reads
+                </span>
+              </div>
               <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white">{profile.name}</h1>
-              {profile.username && <p className="text-purple-500 dark:text-purple-400">@{profile.username}</p>}
               <p className="text-gray-600 dark:text-gray-300 italic text-sm max-w-md mt-2">
                 "{profile.about || "Hey there! I'm using Limerence 📚"}"
               </p>
@@ -348,6 +361,84 @@ export default function UserProfile() {
             </div>
           </div>
         </div>
+
+        {/* Summary Popup Modal */}
+        {showSummary && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowSummary(false)}>
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">📊 {profile.name}'s Summary</h3>
+                <button onClick={() => setShowSummary(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+              </div>
+              
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-4 text-center text-white">
+                  <div className="text-2xl font-bold">{stats?.booksRead || booksCompleted.length}</div>
+                  <div className="text-xs opacity-90">📚 Books Read</div>
+                </div>
+                <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl p-4 text-center text-white">
+                  <div className="text-2xl font-bold">{(stats?.pagesRead || 0).toLocaleString()}</div>
+                  <div className="text-xs opacity-90">📄 Pages</div>
+                </div>
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl p-4 text-center text-white">
+                  <div className="text-2xl font-bold">{stats?.authorsRead || 0}</div>
+                  <div className="text-xs opacity-90">✍️ Authors</div>
+                </div>
+                <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-4 text-center text-white">
+                  <div className="text-2xl font-bold">{reviews.length}</div>
+                  <div className="text-xs opacity-90">📝 Reviews</div>
+                </div>
+              </div>
+
+              {/* Books by Status */}
+              <div className="mb-6">
+                <h4 className="font-bold text-gray-900 dark:text-white mb-3">📖 Books by Status</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between bg-purple-50 dark:bg-purple-900/30 p-3 rounded-xl">
+                    <span className="text-gray-700 dark:text-gray-300">Want to Read</span>
+                    <span className="bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-bold">{booksWantToRead.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 p-3 rounded-xl">
+                    <span className="text-gray-700 dark:text-gray-300">Currently Reading</span>
+                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-bold">{booksReading.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/30 p-3 rounded-xl">
+                    <span className="text-gray-700 dark:text-gray-300">Completed</span>
+                    <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-bold">{booksCompleted.length}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Genre Breakdown Chart */}
+              {stats?.genreBreakdown?.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-gray-900 dark:text-white mb-3">📊 Top Genres</h4>
+                  <div className="space-y-2">
+                    {stats.genreBreakdown.map((item, idx) => {
+                      const maxCount = stats.genreBreakdown[0]?.count || 1;
+                      const percentage = Math.round((item.count / maxCount) * 100);
+                      const colors = ['bg-purple-500', 'bg-pink-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500'];
+                      return (
+                        <div key={idx} className="flex items-center gap-3">
+                          <span className="w-24 text-sm text-gray-700 dark:text-gray-300 truncate">{item.genre}</span>
+                          <div className="flex-1 h-5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${colors[idx % colors.length]} flex items-center justify-end pr-2`}
+                              style={{ width: `${percentage}%` }}
+                            >
+                              <span className="text-xs font-bold text-white">{item.count}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Tabs Navigation */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
@@ -477,43 +568,56 @@ export default function UserProfile() {
           {/* REVIEWS TAB */}
           {activeTab === "reviews" && (
             <div className="space-y-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Top Reviews</h3>
               {reviews.length > 0 ? (
-                reviews.map((review, idx) => (
-                  <div key={idx} className="bg-gray-50 dark:bg-slate-700 rounded-2xl p-4 border border-gray-100 dark:border-slate-600">
-                    <div className="flex items-start gap-4">
-                      {/* Book Cover */}
-                      <div 
-                        onClick={() => navigate(`/book/${review.bookId || review.book?._id}`)}
-                        className="w-16 h-24 rounded-lg overflow-hidden shadow-md cursor-pointer hover:shadow-xl transition flex-shrink-0 bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center"
-                      >
-                        {review.bookCover || review.book?.coverImage ? (
-                          <img src={review.bookCover || review.book?.coverImage} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-white text-xs text-center p-1">{review.bookTitle || review.book?.title || 'Book'}</span>
-                        )}
-                      </div>
-                      
-                      {/* Review Content */}
-                      <div className="flex-1">
-                        <h4 className="font-bold text-gray-900 dark:text-white">{review.bookTitle || review.book?.title || 'Unknown Book'}</h4>
-                        <div className="flex items-center gap-1 my-1">
-                          {[1,2,3,4,5].map(star => (
-                            <span key={star} className={star <= (review.rating || 0) ? 'text-yellow-500' : 'text-gray-300'}>★</span>
-                          ))}
+                <>
+                  {reviews.slice(0, reviewsShown).map((review, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => navigate(`/book/${review.bookId || review.book?._id}`)}
+                      className="bg-gray-50 dark:bg-slate-700 rounded-2xl p-4 border border-gray-100 dark:border-slate-600 cursor-pointer hover:shadow-lg transition"
+                    >
+                      <div className="flex items-start gap-4">
+                        {/* Book Cover */}
+                        <div className="w-16 h-24 rounded-lg overflow-hidden shadow-md flex-shrink-0 bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                          {review.bookCover || review.book?.coverImage ? (
+                            <img src={review.bookCover || review.book?.coverImage} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-white text-xs text-center p-1">{review.bookTitle || review.book?.title || 'Book'}</span>
+                          )}
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">{review.content || review.text || 'No review text'}</p>
-                        <p className="text-xs text-gray-400 mt-2">{new Date(review.createdAt).toLocaleDateString()}</p>
+                        
+                        {/* Review Content */}
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-bold text-gray-900 dark:text-white">{review.bookTitle || review.book?.title || 'Unknown Book'}</h4>
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <span>❤️ {review.likes?.length || 0}</span>
+                              <span>•</span>
+                              <span>{new Date(review.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 my-1">
+                            {[1,2,3,4,5].map(star => (
+                              <span key={star} className={star <= (review.rating || 0) ? 'text-yellow-500' : 'text-gray-300'}>★</span>
+                            ))}
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{review.content || review.text || 'No review text'}</p>
+                        </div>
                       </div>
                     </div>
-                    
-                    {/* Likes */}
-                    {review.likes && (
-                      <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
-                        <span>❤️ {review.likes.length || 0} likes</span>
-                      </div>
-                    )}
-                  </div>
-                ))
+                  ))}
+                  
+                  {/* See more button */}
+                  {reviews.length > reviewsShown && (
+                    <button 
+                      onClick={() => setReviewsShown(prev => prev + 5)}
+                      className="w-full py-3 text-purple-600 dark:text-purple-400 font-bold hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition"
+                    >
+                      See more ({reviews.length - reviewsShown} remaining)
+                    </button>
+                  )}
+                </>
               ) : (
                 <p className="text-gray-500 text-center py-8">This user hasn't written any reviews yet.</p>
               )}

@@ -61,6 +61,7 @@ const ForwardModal = ({ message, onClose, onForward }) => {
             const forwardedData = {
                 content: message.content,
                 attachment: message.attachment, // Forward attachment if any
+                attachmentType: message.attachmentType || 'none', // Include attachment type
                 isForwarded: true,
                 forwardedFrom: {
                     userId: message.user?._id || message.user || message.sender?._id || message.sender, // Handle various structures

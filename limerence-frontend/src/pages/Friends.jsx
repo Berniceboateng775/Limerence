@@ -828,7 +828,7 @@ export default function Friends() {
            </div>
         )}
 
-        <div className="flex gap-2 max-w-[80%]">
+        <div className="flex gap-2 max-w-[50%]">
           {!isMe && (
             <div className={`w-9 h-9 rounded-full ${avatarColor} flex-shrink-0 overflow-hidden shadow-md flex items-center justify-center text-xs font-bold text-white ring-2 ring-white dark:ring-slate-700`}>
               {msg.sender?.avatar ? (

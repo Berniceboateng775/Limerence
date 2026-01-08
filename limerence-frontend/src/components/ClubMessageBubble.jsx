@@ -151,7 +151,32 @@ const ClubMessageBubble = ({
         if (part.includes('/clubs?join=')) {
           try {
              const clubId = new URL(part).searchParams.get('join');
-             return <button key={i} onClick={(e)=>{e.stopPropagation();}} className="underline text-blue-400 break-all">{part}</button>
+             return (
+               <button 
+                 key={i} 
+                 onClick={async (e) => {
+                   e.stopPropagation();
+                   // Check if already in this club
+                   const isMember = clubs?.some(c => c._id === clubId || c.club?._id === clubId);
+                   if (isMember) {
+                     toast("You're already in this club!", "info");
+                     return;
+                   }
+                   // Show join modal with club info
+                   if (setShowJoinModal) setShowJoinModal({ clubId, loading: true });
+                   try {
+                     const res = await axios.get(`/api/clubs/${clubId}`);
+                     if (setShowJoinModal) setShowJoinModal({ clubId, club: res.data, loading: false });
+                   } catch (err) {
+                     toast("Failed to load club info", "error");
+                     if (setShowJoinModal) setShowJoinModal(null);
+                   }
+                 }}
+                 className="underline text-blue-400 hover:text-blue-300 break-all cursor-pointer"
+               >
+                 {part}
+               </button>
+             );
           } catch(e){}
         }
         return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline text-blue-400 hover:text-blue-300 break-all" onClick={e=>e.stopPropagation()}>{part}</a>;
@@ -190,7 +215,7 @@ const ClubMessageBubble = ({
         </div>
       )}
 
-      <div className="flex gap-2 max-w-[75%] md:max-w-[60%]">
+      <div className="flex gap-2 max-w-[50%]">
         {!calculatedIsMe && (
           <div 
             onClick={() => fetchUserProfile(msg.user)} 
@@ -273,22 +298,27 @@ const ClubMessageBubble = ({
             </span>
           </div>
 
-          {/* Reactions */}
+          {/* Reactions - click opens expanded picker */}
           {msg.reactions?.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {[...new Set(msg.reactions.map(r => r.emoji))].map((emoji, i) => {
                   const isReactedByMe = msg.reactions.some(r => r.emoji === emoji && r.user === user._id);
+                  const count = msg.reactions.filter(r => r.emoji === emoji).length;
                   return (
                     <button 
                         key={i} 
-                        onClick={(e) => { e.stopPropagation(); handleReaction(msg._id, emoji); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          // Open expanded picker for this message
+                          setReactionTarget(msg._id);
+                        }}
                         className={`text-xs px-1.5 py-0.5 rounded-full border transition-all ${
                             isReactedByMe 
                             ? "bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800" 
                             : "bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700"
                         }`}
                     >
-                        {emoji}
+                        {emoji} {count > 1 && <span className="ml-0.5 text-[10px] opacity-70">{count}</span>}
                     </button>
                   );
               })}
