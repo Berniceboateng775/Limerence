@@ -673,7 +673,7 @@ export default function Profile() {
                         
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-1">
-                            <h4 className="font-bold text-gray-900 dark:text-white cursor-pointer hover:text-purple-500" onClick={() => navigate(`/book/${review.book?._id}`)}>
+                            <h4 className="font-bold text-gray-900 dark:text-white cursor-pointer hover:text-purple-500">
                               {review.book?.title}
                             </h4>
                             <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -683,16 +683,9 @@ export default function Profile() {
                             </div>
                           </div>
                           
-                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3 mt-2">
                             "{review.content}"
                           </p>
-                          
-                          <button 
-                            onClick={() => navigate(`/book/${review.book?._id}`)}
-                            className="text-xs font-bold text-purple-600 mt-2 hover:underline"
-                          >
-                            Read more
-                          </button>
                         </div>
                       </div>
                     </div>

@@ -87,7 +87,11 @@ router.post("/:friendId/message", auth, upload.single("attachment"), async (req,
     const newMessage = {
       sender: userId,
       content: content || "",
-      attachment: req.file ? `/uploads/dm/${req.file.filename}` : (req.body.attachment || ""),
+      attachment: req.file ? `/uploads/dm/${req.file.filename}` : (
+        typeof req.body.attachment === 'object' && req.body.attachment !== null && req.body.attachment.url 
+          ? req.body.attachment.url 
+          : (req.body.attachment || "")
+      ),
       attachmentType: attachmentType || "none",
       isForwarded: !!isForwarded,
       forwardedFrom: forwardedFrom || null,

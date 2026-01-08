@@ -668,8 +668,65 @@ export default function UserProfile() {
             </div>
           )}
 
-          {/* NETWORK TAB */}
-          {activeTab === "network" && (
+              {/* CLUBS TAB */}
+              {activeTab === "clubs" && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Clubs ({clubs.length})</h3>
+                  {clubs.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {clubs.map((club, idx) => (
+                        <div 
+                           key={idx} 
+                           className="bg-gray-50 dark:bg-slate-700 rounded-2xl overflow-hidden border border-gray-100 dark:border-slate-700 hover:shadow-lg transition group cursor-pointer"
+                           onClick={() => navigate(`/clubs`)} // Or open a modal? For now navigate to clubs page
+                        >
+                          <div className="h-24 bg-gray-200 dark:bg-slate-600 relative">
+                            {club.coverImage ? (
+                              <img src={`http://localhost:5000${club.coverImage}`} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-4xl">
+                                {club.name?.[0]?.toUpperCase()}
+                              </div>
+                            )}
+                            
+                            {/* Share Icon - Top Right of Club Picture */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(`http://localhost:3000/join-club/${club.inviteCode || club._id}`);
+                                toast("Club link copied to clipboard!", "success");
+                              }}
+                              className="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
+                              title="Share Club"
+                            >
+                              📤
+                            </button>
+                          </div>
+                          <div className="p-4">
+                            <h4 className="font-bold text-gray-900 dark:text-white text-lg">{club.name}</h4>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">{club.description || "No description"}</p>
+                            <div className="flex items-center gap-2 mt-3 text-xs font-bold text-gray-500">
+                              <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-md">
+                                {club.members?.length || 0} Members
+                              </span>
+                              <span>•</span>
+                              <span>{club.admins?.length || 0} Admins</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <div className="text-4xl mb-2">🏛️</div>
+                      <p>Not a member of any clubs yet.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* NETWORK TAB */}
+              {activeTab === "network" && (
             <div>
               {/* Network Filter Tabs */}
               <div className="flex gap-2 mb-4 bg-gray-100 dark:bg-slate-700 p-1.5 rounded-xl">

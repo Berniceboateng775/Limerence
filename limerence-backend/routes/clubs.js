@@ -170,6 +170,14 @@ router.post("/:id/message", auth, upload.single("attachment"), async (req, res) 
             attachment = JSON.parse(req.body.attachment);
         } catch (e) {
             attachment = req.body.attachment;
+            // If it's a string (URL), wrap it in object object for Club Schema
+            if (typeof attachment === 'string') {
+                attachment = {
+                    url: attachment,
+                    fileType: req.body.attachmentType || 'image',
+                    name: 'Forwarded Attachment'
+                };
+            }
         }
     }
 

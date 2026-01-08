@@ -1287,17 +1287,20 @@ export default function Clubs() {
                  return "📌 Pinned Message";
                };
 
+
+
                return (
                <div className="relative z-30">
-                  {/* Pin Banner Main Area - click to scroll (single) or toggle dropdown (multi) */}
+                  {/* Pin Banner Main Area */}
                   <div 
                     className="bg-purple-50 dark:bg-purple-900/20 px-4 py-2 border-b border-purple-100 dark:border-purple-800/30 flex justify-between items-center cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex-shrink-0"
-                    onClick={() => {
+                    onClick={(e) => {
+                        // Prevent accidental double-toggles if event bubbles incorrectly
+                        e.stopPropagation(); 
                         if (hasMultiple) {
-                            // Toggle dropdown for multiple pins
                             setActiveClubMenuId(prev => prev === 'pinned-list' ? null : 'pinned-list');
                         } else {
-                            // Single pin - click banner to scroll to message
+                            // Single pin - scroll to message
                             const el = document.getElementById(`msg-${firstPinned._id}`);
                             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
@@ -1315,18 +1318,23 @@ export default function Clubs() {
                         </div>
                     </div>
                     
-                    {/* Right side: X to unpin (single) or arrow (multi) */}
+                    {/* Right side check */}
                     {hasMultiple ? (
-                      <span className="text-xs text-purple-400 transform transition-transform duration-200" style={{ transform: activeClubMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                        ▼
-                      </span>
+                      <button className="p-1 focus:outline-none" onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveClubMenuId(prev => prev === 'pinned-list' ? null : 'pinned-list');
+                      }}>
+                         <span className="text-xs text-purple-400 transform transition-transform duration-200 inline-block" style={{ transform: activeClubMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                           ▼
+                         </span>
+                      </button>
                     ) : (
                       <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
                           handlePinMessage(firstPinned._id); 
                         }}
-                        className="p-1 text-purple-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition"
+                        className="p-1 text-purple-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition z-10"
                         title="Unpin"
                       >
                         ✕
@@ -1336,7 +1344,7 @@ export default function Clubs() {
 
                   {/* Multi-Pin Dropdown List */}
                   {activeClubMenuId === 'pinned-list' && hasMultiple && (
-                      <div className="absolute top-full left-0 right-0 bg-white dark:bg-slate-800 shadow-xl border-b border-gray-100 dark:border-slate-700 max-h-60 overflow-y-auto animate-fade-in-down z-40">
+                      <div className="absolute top-full left-0 right-0 bg-white dark:bg-slate-800 shadow-xl border-b border-gray-100 dark:border-slate-700 max-h-60 overflow-y-auto animate-fade-in-down z-40" onClick={(e) => e.stopPropagation()}>
                           {pinnedMsgs.map(msg => (
                               <div key={msg._id} className="p-3 border-b border-gray-50 dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700 flex justify-between items-center group/pin">
                                   <div 
@@ -1351,7 +1359,7 @@ export default function Clubs() {
                                       <p className="text-[10px] text-gray-400">{new Date(msg.createdAt).toLocaleDateString()}</p>
                                   </div>
                                   <button 
-                                      onClick={(e) => { e.stopPropagation(); handlePinMessage(msg._id); setActiveClubMenuId(null); }}
+                                      onClick={(e) => { e.stopPropagation(); handlePinMessage(msg._id); }}
                                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition"
                                       title="Unpin"
                                   >
