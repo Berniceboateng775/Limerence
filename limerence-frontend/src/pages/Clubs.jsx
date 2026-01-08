@@ -1289,33 +1289,49 @@ export default function Clubs() {
 
                return (
                <div className="relative z-30">
+                  {/* Pin Banner Main Area - click to scroll (single) or toggle dropdown (multi) */}
                   <div 
                     className="bg-purple-50 dark:bg-purple-900/20 px-4 py-2 border-b border-purple-100 dark:border-purple-800/30 flex justify-between items-center cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/40 transition flex-shrink-0"
-                    onClick={(e) => {
+                    onClick={() => {
                         if (hasMultiple) {
-                            // Toggle dropdown
-                            setActiveClubMenuId(activeClubMenuId === 'pinned-list' ? null : 'pinned-list');
+                            // Toggle dropdown for multiple pins
+                            setActiveClubMenuId(prev => prev === 'pinned-list' ? null : 'pinned-list');
                         } else {
-                            // Single pin - clicking X unpins the message
-                            e.stopPropagation();
-                            handlePinMessage(firstPinned._id);
+                            // Single pin - click banner to scroll to message
+                            const el = document.getElementById(`msg-${firstPinned._id}`);
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
                     }}
                   >
-                    <div className="flex items-center gap-2 overflow-hidden">
+                    <div className="flex items-center gap-2 overflow-hidden flex-1">
                         <span className="text-purple-600 dark:text-purple-400">📌</span>
-                        <div className="flex flex-col">
+                        <div className="flex flex-col flex-1 min-w-0">
                             <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
                                 {hasMultiple ? `${pinnedMsgs.length} Pinned Messages` : "Pinned Message"}
                             </span>
-                            <span className="text-xs text-purple-600/70 dark:text-purple-400/70 truncate max-w-[200px]">
+                            <span className="text-xs text-purple-600/70 dark:text-purple-400/70 truncate">
                                 {hasMultiple ? "Click to view list" : getLabel(firstPinned)}
                             </span>
                         </div>
                     </div>
-                    <span className="text-xs text-purple-400 underline transform transition-transform duration-200" style={{ transform: activeClubMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                        {hasMultiple ? "▼" : "✕"}
-                    </span>
+                    
+                    {/* Right side: X to unpin (single) or arrow (multi) */}
+                    {hasMultiple ? (
+                      <span className="text-xs text-purple-400 transform transition-transform duration-200" style={{ transform: activeClubMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                        ▼
+                      </span>
+                    ) : (
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handlePinMessage(firstPinned._id); 
+                        }}
+                        className="p-1 text-purple-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition"
+                        title="Unpin"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
 
                   {/* Multi-Pin Dropdown List */}
@@ -1542,10 +1558,26 @@ export default function Clubs() {
           {viewProfile.members ? (
             /* Club Profile */
             <div className="text-center">
-              <div className="w-28 h-28 mx-auto bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl flex items-center justify-center text-4xl mb-4 text-white font-bold overflow-hidden shadow-xl">
+              <div className="w-28 h-28 mx-auto bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl flex items-center justify-center text-4xl mb-4 text-white font-bold overflow-hidden shadow-xl relative group">
                 {viewProfile.coverImage ? (
                   <img src={`http://localhost:5000${viewProfile.coverImage}`} className="w-full h-full object-cover" alt="" />
                 ) : viewProfile.name[0]}
+                
+                {/* Share Icon Overlay */}
+                {viewProfile.members?.some(m => (m._id || m) === user._id) && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const shareLink = `${window.location.origin}/clubs?join=${viewProfile._id}`;
+                      navigator.clipboard.writeText(`Join my club ${viewProfile.name}! ${shareLink}`);
+                      toast("Club invite link copied!", "success");
+                    }}
+                    className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center bg-black/50 hover:bg-black/70 rounded-full text-white backdrop-blur-sm transition opacity-0 group-hover:opacity-100"
+                    title="Share Club"
+                  >
+                    📤
+                  </button>
+                )}
               </div>
               <h2 className="text-xl font-bold text-slate-800 dark:text-white">{viewProfile.name}</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{viewProfile.description}</p>

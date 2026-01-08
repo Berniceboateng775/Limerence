@@ -61,6 +61,8 @@ const ClubMessageBubble = ({
   const { token } = useContext(AuthContext);
   const [voting, setVoting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showReactionsModal, setShowReactionsModal] = useState(false);
+  const [activeReactionTab, setActiveReactionTab] = useState('all');
 
   // New Handlers
   const handlePin = async () => {
@@ -298,7 +300,7 @@ const ClubMessageBubble = ({
             </span>
           </div>
 
-          {/* Reactions - click opens expanded picker */}
+          {/* Reactions - click shows who reacted */}
           {msg.reactions?.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {[...new Set(msg.reactions.map(r => r.emoji))].map((emoji, i) => {
@@ -309,8 +311,9 @@ const ClubMessageBubble = ({
                         key={i} 
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          // Open expanded picker for this message
-                          setReactionTarget(msg._id);
+                          // Open reactions modal to show who reacted
+                          setActiveReactionTab('all');
+                          setShowReactionsModal(true);
                         }}
                         className={`text-xs px-1.5 py-0.5 rounded-full border transition-all ${
                             isReactedByMe 
@@ -386,6 +389,68 @@ const ClubMessageBubble = ({
           )}
         </div>
       </div>
+      {/* Reactions Modal - shows who reacted */}
+      {showReactionsModal && msg.reactions?.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]" onClick={() => setShowReactionsModal(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Tabs */}
+            <div className="flex border-b border-gray-100 dark:border-slate-700 overflow-x-auto">
+              <button 
+                onClick={() => setActiveReactionTab('all')}
+                className={`px-4 py-3 text-sm font-bold whitespace-nowrap ${activeReactionTab === 'all' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500'}`}
+              >
+                All {msg.reactions.length}
+              </button>
+              {[...new Set(msg.reactions.map(r => r.emoji))].map((emoji, i) => {
+                const count = msg.reactions.filter(r => r.emoji === emoji).length;
+                return (
+                  <button 
+                    key={i}
+                    onClick={() => setActiveReactionTab(emoji)}
+                    className={`px-4 py-3 text-sm whitespace-nowrap flex items-center gap-1 ${activeReactionTab === emoji ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500'}`}
+                  >
+                    {emoji} {count}
+                  </button>
+                );
+              })}
+            </div>
+            {/* User List */}
+            <div className="max-h-60 overflow-y-auto p-2">
+              {msg.reactions
+                .filter(r => activeReactionTab === 'all' || r.emoji === activeReactionTab)
+                .map((reaction, idx) => {
+                  const reactorName = selectedClub?.members?.find(m => (m._id || m) === reaction.user)?.name || 'User';
+                  const reactorAvatar = selectedClub?.members?.find(m => (m._id || m) === reaction.user)?.avatar;
+                  const colors = getNameColor(reactorName, reaction.user);
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full ${colors.avatar} flex items-center justify-center text-white font-bold overflow-hidden`}>
+                          {reactorAvatar ? (
+                            <img src={`http://localhost:5000${reactorAvatar}`} className="w-full h-full object-cover" alt="" />
+                          ) : (
+                            reactorName?.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <span className="font-medium text-gray-900 dark:text-white">{reactorName}</span>
+                      </div>
+                      <span className="text-xl">{reaction.emoji}</span>
+                    </div>
+                  );
+                })}
+            </div>
+            {/* Close Button */}
+            <div className="p-3 border-t border-gray-100 dark:border-slate-700">
+              <button 
+                onClick={() => setShowReactionsModal(false)}
+                className="w-full py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
