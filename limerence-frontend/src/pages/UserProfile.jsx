@@ -116,7 +116,11 @@ export default function UserProfile() {
       const res = await axios.get(`http://localhost:5000/api/users/${id}/reviews`, {
         headers: { "x-auth-token": token },
       });
-      setReviews(res.data.reviews || res.data || []);
+      // Sort by likes count (most liked first)
+      const sorted = (res.data.reviews || res.data || []).sort((a, b) => 
+        (b.likes?.length || 0) - (a.likes?.length || 0)
+      );
+      setReviews(sorted);
     } catch (err) {
       console.error(err);
     }
@@ -574,8 +578,11 @@ export default function UserProfile() {
                   {reviews.slice(0, reviewsShown).map((review, idx) => (
                     <div 
                       key={idx} 
-                      onClick={() => navigate(`/book/${review.bookId || review.book?._id}`)}
-                      className="bg-gray-50 dark:bg-slate-700 rounded-2xl p-4 border border-gray-100 dark:border-slate-600 cursor-pointer hover:shadow-lg transition"
+                      onClick={() => {
+                        const bid = review.bookId || review.book?._id;
+                        if (bid) navigate(`/book/${bid}`);
+                      }}
+                      className={`bg-gray-50 dark:bg-slate-700 rounded-2xl p-4 border border-gray-100 dark:border-slate-600 transition ${(review.bookId || review.book?._id) ? 'cursor-pointer hover:shadow-lg' : ''}`}
                     >
                       <div className="flex items-start gap-4">
                         {/* Book Cover */}

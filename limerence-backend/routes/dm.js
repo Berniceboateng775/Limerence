@@ -240,6 +240,15 @@ router.post("/:friendId/read", auth, async (req, res) => {
       return res.status(404).json({ msg: "Conversation not found" });
     }
 
+    // Mark all messages from friend as read
+    let updated = false;
+    conversation.messages.forEach(msg => {
+      if (msg.sender.toString() === friendId && !msg.isRead) {
+        msg.isRead = true;
+        updated = true;
+      }
+    });
+
     // Update or add read entry
     const readIndex = conversation.lastReadBy?.findIndex(r => r.user.toString() === userId);
     if (readIndex > -1) {
@@ -250,7 +259,7 @@ router.post("/:friendId/read", auth, async (req, res) => {
     }
 
     await conversation.save();
-    res.json({ success: true });
+    res.json({ success: true, updated });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });

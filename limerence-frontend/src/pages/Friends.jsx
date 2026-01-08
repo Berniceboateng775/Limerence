@@ -184,6 +184,19 @@ export default function Friends() {
                 return n;
             });
         });
+        
+        // Listen for read receipts from friends
+        socket.on("messageRead", ({ readerId, conversationId }) => {
+            // When a friend reads our messages, mark them as read in our UI
+            setMessages(prev => prev.map(msg => {
+                // If I sent this message and the reader is my selected friend, mark as read
+                const senderId = msg.sender?._id || msg.sender;
+                if (senderId === user?._id && readerId === selectedFriend?._id) {
+                    return { ...msg, isRead: true };
+                }
+                return msg;
+            }));
+        });
     }
 
     return () => {
@@ -232,6 +245,19 @@ export default function Friends() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const chatContainerRef = useRef(null); // Added for scrolling to pinned messages
+
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleScroll = () => {
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      setShowScrollButton(scrollHeight - scrollTop - clientHeight > 300);
+    }
+  };
 
   // Avatar colors for users without profile pics
   const avatarColors = [
@@ -432,6 +458,9 @@ export default function Friends() {
       // Mark as read on backend & update navbar
       await axios.post(`/api/dm/${friendId}/read`, {}, { headers: { "x-auth-token": token } });
       fetchUnreadDMs();
+      
+      // Emit socket event for real-time read receipt
+      socket.emit("markRead", { to: friendId, fromId: user?._id });
     } catch (err) {
       console.error(err);
     }
@@ -754,6 +783,20 @@ export default function Friends() {
     const senderName = msg.sender?.name || 'Unknown';
     const avatarColor = getAvatarColor(senderName);
     const isReactionPickerOpen = showReactionPicker === msg._id;
+    const [isExpanded, setIsExpanded] = useState(false);
+    
+    // Max characters before showing "Read more"
+    const MAX_CHARS = 300;
+    const isLongText = (msg.content?.length || 0) > MAX_CHARS;
+    
+    // Helper to get attachment URL (handles both object and string formats)
+    const getAttachmentUrl = (attachment) => {
+      if (!attachment) return '';
+      if (typeof attachment === 'object' && attachment.url) return attachment.url;
+      if (typeof attachment === 'string') return attachment;
+      return '';
+    };
+    const attachmentUrl = getAttachmentUrl(msg.attachment);
     
     // Helper to make URLs clickable - detect club join links
     const renderWithLinks = (text) => {
@@ -846,18 +889,18 @@ export default function Friends() {
                 ↪ Forwarded
               </div>
             )}
-            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words whitespace-pre-wrap ${
+            <div className={`px-4 py-2.5 rounded-[18px] shadow-md relative text-[15px] leading-relaxed break-words whitespace-pre-wrap overflow-hidden ${
               isMe ? "bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-br-md" : "bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-bl-md border border-gray-100 dark:border-slate-600"
-            }`}>
+            }`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
               {!isMe && <span className="block text-[12px] font-bold mb-0.5 text-purple-600 dark:text-purple-400">{senderName}</span>}
               
-              {msg.attachmentType === 'image' && msg.attachment && (
+              {msg.attachmentType === 'image' && attachmentUrl && (
                 <div className="relative group max-w-full">
-                  <img src={`http://localhost:5000${msg.attachment}`} alt="Shared" 
+                  <img src={`http://localhost:5000${attachmentUrl}`} alt="Shared" 
                     className="max-w-full max-h-[300px] w-auto h-auto rounded-lg mb-2 cursor-pointer object-contain bg-gray-900/5 hover:brightness-95 transition"
-                    onClick={() => window.open(`http://localhost:5000${msg.attachment}`, '_blank')}
+                    onClick={() => window.open(`http://localhost:5000${attachmentUrl}`, '_blank')}
                   />
-                  <a href={`http://localhost:5000${msg.attachment}`} download target="_blank" rel="noopener noreferrer" 
+                  <a href={`http://localhost:5000${attachmentUrl}`} download target="_blank" rel="noopener noreferrer" 
                      className="absolute bottom-4 right-2 bg-black/50 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition hover:bg-black/70"
                      onClick={(e) => e.stopPropagation()}>
                     ⬇
@@ -865,23 +908,23 @@ export default function Friends() {
                 </div>
               )}
               
-              {msg.attachmentType === 'voice' && msg.attachment && (
+              {msg.attachmentType === 'voice' && attachmentUrl && (
                 <div className="mb-2">
-                   <CustomAudioPlayer src={`http://localhost:5000${msg.attachment}`} dark={isMe} />
+                   <CustomAudioPlayer src={`http://localhost:5000${attachmentUrl}`} dark={isMe} />
                 </div>
               )}
 
-              {msg.attachmentType === 'file' && msg.attachment && (
+              {msg.attachmentType === 'file' && attachmentUrl && (
                 <div className="mb-2">
                    <div className={`flex items-center gap-3 p-3 rounded-xl ${isMe ? 'bg-purple-600' : 'bg-gray-100 dark:bg-slate-800'}`}>
                      <div className="text-2xl">📄</div>
                      <div className="flex-1 min-w-0">
                        <p className={`text-sm font-bold truncate ${isMe ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
-                         {msg.attachment.split('/').pop()}
+                         {attachmentUrl.split('/').pop()}
                        </p>
                        <p className={`text-xs opacity-70 ${isMe ? 'text-purple-200' : 'text-gray-500'}`}>Document</p>
                      </div>
-                     <a href={`http://localhost:5000${msg.attachment}`} download target="_blank" rel="noopener noreferrer" 
+                     <a href={`http://localhost:5000${attachmentUrl}`} download target="_blank" rel="noopener noreferrer" 
                         className={`p-2 rounded-full ${isMe ? 'hover:bg-purple-500' : 'hover:bg-gray-200 dark:hover:bg-slate-700'} transition`}>
                        ⬇
                      </a>
@@ -889,13 +932,40 @@ export default function Friends() {
                 </div>
               )}
               
-              {msg.content && <p>{renderWithLinks(msg.content)}</p>}
+              {/* Text content with Read more for long messages */}
+              {msg.content && (
+                <div>
+                  {isLongText && !isExpanded ? (
+                    <>
+                      {renderWithLinks(msg.content.slice(0, MAX_CHARS))}...
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setIsExpanded(true); }}
+                        className={`text-xs font-bold ml-1 hover:underline ${isMe ? 'text-purple-200' : 'text-purple-500 dark:text-purple-400'}`}
+                      >
+                        Read more
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {renderWithLinks(msg.content)}
+                      {isLongText && isExpanded && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+                          className={`text-xs font-bold ml-1 hover:underline ${isMe ? 'text-purple-200' : 'text-purple-500 dark:text-purple-400'}`}
+                        >
+                          Show less
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
               
               <div className={`flex items-center justify-end gap-1 text-[10px] mt-1 ${isMe ? 'text-purple-200' : 'opacity-50'}`}>
                 <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {isMe && (
-                  <span className={msg.readBy?.length > 0 ? 'text-blue-300' : 'text-purple-300'}>
-                    {msg.readBy?.length > 0 ? '✓✓' : (onlineUsers.includes(selectedFriend?._id) ? '✓✓' : '✓')}
+                  <span className={msg.isRead ? 'text-blue-300' : 'text-purple-300'}>
+                    {msg.isRead ? '✓✓' : '✓'}
                   </span>
                 )}
               </div>
@@ -1370,6 +1440,7 @@ export default function Friends() {
 
             <div 
               ref={chatContainerRef}
+              onScroll={handleScroll}
               className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-1 ${getCurrentWallpaper() || ''}`} style={getCustomWallpaperStyle()}>
                   {messages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400">
@@ -1384,6 +1455,17 @@ export default function Friends() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
+            
+            {/* Scroll to Bottom Button */}
+            {showScrollButton && (
+              <button
+                onClick={scrollToBottom}
+                className="absolute right-6 bottom-24 p-2 bg-white dark:bg-slate-700 text-gray-600 dark:text-white rounded-full shadow-lg z-20 border border-gray-100 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 transition-all"
+                title="Scroll to bottom"
+              >
+               <span className="text-xl">⬇️</span>
+              </button>
+            )}
                 
 
             {/* Chat Input Area */}

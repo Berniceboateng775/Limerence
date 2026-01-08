@@ -26,7 +26,11 @@ const ForwardModal = ({ message, onClose, onForward }) => {
                     avatar: f.avatar,
                     description: "Friend"
                 }));
-                const clubTargets = clubsRes.data.map(c => ({
+                // Only show clubs where user is a member
+                const myClubs = clubsRes.data.filter(c => 
+                    c.members?.some(m => (m._id || m) === (user?._id || user?.id))
+                );
+                const clubTargets = myClubs.map(c => ({
                     type: 'club',
                     id: c._id,
                     name: c.name,
@@ -61,7 +65,9 @@ const ForwardModal = ({ message, onClose, onForward }) => {
             const forwardedData = {
                 content: message.content,
                 attachment: message.attachment, // Forward attachment if any
-                attachmentType: message.attachmentType || 'none', // Include attachment type
+                attachmentType: (message.attachmentType && message.attachmentType !== 'none') 
+                    ? message.attachmentType 
+                    : (message.attachment?.fileType || 'none'), // Fallback to nested fileType
                 isForwarded: true,
                 forwardedFrom: {
                     userId: message.user?._id || message.user || message.sender?._id || message.sender, // Handle various structures

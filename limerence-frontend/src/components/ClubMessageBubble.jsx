@@ -63,6 +63,19 @@ const ClubMessageBubble = ({
   const [showMenu, setShowMenu] = useState(false);
   const [showReactionsModal, setShowReactionsModal] = useState(false);
   const [activeReactionTab, setActiveReactionTab] = useState('all');
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Max characters before showing "Read more"
+  const MAX_CHARS = 300;
+  const isLongText = (msg.content?.length || 0) > MAX_CHARS;
+
+  // Close menu when clicking anywhere outside
+  React.useEffect(() => {
+    if (!showMenu) return;
+    const handleClickOutside = () => setShowMenu(false);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showMenu]);
 
   // New Handlers
   const handlePin = async () => {
@@ -194,7 +207,8 @@ const ClubMessageBubble = ({
         if (el && messageRefs && messageRefs.current) messageRefs.current[msg._id] = el;
         if (isFirstUnread && el && firstUnreadRef) firstUnreadRef.current = el;
       }}
-      className={`flex flex-col mb-4 group ${calculatedIsMe ? "items-end" : "items-start"} relative animate-fade-in transition-all duration-300`}
+      className={`flex flex-col mb-4 group ${calculatedIsMe ? "items-end" : "items-start"} relative animate-fade-in transition-all duration-300 max-w-full`}
+      style={{ maxWidth: '100%' }}
     >
       {isFirstUnread && (
         <div className="w-full flex items-center justify-center my-4">
@@ -231,18 +245,18 @@ const ClubMessageBubble = ({
           </div>
         )}
         
-        <div className="relative">
+        <div className="relative max-w-[70%]" style={{ maxWidth: 'min(70%, 500px)' }}>
           {/* Forwarded label */}
           {msg.isForwarded && (
             <div className="text-[10px] italic text-gray-400 dark:text-gray-500 mb-0.5">
               ↪ Forwarded
             </div>
           )}
-          <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${fontSizes[fontSize]} leading-relaxed break-words whitespace-pre-wrap ${
+          <div className={`px-4 py-2.5 rounded-2xl shadow-sm relative ${fontSizes[fontSize]} leading-relaxed break-words whitespace-pre-wrap overflow-hidden ${
             calculatedIsMe 
               ? "bg-gray-200 dark:bg-slate-600 text-gray-900 dark:text-white rounded-tr-sm" 
               : "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white rounded-tl-sm"
-          }`}>
+          }`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
             {!calculatedIsMe && (
               <span 
                 className={`block text-[12px] font-bold mb-0.5 cursor-pointer hover:underline ${userColors.name}`}
@@ -292,7 +306,34 @@ const ClubMessageBubble = ({
               </div>
             )}
             
-            <span className={msg.pending ? "opacity-70" : ""}>{renderWithLinks(msg.content)}</span>
+            {/* Text content with Read more for long messages */}
+            {msg.content && (
+              <div className={msg.pending ? "opacity-70" : ""}>
+                {isLongText && !isExpanded ? (
+                  <>
+                    {renderWithLinks(msg.content.slice(0, MAX_CHARS))}...
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setIsExpanded(true); }}
+                      className="text-purple-500 dark:text-purple-400 text-xs font-bold ml-1 hover:underline"
+                    >
+                      Read more
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {renderWithLinks(msg.content)}
+                    {isLongText && isExpanded && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+                        className="text-purple-500 dark:text-purple-400 text-xs font-bold ml-1 hover:underline"
+                      >
+                        Show less
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             
             <span className={`text-[10px] opacity-70 block mt-1 text-right`}>
               {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}

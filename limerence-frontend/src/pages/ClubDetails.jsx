@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import axios from "axios";
+import { toast } from "../components/Toast";
 
 export default function ClubDetails() {
   const { id } = useParams();
@@ -17,6 +18,9 @@ export default function ClubDetails() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [myFollowing, setMyFollowing] = useState([]);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareTargets, setShareTargets] = useState({ friends: [], clubs: [] });
+  const [shareView, setShareView] = useState('options'); // 'options', 'friends', 'clubs'
 
   useEffect(() => {
     fetchClubDetails();
@@ -139,6 +143,29 @@ export default function ClubDetails() {
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            
+            {/* Share Button */}
+            <button
+              onClick={async () => {
+                setShowShareModal(true);
+                setShareView('options');
+                // Fetch friends and clubs for sharing
+                try {
+                  const [friendsRes, clubsRes] = await Promise.all([
+                    axios.get("/api/users/friends", { headers: { "x-auth-token": token } }),
+                    axios.get("/api/clubs", { headers: { "x-auth-token": token } })
+                  ]);
+                  setShareTargets({
+                    friends: friendsRes.data || [],
+                    clubs: (clubsRes.data || []).filter(c => c.members?.some(m => (m._id || m) === (currentUser?._id || currentUser?.id)))
+                  });
+                } catch (err) { console.error(err); }
+              }}
+              className="absolute top-3 right-3 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white backdrop-blur-sm transition-all shadow-lg"
+              title="Share Club"
+            >
+              📤
+            </button>
           </div>
 
           {/* Club Info */}
@@ -277,8 +304,120 @@ export default function ClubDetails() {
           ) : (
             <p className="text-gray-500 text-center py-8">No members yet. Be the first to join!</p>
           )}
-        </div>
       </div>
     </div>
+
+    {/* Share Modal */}
+    {showShareModal && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowShareModal(false)}>
+        <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+              {shareView === 'options' ? 'Share Club' : shareView === 'friends' ? 'Share to Friend' : 'Share to Club'}
+            </h3>
+            <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          </div>
+          
+          <div className="p-6">
+            {shareView === 'options' && (
+              <div className="space-y-3">
+                <button 
+                  onClick={() => {
+                    const shareLink = `${window.location.origin}/clubs?join=${club._id}`;
+                    navigator.clipboard.writeText(`Join the club "${club.name}"! ${shareLink}`);
+                    toast("Link copied to clipboard!", "success");
+                    setShowShareModal(false);
+                  }}
+                  className="w-full p-4 bg-gray-50 dark:bg-slate-700 rounded-2xl flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                >
+                  <span className="text-2xl">📋</span>
+                  <div className="text-left">
+                    <p className="font-bold text-gray-900 dark:text-white">Copy Link</p>
+                    <p className="text-sm text-gray-500">Copy invite link to clipboard</p>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => setShareView('friends')}
+                  className="w-full p-4 bg-gray-50 dark:bg-slate-700 rounded-2xl flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                >
+                  <span className="text-2xl">👥</span>
+                  <div className="text-left">
+                    <p className="font-bold text-gray-900 dark:text-white">Share to Friends</p>
+                    <p className="text-sm text-gray-500">Send to your friends</p>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => setShareView('clubs')}
+                  className="w-full p-4 bg-gray-50 dark:bg-slate-700 rounded-2xl flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                >
+                  <span className="text-2xl">🏛️</span>
+                  <div className="text-left">
+                    <p className="font-bold text-gray-900 dark:text-white">Share to Clubs</p>
+                    <p className="text-sm text-gray-500">Share in your clubs</p>
+                  </div>
+                </button>
+              </div>
+            )}
+            
+            {shareView === 'friends' && (
+              <div>
+                <button onClick={() => setShareView('options')} className="text-purple-600 mb-4 flex items-center gap-1 hover:underline">← Back</button>
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {shareTargets.friends.length > 0 ? shareTargets.friends.map((friend, i) => (
+                    <button
+                      key={i}
+                      onClick={async () => {
+                        try {
+                          const shareLink = `${window.location.origin}/clubs?join=${club._id}`;
+                          await axios.post(`/api/dm/${friend._id}`, { content: `Check out this club: "${club.name}"! ${shareLink}` }, { headers: { "x-auth-token": token } });
+                          toast(`Shared to ${friend.name}!`, "success");
+                          setShowShareModal(false);
+                        } catch (err) { toast("Failed to share", "error"); }
+                      }}
+                      className="w-full p-3 bg-gray-50 dark:bg-slate-700 rounded-xl flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">
+                        {friend.avatar ? <img src={`http://localhost:5000${friend.avatar}`} className="w-full h-full object-cover" /> : friend.name?.[0]}
+                      </div>
+                      <span className="font-medium text-gray-900 dark:text-white">{friend.name}</span>
+                    </button>
+                  )) : <p className="text-gray-500 text-center py-4">No friends to share with</p>}
+                </div>
+              </div>
+            )}
+            
+            {shareView === 'clubs' && (
+              <div>
+                <button onClick={() => setShareView('options')} className="text-purple-600 mb-4 flex items-center gap-1 hover:underline">← Back</button>
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {shareTargets.clubs.filter(c => c._id !== club._id).length > 0 ? shareTargets.clubs.filter(c => c._id !== club._id).map((targetClub, i) => (
+                    <button
+                      key={i}
+                      onClick={async () => {
+                        try {
+                          const shareLink = `${window.location.origin}/clubs?join=${club._id}`;
+                          await axios.post(`/api/clubs/${targetClub._id}/message`, { content: `Check out this club: "${club.name}"! ${shareLink}` }, { headers: { "x-auth-token": token } });
+                          toast(`Shared to ${targetClub.name}!`, "success");
+                          setShowShareModal(false);
+                        } catch (err) { toast("Failed to share", "error"); }
+                      }}
+                      className="w-full p-3 bg-gray-50 dark:bg-slate-700 rounded-xl flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-slate-600 transition"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                        {targetClub.name?.[0]}
+                      </div>
+                      <span className="font-medium text-gray-900 dark:text-white">{targetClub.name}</span>
+                    </button>
+                  )) : <p className="text-gray-500 text-center py-4">No other clubs to share with</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
   );
 }

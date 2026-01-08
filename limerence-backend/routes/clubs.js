@@ -294,21 +294,36 @@ router.post("/:id/messages/:msgId/pin", auth, async (req, res) => {
         const msg = club.messages.find(m => m._id.toString() === msgId);
         if (!msg) return res.status(404).json({ msg: "Message not found" });
 
-        // Toggle pinned using findByIdAndUpdate (faster than full save)
-        const newPinnedStatus = !msg.pinned;
-        const updated = await Club.findOneAndUpdate(
-            { _id: clubId, "messages._id": msgId },
-            { $set: { "messages.$.pinned": newPinnedStatus } },
-            { new: true }
-        ).select('messages');
+        // Single pin mode: Unpin all others if we are pinning a new one
+        const willBePinned = !msg.pinned;
 
-        res.json(updated.messages);
+        if (willBePinned) {
+            // Unpin all first
+             await Club.updateOne(
+                { _id: clubId },
+                { $set: { "messages.$[].pinned": false } }
+            );
+            // Pin target
+            const updated = await Club.findOneAndUpdate(
+                { _id: clubId, "messages._id": msgId },
+                { $set: { "messages.$.pinned": true } },
+                { new: true }
+            );
+            res.json(updated.messages);
+        } else {
+            // Unpin target
+            const updated = await Club.findOneAndUpdate(
+                { _id: clubId, "messages._id": msgId },
+                { $set: { "messages.$.pinned": false } },
+                { new: true }
+            );
+            res.json(updated.messages);
+        }
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: "Server Error" });
     }
 });
-
 
 // Delete a message (Admin only)
 router.delete("/:id/messages/:msgId", auth, async (req, res) => {

@@ -22,6 +22,7 @@ export default function Profile() {
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
   const [reviews, setReviews] = useState([]); // Popular reviews
+  const [reviewsShown, setReviewsShown] = useState(3); // Number of reviews to show
   const [clubFilter, setClubFilter] = useState("all");
   const [unfollowTargetId, setUnfollowTargetId] = useState(null);
 
@@ -107,7 +108,11 @@ export default function Profile() {
       const res = await axios.get(`http://localhost:5000/api/users/${profile._id}/reviews`, {
         headers: { "x-auth-token": token },
       });
-      setReviews(res.data.reviews || res.data || []);
+      // Sort by likes count (top reviews first)
+      const sorted = (res.data.reviews || res.data || []).sort((a, b) => 
+        (b.likes?.length || 0) - (a.likes?.length || 0)
+      );
+      setReviews(sorted);
     } catch (err) {
       console.error(err);
     }
@@ -653,44 +658,62 @@ export default function Profile() {
             <div className="space-y-6">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Top Reviews</h3>
               {reviews.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {reviews.map((review) => (
-                    <div key={review._id} className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 hover:shadow-md transition">
-                      <div className="flex gap-4">
-                        {/* Book Cover */}
-                        <div 
-                          className="w-16 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200 cursor-pointer shadow-sm"
-                          onClick={() => navigate(`/book/${review.book?._id}`)}
-                        >
-                          {review.book?.coverImage ? (
-                            <img src={review.book.coverImage} className="w-full h-full object-cover" alt="" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-center font-bold text-gray-400 p-1">
-                              {review.book?.title}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start mb-1">
-                            <h4 className="font-bold text-gray-900 dark:text-white cursor-pointer hover:text-purple-500">
-                              {review.book?.title}
-                            </h4>
-                            <div className="flex items-center gap-1 text-xs text-gray-500">
-                              <span>❤️ {review.likes?.length || 0}</span>
-                              <span>•</span>
-                              <span>{new Date(review.createdAt).toLocaleDateString()}</span>
-                            </div>
+                <>
+                  <div className="grid grid-cols-1 gap-4">
+                    {reviews.slice(0, reviewsShown).map((review) => (
+                      <div 
+                        key={review._id} 
+                        className={`bg-gray-50 dark:bg-slate-700/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700 hover:shadow-md transition ${(review.bookId || review.book?._id) ? 'cursor-pointer' : ''}`}
+                        onClick={() => {
+                          const bookId = review.bookId || review.book?._id;
+                          if (bookId) navigate(`/book/${bookId}`);
+                        }}
+                      >
+                        <div className="flex gap-4">
+                          {/* Book Cover */}
+                          <div 
+                            className="w-16 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200 shadow-sm"
+                          >
+                            {(review.bookCover || review.book?.coverImage) ? (
+                              <img src={review.bookCover || review.book?.coverImage} className="w-full h-full object-cover" alt="" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs text-center font-bold text-gray-400 p-1">
+                                {review.bookTitle || review.book?.title || "📖"}
+                              </div>
+                            )}
                           </div>
                           
-                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3 mt-2">
-                            "{review.content}"
-                          </p>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start mb-1">
+                              <h4 className="font-bold text-gray-900 dark:text-white">
+                                {review.bookTitle || review.book?.title || "Unknown Book"}
+                              </h4>
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <span>❤️ {review.likes?.length || 0}</span>
+                                <span>•</span>
+                                <span>{new Date(review.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                            
+                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3 mt-2">
+                              "{review.content || review.text}"
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  
+                  {/* See more button */}
+                  {reviews.length > reviewsShown && (
+                    <button 
+                      onClick={() => setReviewsShown(prev => prev + 5)}
+                      className="w-full py-3 text-purple-600 dark:text-purple-400 font-bold hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition border border-purple-200 dark:border-purple-800"
+                    >
+                      See more ({reviews.length - reviewsShown} remaining)
+                    </button>
+                  )}
+                </>
               ) : (
                 <div className="text-center py-10 text-gray-500 dark:text-gray-400">
                   <div className="text-4xl mb-2">✍️</div>

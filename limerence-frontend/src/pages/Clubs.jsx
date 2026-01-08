@@ -132,6 +132,18 @@ export default function Clubs() {
   const [isResizing, setIsResizing] = useState(false);
   const [activeClubMenuId, setActiveClubMenuId] = useState(null); // Dropdown menu for clubs
   
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleScroll = () => {
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      // Show button if user is scrolled up more than 300px from bottom
+      setShowScrollButton(scrollHeight - scrollTop - clientHeight > 300);
+    }
+  };
+
   const startResizing = useCallback(() => setIsResizing(true), []);
   const stopResizing = useCallback(() => setIsResizing(false), []);
   const resize = useCallback((mouseMoveEvent) => {
@@ -142,6 +154,8 @@ export default function Clubs() {
       }
     }
   }, [isResizing]);
+
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   useEffect(() => {
     window.addEventListener("mousemove", resize);
@@ -539,6 +553,38 @@ export default function Clubs() {
     }
   };
 
+  // Handle pin/unpin message from banner
+  const handlePinMessage = async (msgId) => {
+    if (!selectedClub) return;
+    
+    // Preserve scroll position to prevent page flash
+    const scrollTop = chatContainerRef.current?.scrollTop || 0;
+    
+    try {
+      const res = await axios.post(`/api/clubs/${selectedClub._id}/messages/${msgId}/pin`, {}, { 
+        headers: { "x-auth-token": token } 
+      });
+      // Update selectedClub with new messages
+      setSelectedClub(prev => ({
+        ...prev,
+        messages: res.data
+      }));
+      
+      // Restore scroll position after state update
+      requestAnimationFrame(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = scrollTop;
+        }
+      });
+      
+      toast("Pin updated", "success");
+      setActiveClubMenuId(null); // Close dropdown if open
+    } catch (err) { 
+      console.error(err);
+      toast(err.response?.data?.msg || "Failed to update pin", "error"); 
+    }
+  };
+
   const handleJoin = async (id) => {
     try {
       await axios.post(`/api/clubs/${id}/join`, {}, { headers: { "x-auth-token": token } });
@@ -699,16 +745,6 @@ export default function Clubs() {
     setActiveClubMenuId(null);
   };
 
-  const handlePinMessage = async (messageId) => {
-      try {
-          const res = await axios.post(`/api/clubs/${selectedClub._id}/messages/${messageId}/pin`, {}, { headers: { "x-auth-token": token } });
-          // Use server response directly
-          setSelectedClub(prev => ({ ...prev, messages: res.data }));
-          toast("Pin updated", "success");
-      } catch (err) {
-          toast(err.response?.data?.msg || "Failed to pin", "error");
-      }
-  };
 
   /* Handlers for New Features */
   const handleAttachmentSelect = (type) => {
@@ -951,7 +987,7 @@ export default function Clubs() {
         
       {/* LEFT SIDEBAR: CLUB LIST */}
       <div 
-        className="bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col z-20 shadow-lg relative group/sidebar select-none"
+        className="bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col z-20 shadow-lg relative group/sidebar select-none flex-shrink-0"
         style={{ width: sidebarWidth }}
       >
         {/* Resize Handle */}
@@ -1198,7 +1234,7 @@ export default function Clubs() {
       </div>
 
       {/* CENTER: CHAT AREA */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative min-w-0">
         {selectedClub ? (
           <>
             {/* Chat Header */}
@@ -1250,21 +1286,6 @@ export default function Clubs() {
                   🖼️
                   <input type="file" accept="image/*" className="hidden" onChange={handleWallpaperUpload} />
                 </label>
-                
-                {/* Share Icon - visible to members only */}
-                {selectedClub.members?.some(m => (m._id || m) === user?._id) && (
-                  <button 
-                    onClick={() => {
-                      const shareLink = `${window.location.origin}/clubs?join=${selectedClub._id}`;
-                      navigator.clipboard.writeText(`Join my club ${selectedClub.name}! ${shareLink}`);
-                      toast("Club invite link copied!", "success");
-                    }}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition text-gray-600 dark:text-gray-300"
-                    title="Share Club"
-                  >
-                    📤
-                  </button>
-                )}
               </div>
             </div>
 
@@ -1375,6 +1396,7 @@ export default function Clubs() {
 
             <div 
               ref={chatContainerRef}
+              onScroll={handleScroll}
               className={`flex-1 overflow-y-auto p-4 md:p-6 space-y-1 ${getCurrentWallpaper() || ''}`}
               style={getCustomWallpaperStyle()}
             >
@@ -1408,6 +1430,17 @@ export default function Clubs() {
               })}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Scroll to Bottom Button */}
+            {showScrollButton && (
+              <button
+                onClick={scrollToBottom}
+                className="absolute right-6 bottom-24 p-2 bg-white dark:bg-slate-700 text-gray-600 dark:text-white rounded-full shadow-lg z-20 border border-gray-100 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 transition-all"
+                title="Scroll to bottom"
+              >
+               <span className="text-xl">⬇️</span>
+              </button>
+            )}
 
             {/* Input Area - Always Visible at Bottom */}
             <div className="flex-shrink-0 p-4 bg-white/95 dark:bg-slate-900/95 border-t border-gray-200 dark:border-slate-800 relative">
