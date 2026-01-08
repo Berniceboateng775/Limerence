@@ -871,7 +871,7 @@ export default function Friends() {
            </div>
         )}
 
-        <div className="flex gap-2 max-w-[50%]">
+        <div className="flex gap-2 max-w-[85%] md:max-w-[70%]">
           {!isMe && (
             <div className={`w-9 h-9 rounded-full ${avatarColor} flex-shrink-0 overflow-hidden shadow-md flex items-center justify-center text-xs font-bold text-white ring-2 ring-white dark:ring-slate-700`}>
               {msg.sender?.avatar ? (
@@ -1084,9 +1084,9 @@ export default function Friends() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pt-20 pb-0 transition-colors duration-300 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 h-[calc(100vh-80px)]">
-        <div className="flex gap-0 h-full bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-slate-700">
+    <div className="h-screen w-full bg-gray-50 dark:bg-slate-900 flex overflow-hidden transition-colors duration-300"> 
+        {/* Main Content Area - Full Screen */}
+        <div className="flex flex-1 w-full h-full bg-white dark:bg-slate-800">
           
           {/* Friends List Sidebar - WhatsApp Style */}
           <div 
@@ -1192,7 +1192,11 @@ export default function Friends() {
                   .map((friend) => (
                   <div
                     key={friend._id}
-                    onClick={() => { setSelectedFriend(friend); setViewProfile(null); }}
+                    onClick={() => { 
+                        setMessages([]); // Clear previous messages immediately used to prevent lag
+                        setSelectedFriend(friend); 
+                        setViewProfile(null); 
+                    }}
                     className={`group relative flex items-center gap-3 p-3 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-slate-700/50 border-b border-gray-50 dark:border-slate-700/50 h-[72px] ${
                       selectedFriend?._id === friend._id ? 'bg-purple-50 dark:bg-purple-900/20' : ''
                     } ${activeMenuId === friend._id ? 'z-50' : 'z-0'}`}
@@ -1402,9 +1406,21 @@ export default function Friends() {
                             </span>
                         </div>
                     </div>
-                    <span className="text-xs text-purple-400 underline transform transition-transform duration-200" style={{ transform: activeMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                        {hasMultiple ? "▼" : "View"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                         {!hasMultiple && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleTogglePinMessage(firstPinned._id); }}
+                                className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition"
+                            >
+                                ✕
+                            </button>
+                         )}
+                         {hasMultiple && (
+                            <span className="text-xs text-purple-400 underline transform transition-transform duration-200" style={{ transform: activeMenuId === 'pinned-list' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                                ▼
+                            </span>
+                         )}
+                    </div>
                   </div>
 
                   {/* Multi-Pin Dropdown List */}
@@ -1634,7 +1650,6 @@ export default function Friends() {
             )}
           </div>
         </div>
-      </div>
 
       {/* Join Club Modal - When clicking club link in DM */}
       {joinClubModal && (

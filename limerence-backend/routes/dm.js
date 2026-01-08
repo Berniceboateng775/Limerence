@@ -390,14 +390,17 @@ router.post("/:friendId/message/:messageId/pin", auth, async (req, res) => {
       return res.status(404).json({ msg: "Message not found" });
     }
 
-    // Toggle pinned on the message itself
-    msg.pinned = !msg.pinned;
+    // Single Pin Logic
+    const willBePinned = !msg.pinned;
     
-    // Also update conversation.pinnedMessage for backward compatibility
-    if (msg.pinned) {
-      conversation.pinnedMessage = messageId;
+    if (willBePinned) {
+        // Unpin all other messages
+        conversation.messages.forEach(m => m.pinned = false);
+        msg.pinned = true;
+        conversation.pinnedMessage = messageId;
     } else {
-      conversation.pinnedMessage = null;
+        msg.pinned = false;
+        conversation.pinnedMessage = null;
     }
 
     await conversation.save();
